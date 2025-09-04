@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${OWNER:?Set OWNER env var to your GitHub username/org}"
-REPO="${REPO:-hypergraph-go}"
+: "${watchthelight:?Set watchthelight env var to your GitHub username/org}"
+hypergraphgo="${hypergraphgo:-hypergraph-go}"
 VISIBILITY="${VISIBILITY:-public}"
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -17,11 +17,11 @@ fi
 
 # Replace module placeholders
 if [[ -f go.mod ]]; then
-  sed -i.bak "s#github.com/OWNER/REPO#github.com/${OWNER}/${REPO}#g" go.mod
+  sed -i.bak "s#github.com/watchthelight/hypergraphgo#github.com/${watchthelight}/${hypergraphgo}#g" go.mod
   rm -f go.mod.bak
 fi
 # Update any import paths containing the placeholder
-grep -rl "github.com/OWNER/REPO" . | xargs sed -i.bak "s#github.com/OWNER/REPO#github.com/${OWNER}/${REPO}#g" || true
+grep -rl "github.com/watchthelight/hypergraphgo" . | xargs sed -i.bak "s#github.com/watchthelight/hypergraphgo#github.com/${watchthelight}/${hypergraphgo}#g" || true
 find . -name "*.bak" -delete
 
 git init
@@ -31,10 +31,10 @@ git add .
 git commit -m "feat: initial hypergraph library"
 git branch -M main
 
-# Create repo and push
-gh repo create "${OWNER}/${REPO}" --source=. --remote=origin --${VISIBILITY} --push
+# Create hypergraphgo and push
+gh hypergraphgo create "${watchthelight}/${hypergraphgo}" --source=. --remote=origin --${VISIBILITY} --push
 
 git tag v0.1.0
 git push --tags
 
-echo "Repo created: https://github.com/${OWNER}/${REPO}"
+echo "hypergraphgo created: https://github.com/${watchthelight}/${hypergraphgo}"
