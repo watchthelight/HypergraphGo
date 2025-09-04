@@ -9,10 +9,10 @@ Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect a
 ## Installation
 
 ```bash
-go get github.com/OWNER/REPO
+go get github.com/watchthelight/hypergraphgo
 ```
 
-Replace `OWNER` and `REPO` with your GitHub username and repository name.
+Replace `watchthelight` and `hypergraphgo` with your GitHub username and repository name.
 
 ## Usage
 
@@ -23,7 +23,7 @@ package main
 
 import (
     "fmt"
-    "github.com/OWNER/REPO/hypergraph"
+    "github.com/watchthelight/hypergraphgo/hypergraph"
 )
 
 func main() {
@@ -67,4 +67,4 @@ Starting at v0.1.0 with semantic versioning.
 
 ## License
 
-MIT License © 2025 watchthelight
+MIT License Â© 2025 watchthelight
