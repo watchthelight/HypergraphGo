@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/OWNER/REPO/hypergraph"
+	"github.com/watchthelight/hypergraphgo/hypergraph"
 )
 
 func main() {
