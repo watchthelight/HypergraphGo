@@ -1,12 +1,14 @@
 package hypergraph
 
 import (
-	"encoding/json"
-	"io"
-	"sort"
+    "encoding/json"
+    "fmt"
+    "io"
+    "sort"
 )
 
-// SaveJSON saves the hypergraph to JSON with stable ordering.
+// SaveJSON saves the hypergraph to JSON.
+// Vertices and edge members are sorted for stable output; JSON map key order is not guaranteed.
 func (h *Hypergraph[V]) SaveJSON(w io.Writer) error {
 	data := map[string]interface{}{
 		"vertices": h.Vertices(),

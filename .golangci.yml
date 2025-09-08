@@ -1,0 +1,30 @@
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - gosimple
+    - staticcheck
+    - ineffassign
+    - unused
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  govet:
+    enable:
+      - copylocks
+      - printf
+  staticcheck:
+    checks: ["all"]
+
+issues:
+  exclude-dirs:
+    - vendor
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
