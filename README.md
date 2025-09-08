@@ -93,5 +93,6 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 
 ## License
 
-MIT License Â© 2025 watchthelight
+MIT License © 2025 watchthelight
+
 
