@@ -89,32 +89,9 @@ hg load -in example.json
 - Dual, 2-section, and line graph transforms.
 - Connectivity and traversal via BFS/DFS.
 
-## Example
-
-Build a small hypergraph, print degrees, components, dual, and 2-section graphs.
-
-## Versioning
-
-Starting at v0.1.0 with semantic versioning.
-
-## Releasing
-
-Create and push a new tag based on the VERSION file.
-
-Linux/macOS/WSL:
-
-```bash
-./scripts/release.sh patch   # or minor | major | 1.2.3
-```
-
-Windows PowerShell:
-
-```powershell
-./scripts/release.ps1 patch  # or minor | major | 1.2.3
-```
-
 This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 
 ## License
 
 MIT License Â© 2025 watchthelight
+
