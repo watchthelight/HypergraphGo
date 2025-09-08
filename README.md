@@ -1,10 +1,42 @@
 # Hypergraph-Go
+[![CI](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml)
 
 A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
 
 ## Overview
 
 Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect any number of vertices. This library provides a flexible, efficient, and idiomatic Go implementation of hypergraphs with rich operations, transforms, and algorithms.
+
+## Quickstart
+
+Install the module and try a minimal snippet:
+
+```bash
+go get github.com/watchthelight/hypergraphgo
+```
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/watchthelight/hypergraphgo/hypergraph"
+)
+
+func main() {
+    hg := hypergraph.NewHypergraph[string]()
+    _ = hg.AddEdge("E1", []string{"A", "B", "C"})
+    fmt.Println("Vertices:", hg.Vertices())
+    fmt.Println("Edges:", hg.Edges())
+}
+```
+
+Run the examples:
+
+```bash
+go run ./examples/basic
+go run ./examples/algorithms
+```
 
 ## Installation
 
@@ -64,6 +96,24 @@ Build a small hypergraph, print degrees, components, dual, and 2-section graphs.
 ## Versioning
 
 Starting at v0.1.0 with semantic versioning.
+
+## Releasing
+
+Create and push a new tag based on the VERSION file.
+
+Linux/macOS/WSL:
+
+```bash
+./scripts/release.sh patch   # or minor | major | 1.2.3
+```
+
+Windows PowerShell:
+
+```powershell
+./scripts/release.ps1 patch  # or minor | major | 1.2.3
+```
+
+This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 
 ## License
 

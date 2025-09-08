@@ -1,6 +1,9 @@
 package hypergraph
 
-import "sort"
+import (
+    "fmt"
+    "sort"
+)
 
 // COO represents a sparse matrix in coordinate format.
 type COO struct {
