@@ -2,16 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, chore/bootstrap ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, chore/bootstrap ]
 
 jobs:
   test:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        go: ["1.22.x"]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -20,20 +19,21 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: go.mod
+          check-latest: true
           cache: true
 
-      - name: Download modules
-        run: go mod download
+      - name: Tidy modules
+        run: go mod tidy
+      - name: Vet
+        run: go vet ./...
 
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3
-
-      - name: Lint
-        run: golangci-lint run
-
-      - name: Test (race)
+      - name: Test (race + cover)
         env:
           CGO_ENABLED: 1
-        run: go test ./... -race -count=1
+        run: go test ./... -race -coverprofile=coverage.out -covermode=atomic -count=1
 
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
