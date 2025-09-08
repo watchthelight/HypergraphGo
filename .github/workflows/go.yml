@@ -2,9 +2,17 @@ name: Go
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, chore/bootstrap ]
+    paths-ignore:
+      - '**.md'
+      - 'README'
+      - 'README/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'README'
+      - 'README/**'
 
 jobs:
   test:
