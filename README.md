@@ -12,7 +12,7 @@ Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect a
 Install the module and try a minimal snippet:
 
 ```bash
-go get github.com/watchthelight/hypergraphgo
+go install github.com/watchthelight/hypergraphgo
 ```
 
 ```go
@@ -94,5 +94,6 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 ## License
 
 MIT License © 2025 watchthelight
+
 
 
