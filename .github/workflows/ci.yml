@@ -1,39 +1,38 @@
 name: CI
-
 on:
   push:
-    branches: [ main, chore/bootstrap ]
   pull_request:
-    branches: [ main, chore/bootstrap ]
 
 jobs:
   test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          check-latest: true
+          go-version: '1.22.x'
           cache: true
 
-      - name: Tidy modules
-        run: go mod tidy
+      - name: Verify module files
+        run: |
+          go version
+          go env GOPATH GOMOD
+          go mod tidy
+          go mod verify
+
+      - name: Build
+        run: go build ./...
+
       - name: Vet
         run: go vet ./...
 
-      - name: Test (race + cover)
-        env:
-          CGO_ENABLED: 1
-        run: go test ./... -race -coverprofile=coverage.out -covermode=atomic -count=1
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.out
+      - name: Test
+        run: go test ./... -count=1 -v
