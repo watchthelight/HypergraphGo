@@ -1,105 +1,92 @@
 # HypergraphGo
 
 [![CI](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml)
+![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)
+![License](https://img.shields.io/badge/License-MIT-informational)
+![Platforms](https://img.shields.io/badge/CI-ubuntu%20%7C%20windows-success)
 
-A work-in-progress implementation of a **native HoTT (Homotopy Type Theory) kernel in Go**, evolving from an earlier hypergraph theory library.
-
-The end goal is a lightweight, sound, and hackable proof kernel with dependent types, inductives, higher inductives, univalence, and cubical features. The hypergraph library components will remain as utilities and examples.
+A work-in-progress implementation of a **native HoTT kernel in Go**. This project began as a hypergraph library and is expanding into a full proof kernel with dependent types.
 
 ---
 
 ## Project Status
 
-- ✅ **Phase 0:** Repository bootstrap, design decisions, package scaffolding, CI checks  
-- ✅ **Phase 1:** Core AST, raw AST, resolver, pretty-printer  
-- 🔜 **Phase 2:** Normalization-by-Evaluation (NbE) skeleton  
-- Future: definitional equality, type checker, inductives, paths, univalence, HITs, elaborator, stdlib.
+- ✅ **Phase 1:** Core AST, raw AST, resolver, pretty-printer, ctx + capture-avoiding subst with tests
+- ✅ **CI:** Cross-OS matrix (Ubuntu + Windows) running `go vet` and `go test`
+- 🚧 **Phase 2:** Definitional equality via NbE; normalization and α-equivalence; tests and golden NFs
+- ⏭ Future: inductives, paths, univalence, HITs, elaborator, stdlib
 
-See [`TODO.txt`](TODO.txt) for the detailed roadmap.
+See [`TODO.txt`](./TODO.txt) for the detailed roadmap.
 
 ---
 
 ## Repo Layout
 
-```
-internal/ast/      Core & Raw AST, printer, resolver
-internal/core/     Definitional equality (coming soon)
-internal/eval/     NbE evaluator (coming soon)
-internal/check/    Type checker (coming soon)
-internal/kernel/   Trusted kernel boundary (Axiom, Def, Inductive)
-pkg/env/           Front-end conveniences, untrusted
-cmd/hottgo/        CLI entry point
-docs/              DESIGN.md and contributing guidelines
-examples/          Hypergraph algorithms and demo programs
-```
+internal/ast/ # Core & Raw AST, printer, resolver, tests
+internal/core/ # Definitional equality (Conv) and tests
+internal/eval/ # NbE evaluator + tests/bench
+internal/util/ # Utilities
+kernel/ctx/ # Bindings/ctx utilities + tests
+kernel/subst/ # Shift/Subst (de Bruijn) + tests
+cmd/hg/ # CLI entry point (WIP)
+docs/ # DESIGN.md, CONTRIBUTING.md
 
 ---
 
-## Quickstart
+## Screenshots
 
-Clone the repository:
+*Placeholder for demo screenshots of the HoTT kernel in action, CLI output, etc.*
+
+---
+
+## Install
+
+**Option A: Go users**
+```bash
+go install github.com/watchthelight/HypergraphGo/cmd/hg@latest
+hottgo -version
+```
+
+**Option B: Download a release**  
+Grab the latest binaries from the [Releases](https://github.com/watchthelight/HypergraphGo/releases) page. Each archive includes a checksum and SBOM.
+
+**Versioning:** we use SemVer. Pre-1.0 versions may contain breaking changes in minor bumps.
+
+---
+
+## Building & Testing
+
+You’ll need **Go 1.22+**.
 
 ```bash
 git clone https://github.com/watchthelight/HypergraphGo.git
 cd HypergraphGo
-```
-
-Run all tests:
-
-```bash
 go test ./...
 ```
 
-Run the CLI:
+Useful variants:
 
 ```bash
-go run ./cmd/hottgo -version
+# Vet + test with coverage output
+go vet ./... && go test ./... -count=1 -v -coverprofile=coverage.out
+go tool cover -func=coverage.out   # show totals
+go tool cover -html=coverage.out   # open HTML report
 ```
 
----
-
-## Hypergraph Examples
-
-Although the project’s focus is now HoTT, you can still explore the original hypergraph algorithms:
-
-```bash
-go run ./examples/basic
-go run ./examples/algorithms
-```
-
-### CLI usage
-
-```bash
-hg info -file example.json
-hg add-vertex -file example.json -v "A"
-hg add-edge -file example.json -id E1 -members "A,B,C"
-hg components -file example.json
-hg dual -in example.json -out dual.json
-hg section -in example.json -out section.json
-hg save -out example.json
-hg load -in example.json
-```
-
----
-
-## Algorithms and Complexity
-
-- Greedy hitting set: polynomial-time heuristic  
-- Minimal transversals enumeration: exponential, supports cutoffs  
-- Greedy coloring: heuristic  
-- Dual, 2-section, and line graph transforms  
-- Connectivity and traversal via BFS/DFS  
+CI publishes `coverage.out` as a build artifact for each run.
 
 ---
 
 ## Contributing
 
-- The kernel (`internal/kernel`) must remain panic-free and minimal.  
-- All sugar, tactics, or inference layers must live outside the kernel and re-check through it.  
-- See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for guidelines.
+Keep the kernel (`internal/*`, `kernel/*`) panic-free and minimal.
+
+Any sugar/tactics live outside and are checked again at the kernel boundary.
+
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for invariants and hygiene.
 
 ---
 
 ## License
 
-MIT License © 2025 [watchthelight](https://github.com/watchthelight)
+MIT. See LICENSE.
