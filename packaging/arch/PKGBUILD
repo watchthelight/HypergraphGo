@@ -1,0 +1,16 @@
+pkgname=hottgo-bin
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="HypergraphGo CLI tool"
+arch=('x86_64')
+url="https://github.com/watchthelight/HypergraphGo"
+license=('MIT')
+provides=('hottgo')
+conflicts=('hottgo')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/watchthelight/HypergraphGo/releases/download/v$pkgver/hottgo_${pkgver}_linux_amd64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "$srcdir/hottgo" "$pkgdir/usr/bin/hottgo"
+    install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
