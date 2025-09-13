@@ -1,5 +1,5 @@
-# .goreleaser.yaml — v2 schema
 version: 2
+
 project_name: hottgo
 
 before:
@@ -8,56 +8,90 @@ before:
 
 builds:
   - id: hottgo
-    main: ./cmd/hottgo        # <-- adjust if your main lives elsewhere
+    main: ./cmd/hottgo
     binary: hottgo
-    env: ["CGO_ENABLED=0"]
-    flags: ["-trimpath"]
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64]
     ldflags:
       - -s -w
-    goos: [linux, windows, darwin]
-    goarch: [amd64, arm64, "386"]
+    mod_timestamp: "{{ .CommitDate }}"
 
 archives:
-  - id: tgz_zip
+  - id: unix-tarballs
     builds: [hottgo]
+    format: tar.gz
+    # linux/darwin end up here
+    wrap_in_directory: false
+    files:
+      - LICENSE
+      - README.md
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        format: zip
+
+  - id: windows-zips
+    builds: [hottgo]
+    format: zip
+    # windows ends up here automatically
+    wrap_in_directory: false
+    files:
+      - LICENSE
+      - README.md
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
-  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^ci:"
+      - "^docs:"
+      - "^test:"
 
 release:
-  github:
-    owner: watchthelight
-    name: HypergraphGo
+  draft: false
+  prerelease: false
 
-# Homebrew (v2 uses `repository`, not `tap`)
+# Generate deb/rpm via nfpm (optional but useful for apt/yum repos)
+nfpms:
+  - id: linux-packages
+    package_name: hottgo
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+    builds: [hottgo]
+    vendor: watchthelight
+    maintainer: "watchthelight <admin@watchthelight.org>"
+    license: MIT
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    description: "Hypergraph & HoTT tooling in Go"
+    formats: [deb, rpm]
+    bindir: /usr/bin
+
+# Homebrew (formula in your tap)
 brews:
   - name: hottgo
-    ids: [tgz_zip]
     repository:
       owner: watchthelight
       name: homebrew-hottgo
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_author:
       name: watchthelight-bot
       email: admin@watchthelight.org
-    homepage: https://github.com/watchthelight/HypergraphGo
-    description: Hypergraph & HoTT tooling in Go
-    license: MIT
+    description: "Hypergraph & HoTT tooling in Go"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    license: "MIT"
+    install: |
+      bin.install "hottgo"
 
-# Scoop (v2 uses `repository`, not `bucket`)
-scoops:
-  - name: hottgo
-    ids: [tgz_zip]
-    repository:
-      owner: watchthelight
-      name: scoop-bucket
-    commit_author:
-      name: watchthelight-bot
-      email: admin@watchthelight.org
-    homepage: https://github.com/watchthelight/HypergraphGo
-    description: Hypergraph & HoTT tooling in Go
-    license: MIT
+# Upload built artifacts + packages to Cloudsmith
+publishers:
+  - name: cloudsmith
+    # Requires CLOUDSMITH_TOKEN env set in CI
+    cmd: >
+      cloudsmith push raw watchthelight/hottgo
+      --name "{{ .ArtifactName }}"
+      --version "{{ .Version }}"
+      "{{ .ArtifactPath }}"
+    ids: ["all"]
