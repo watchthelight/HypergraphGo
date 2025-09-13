@@ -1,22 +1,53 @@
 name: chocolatey
+
 on:
-  push:
-    tags: ["v*.*.*"]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   chocolatey:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Chocolatey
-        run: |
-          Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-      - name: Extract version
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Pull the repo just so scripts are available
+          fetch-depth: 1
+
+      - name: Set VERSION from release tag
         shell: pwsh
         run: |
-          $ver = $env:GITHUB_REF -replace '^refs/tags/v',''
-          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Run gen-choco.ps1
-        run: .\scripts\gen-choco.ps1 -Version $env:VERSION
+          $tag = "${{ github.event.release.tag_name }}"
+          $ver = $tag -replace '^v',''
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Resolved VERSION=$ver"
+
+      # Do NOT install Chocolatey; it already exists on the GitHub Windows runner
+
+      - name: Wait for checksums.txt to be available (max ~90s)
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/checksums.txt"
+          $ok = $false
+          for ($i=0; $i -lt 30; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -Method Head -TimeoutSec 10
+              if ($resp.StatusCode -eq 200) { $ok = $true; break }
+            } catch { Start-Sleep -Seconds 3 }
+            Start-Sleep -Seconds 3
+          }
+          if (-not $ok) {
+            Write-Error "checksums.txt not found at $url after waiting."
+            exit 1
+          }
+
+      - name: Generate & push Chocolatey package
+        shell: pwsh
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          .\scripts\gen-choco.ps1 -Version $env:VERSION
