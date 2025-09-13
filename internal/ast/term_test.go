@@ -37,7 +37,7 @@ func TestSprint_Pi(t *testing.T) {
 func TestSprint_AppChain(t *testing.T) {
 	tm := ast.MkApps(ast.Global{Name: "f"}, ast.Var{Ix: 0}, ast.Var{Ix: 1})
 	got := ast.Sprint(tm)
-	want := "((f {0}) {1})"
+	want := "(f {0} {1})"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
