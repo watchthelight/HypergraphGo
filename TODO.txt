@@ -32,7 +32,7 @@ PHASE 1 — Syntax, binding, pretty printing
     [X] Raw with identifiers; scope resolver to core AST (de Bruijn)
     Done when: alpha-equal terms print the same under pretty-printer.
 
-[ ] Parser + printer (minimal concrete syntax or S-expr)
+[X] Parser + printer (minimal concrete syntax or S-expr)
     Done when: parse(print(t)) == t for a small corpus (golden tests).
 
 ============================================================
