@@ -1,3 +1,40 @@
+# .goreleaser.yaml — v2 schema
+version: 2
+project_name: hottgo
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: hottgo
+    main: ./cmd/hottgo        # <-- adjust if your main lives elsewhere
+    binary: hottgo
+    env: ["CGO_ENABLED=0"]
+    flags: ["-trimpath"]
+    ldflags:
+      - -s -w
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64, "386"]
+
+archives:
+  - id: tgz_zip
+    builds: [hottgo]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: watchthelight
+    name: HypergraphGo
+
+# Homebrew (v2 uses `repository`, not `tap`)
 brews:
   - name: hottgo
     ids: [tgz_zip]
@@ -10,8 +47,8 @@ brews:
     homepage: https://github.com/watchthelight/HypergraphGo
     description: Hypergraph & HoTT tooling in Go
     license: MIT
-    skip_upload: false
 
+# Scoop (v2 uses `repository`, not `bucket`)
 scoops:
   - name: hottgo
     ids: [tgz_zip]
@@ -24,4 +61,3 @@ scoops:
     homepage: https://github.com/watchthelight/HypergraphGo
     description: Hypergraph & HoTT tooling in Go
     license: MIT
-    skip_upload: false
