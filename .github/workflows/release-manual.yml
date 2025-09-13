@@ -1,0 +1,30 @@
+name: release-manual
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag (e.g., v0.1.3)"
+        required: true
+        type: string
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: git fetch --tags
+      - name: Checkout the tag
+        run: git checkout ${{ inputs.tag }}
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.23.x" }
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDSMITH_TOKEN: ${{ secrets.CLOUDSMITH_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          SCOOP_GITHUB_TOKEN: ${{ secrets.SCOOP_GITHUB_TOKEN }}
+          WINGET_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
