@@ -1,74 +1,73 @@
-# Hypergraph-Go
+# HypergraphGo
+
 [![CI](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml)
 
-A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
+A work-in-progress implementation of a **native HoTT (Homotopy Type Theory) kernel in Go**, evolving from an earlier hypergraph theory library.
 
-## Overview
+The end goal is a lightweight, sound, and hackable proof kernel with dependent types, inductives, higher inductives, univalence, and cubical features. The hypergraph library components will remain as utilities and examples.
 
-Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect any number of vertices. This library provides a flexible, efficient, and idiomatic Go implementation of hypergraphs with rich operations, transforms, and algorithms.
+---
+
+## Project Status
+
+- ✅ **Phase 0:** Repository bootstrap, design decisions, package scaffolding, CI checks  
+- ✅ **Phase 1:** Core AST, raw AST, resolver, pretty-printer  
+- 🔜 **Phase 2:** Normalization-by-Evaluation (NbE) skeleton  
+- Future: definitional equality, type checker, inductives, paths, univalence, HITs, elaborator, stdlib.
+
+See [`TODO.txt`](TODO.txt) for the detailed roadmap.
+
+---
+
+## Repo Layout
+
+```
+internal/ast/      Core & Raw AST, printer, resolver
+internal/core/     Definitional equality (coming soon)
+internal/eval/     NbE evaluator (coming soon)
+internal/check/    Type checker (coming soon)
+internal/kernel/   Trusted kernel boundary (Axiom, Def, Inductive)
+pkg/env/           Front-end conveniences, untrusted
+cmd/hottgo/        CLI entry point
+docs/              DESIGN.md and contributing guidelines
+examples/          Hypergraph algorithms and demo programs
+```
+
+---
 
 ## Quickstart
 
-Install the module and try a minimal snippet:
+Clone the repository:
 
 ```bash
-go install github.com/watchthelight/hypergraphgo
+git clone https://github.com/watchthelight/HypergraphGo.git
+cd HypergraphGo
 ```
 
-```go
-package main
+Run all tests:
 
-import (
-    "fmt"
-    "github.com/watchthelight/hypergraphgo/hypergraph"
-)
-
-func main() {
-    hg := hypergraph.NewHypergraph[string]()
-    _ = hg.AddEdge("E1", []string{"A", "B", "C"})
-    fmt.Println("Vertices:", hg.Vertices())
-    fmt.Println("Edges:", hg.Edges())
-}
+```bash
+go test ./...
 ```
 
-Run the examples:
+Run the CLI:
+
+```bash
+go run ./cmd/hottgo -version
+```
+
+---
+
+## Hypergraph Examples
+
+Although the project’s focus is now HoTT, you can still explore the original hypergraph algorithms:
 
 ```bash
 go run ./examples/basic
 go run ./examples/algorithms
 ```
 
-## Installation
-
-```bash
-go get github.com/watchthelight/hypergraphgo
-```
-
-Replace `watchthelight` and `hypergraphgo` with your GitHub username and repository name.
-
-## Usage
-
-### Basic usage
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/watchthelight/hypergraphgo/hypergraph"
-)
-
-func main() {
-    hg := hypergraph.NewHypergraph[string]()
-    hg.AddVertex("A")
-    hg.AddVertex("B")
-    hg.AddEdge("E1", []string{"A", "B"})
-    fmt.Println("Vertices:", hg.Vertices())
-    fmt.Println("Edges:", hg.Edges())
-}
-```
-
-### CLI examples
+### CLI usage
 
 ```bash
 hg info -file example.json
@@ -81,19 +80,26 @@ hg save -out example.json
 hg load -in example.json
 ```
 
+---
+
 ## Algorithms and Complexity
 
-- Greedy hitting set: polynomial time heuristic.
-- Minimal transversals enumeration: exponential, supports cutoffs.
-- Greedy coloring: heuristic.
-- Dual, 2-section, and line graph transforms.
-- Connectivity and traversal via BFS/DFS.
+- Greedy hitting set: polynomial-time heuristic  
+- Minimal transversals enumeration: exponential, supports cutoffs  
+- Greedy coloring: heuristic  
+- Dual, 2-section, and line graph transforms  
+- Connectivity and traversal via BFS/DFS  
 
-This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
+---
+
+## Contributing
+
+- The kernel (`internal/kernel`) must remain panic-free and minimal.  
+- All sugar, tactics, or inference layers must live outside the kernel and re-check through it.  
+- See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for guidelines.
+
+---
 
 ## License
 
-MIT License © 2025 watchthelight
-
-
-
+MIT License © 2025 [watchthelight](https://github.com/watchthelight)
