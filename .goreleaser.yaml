@@ -23,3 +23,55 @@ archives:
     files:
       - LICENSE
       - README.md
+
+checksums:
+  name_template: 'checksums.txt'
+
+nfpms:
+  - id: packages
+    builds: [cli]
+    formats:
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    vendor: watchthelight
+    homepage: https://github.com/watchthelight/HypergraphGo
+    maintainer: watchthelight
+    description: HypergraphGo is a tool for working with hypergraphs.
+    license: MIT
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+publish:
+  - name: cloudsmith
+    ids: [packages]
+    cloudsmith:
+      name: watchthelight/hottgo
+  - name: homebrew
+    homebrew:
+      name: hottgo
+      repository:
+        owner: watchthelight
+        name: homebrew-hottgo
+      cask: true
+      commit_author:
+        name: goreleaserbot
+        email: goreleaser@carlosbecker.com
+  - name: scoop
+    scoop:
+      name: hottgo
+      repository:
+        owner: watchthelight
+        name: scoop-bucket
+      commit_author:
+        name: goreleaserbot
+        email: goreleaser@carlosbecker.com
+  - name: winget
+    winget:
+      name: hottgo
+      repository:
+        owner: watchthelight
+        name: winget-pkgs
+      commit_author:
+        name: goreleaserbot
+        email: goreleaser@carlosbecker.com
