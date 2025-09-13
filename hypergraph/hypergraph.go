@@ -3,7 +3,7 @@
 package hypergraph
 
 import (
-    "fmt"
+	"fmt"
 )
 
 // Hypergraph represents a hypergraph with generic vertex type V.

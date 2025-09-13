@@ -18,47 +18,47 @@ func NewGraph[V comparable]() *Graph[V] {
 
 // Dual returns the dual hypergraph where vertices become edges and vice versa.
 func (h *Hypergraph[V]) Dual() *Hypergraph[string] {
-    dual := NewHypergraph[string]()
-    for _, e := range h.Edges() {
-        dual.AddVertex(e)
-    }
-    for v := range h.vertices {
-        members := make([]string, 0)
-        for e := range h.vertexToEdges[v] {
-            members = append(members, e)
-        }
-        if len(members) > 0 {
-            dual.AddEdge(fmt.Sprintf("%v", v), members) //nolint:errcheck // IDs unique by construction
-        }
-    }
-    return dual
+	dual := NewHypergraph[string]()
+	for _, e := range h.Edges() {
+		dual.AddVertex(e)
+	}
+	for v := range h.vertices {
+		members := make([]string, 0)
+		for e := range h.vertexToEdges[v] {
+			members = append(members, e)
+		}
+		if len(members) > 0 {
+			dual.AddEdge(fmt.Sprintf("%v", v), members) //nolint:errcheck // IDs unique by construction
+		}
+	}
+	return dual
 }
 
 // TwoSection returns the 2-section graph where vertices are connected if they share an edge.
 func (h *Hypergraph[V]) TwoSection() *Graph[V] {
-    g := NewGraph[V]()
-    for v := range h.vertices {
-        g.vertices[v] = struct{}{}
-    }
-    for _, e := range h.edges {
-        vs := make([]V, 0)
-        for v := range e.Set {
-            vs = append(vs, v)
-        }
-        for i := 0; i < len(vs); i++ {
-            for j := i + 1; j < len(vs); j++ {
-                from, to := vs[i], vs[j]
-                if fmt.Sprintf("%v", from) > fmt.Sprintf("%v", to) {
-                    from, to = to, from
-                }
-                edgeID := fmt.Sprintf("%v-%v", from, to)
-                if _, exists := g.edges[edgeID]; !exists {
-                    g.edges[edgeID] = struct{ From, To V }{from, to}
-                }
-            }
-        }
-    }
-    return g
+	g := NewGraph[V]()
+	for v := range h.vertices {
+		g.vertices[v] = struct{}{}
+	}
+	for _, e := range h.edges {
+		vs := make([]V, 0)
+		for v := range e.Set {
+			vs = append(vs, v)
+		}
+		for i := 0; i < len(vs); i++ {
+			for j := i + 1; j < len(vs); j++ {
+				from, to := vs[i], vs[j]
+				if fmt.Sprintf("%v", from) > fmt.Sprintf("%v", to) {
+					from, to = to, from
+				}
+				edgeID := fmt.Sprintf("%v-%v", from, to)
+				if _, exists := g.edges[edgeID]; !exists {
+					g.edges[edgeID] = struct{ From, To V }{from, to}
+				}
+			}
+		}
+	}
+	return g
 }
 
 // LineGraph returns the line graph where vertices are edges, connected if they share a vertex.
@@ -96,18 +96,18 @@ func (h *Hypergraph[V]) LineGraph() *Graph[string] {
 
 // Vertices returns all vertices of the graph.
 func (g *Graph[V]) Vertices() []V {
-    vs := make([]V, 0, len(g.vertices))
-    for v := range g.vertices {
-        vs = append(vs, v)
-    }
-    return vs
+	vs := make([]V, 0, len(g.vertices))
+	for v := range g.vertices {
+		vs = append(vs, v)
+	}
+	return vs
 }
 
 // Edges returns all edges of the graph as pairs.
 func (g *Graph[V]) Edges() []struct{ From, To V } {
-    es := make([]struct{ From, To V }, 0, len(g.edges))
-    for _, e := range g.edges {
-        es = append(es, e)
-    }
-    return es
+	es := make([]struct{ From, To V }, 0, len(g.edges))
+	for _, e := range g.edges {
+		es = append(es, e)
+	}
+	return es
 }

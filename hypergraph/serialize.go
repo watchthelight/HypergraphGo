@@ -1,10 +1,10 @@
 package hypergraph
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "sort"
+	"encoding/json"
+	"fmt"
+	"io"
+	"sort"
 )
 
 // SaveJSON saves the hypergraph to JSON.

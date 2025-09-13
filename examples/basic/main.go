@@ -29,9 +29,9 @@ func main() {
 	fmt.Println("Dual vertices:", dual.Vertices())
 	fmt.Println("Dual edges:", dual.Edges())
 
-    section := h.TwoSection()
-    fmt.Println("2-Section vertices:", len(section.Vertices()))
-    fmt.Println("2-Section edges:", len(section.Edges()))
+	section := h.TwoSection()
+	fmt.Println("2-Section vertices:", len(section.Vertices()))
+	fmt.Println("2-Section edges:", len(section.Edges()))
 
 	// Write dual and section to JSON
 	dualFile, _ := os.Create("dual.json")
