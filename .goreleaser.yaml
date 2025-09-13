@@ -24,7 +24,7 @@ archives:
       - LICENSE
       - README.md
 
-checksums:
+checksum:
   name_template: 'checksums.txt'
 
 nfpms:
@@ -42,7 +42,7 @@ nfpms:
     license: MIT
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
-publish:
+publishers:
   - name: cloudsmith
     ids: [packages]
     cloudsmiths:
