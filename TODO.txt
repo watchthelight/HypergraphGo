@@ -8,28 +8,28 @@ HypergraphGo — HoTT Kernel Roadmap To-Do
 ============================================================
 PHASE 0 — Ground rules and interfaces
 ============================================================
-[ ] Decide core theory profile
-    [ ] Choose: Cubical (with Path/Interval) or Id-type first, then flip later
-    [ ] Universe policy: cumulative vs lifts; write a short DESIGN.md
-    [ ] Normalization strategy: NbE (document reify/reflect invariants)
-    [ ] Binding: de Bruijn indices for core; raw names for surface
+[X] Decide core theory profile
+    [X] Choose: Cubical (with Path/Interval) or Id-type first, then flip later
+    [X] Universe policy: cumulative vs lifts; write a short DESIGN.md
+    [X] Normalization strategy: NbE (document reify/reflect invariants)
+    [X] Binding: de Bruijn indices for core; raw names for surface
     Done when: DESIGN.md exists and commits pin these decisions.
 
-[ ] Define public kernel boundary
-    [ ] Package layout: ast, syntax, core, eval, check, env, kernel, elab, cmd/hottgo
-    [ ] Kernel API: {Axiom, Def, Inductive, (later) HIT, Theorem} only
+[X] Define public kernel boundary
+    [X] Package layout: ast, syntax, core, eval, check, env, kernel, elab, cmd/hottgo
+    [X] Kernel API: {Axiom, Def, Inductive, (later) HIT, Theorem} only
     Done when: kernel compiles and exports a minimal, documented interface.
 
 ============================================================
 PHASE 1 — Syntax, binding, pretty printing
 ============================================================
-[ ] Core AST (de Bruijn)
-    [ ] Terms: Var, Sort(u), Pi, Lam, App, Sigma, Pair, Fst, Snd, Let, Global
-    [ ] Base data: Nat/zero/succ; Bool/true/false (placeholders)
+[X] Core AST (de Bruijn)
+    [X] Terms: Var, Sort(u), Pi, Lam, App, Sigma, Pair, Fst, Snd, Let, Global
+    [X] Base data: Nat/zero/succ; Bool/true/false (placeholders)
     Done when: go test round-trips simple terms.
 
-[ ] Raw AST + name resolution
-    [ ] Raw with identifiers; scope resolver to core AST (de Bruijn)
+[X] Raw AST + name resolution
+    [X] Raw with identifiers; scope resolver to core AST (de Bruijn)
     Done when: alpha-equal terms print the same under pretty-printer.
 
 [ ] Parser + printer (minimal concrete syntax or S-expr)
