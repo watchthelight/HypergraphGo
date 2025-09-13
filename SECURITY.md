@@ -1,12 +1,15 @@
 # Security Policy
 
 ## Supported Versions
-Only the latest `main` branch is actively supported with security updates.
+Only the latest commit on `main` is actively supported with security updates.
 
 ## Reporting a Vulnerability
-If you find a vulnerability:
-1. Do **not** open a public issue.
-2. Email **[YOUR EMAIL HERE]** with details.
-3. Expect a response within 48 hours.
+- Do **not** open a public issue.
+- Email **[YOUR SECURITY/CONTACT EMAIL HERE]** with:
+  - Steps to reproduce
+  - Impact assessment
+  - Any PoC or logs (privately)
+- We aim to acknowledge within 48 hours and provide a timeline for a fix.
 
-Responsible disclosure helps keep the ecosystem safe.
+## Disclosure
+We follow responsible disclosure. Once a fix is available, we will credit reporters who wish to be acknowledged.
