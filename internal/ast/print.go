@@ -12,7 +12,20 @@ func Sprint(t Term) string {
 	return b.String()
 }
 
-func write(b *bytes.Buffer, t Term, _prec int) {
+func collectSpine(t Term) (fun Term, args []Term) {
+	for {
+		if app, ok := t.(App); ok {
+			args = append([]Term{app.U}, args...)
+			t = app.T
+		} else {
+			fun = t
+			break
+		}
+	}
+	return
+}
+
+func write(b *bytes.Buffer, t Term, _ int) {
 	switch t := t.(type) {
 	case Sort:
 		b.WriteString("Type")
@@ -52,10 +65,13 @@ func write(b *bytes.Buffer, t Term, _prec int) {
 		write(b, t.Body, 0)
 		b.WriteString(")")
 	case App:
+		fun, args := collectSpine(t)
 		b.WriteString("(")
-		write(b, t.T, 0)
-		b.WriteString(" ")
-		write(b, t.U, 0)
+		write(b, fun, 0)
+		for _, arg := range args {
+			b.WriteString(" ")
+			write(b, arg, 0)
+		}
 		b.WriteString(")")
 	case Sigma:
 		b.WriteString("(Sigma ")

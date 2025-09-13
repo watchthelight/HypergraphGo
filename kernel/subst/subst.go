@@ -1,117 +1,125 @@
 package subst
 
 import (
-	"github.com/watchthelight/hypergraphgo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
-// Shift shifts all free de Bruijn variables >= cutoff by d.
-// Follows TAPL §6.2.1.
+// Shift shifts free variables >= cutoff by d.
 func Shift(d, cutoff int, t ast.Term) ast.Term {
-	switch t := t.(type) {
-	case ast.Var:
-		if t.Ix >= cutoff {
-			return ast.Var{Ix: t.Ix + d}
+	if t == nil {
+		return nil
+	}
+	switch tm := t.(type) {
+	case *ast.Var:
+		if tm.Ix >= cutoff {
+			return &ast.Var{Ix: tm.Ix + d}
 		}
-		return t
-	case ast.Sort:
-		return t
-	case ast.Global:
-		return t
-	case ast.Pi:
-		a := Shift(d, cutoff, t.A)
-		b := Shift(d, cutoff+1, t.B)
-		return ast.Pi{Binder: t.Binder, A: a, B: b}
-	case ast.Lam:
-		ann := t.Ann
-		if ann != nil {
-			ann = Shift(d, cutoff, ann)
+		return tm
+	case *ast.Sort:
+		return tm
+	case *ast.Global:
+		return tm
+	case *ast.Pi:
+		return &ast.Pi{
+			Binder: tm.Binder,
+			A:      Shift(d, cutoff, tm.A),
+			B:      Shift(d, cutoff+1, tm.B),
 		}
-		body := Shift(d, cutoff+1, t.Body)
-		return ast.Lam{Binder: t.Binder, Ann: ann, Body: body}
-	case ast.App:
-		fun := Shift(d, cutoff, t.T)
-		arg := Shift(d, cutoff, t.U)
-		return ast.App{T: fun, U: arg}
-	case ast.Sigma:
-		a := Shift(d, cutoff, t.A)
-		b := Shift(d, cutoff+1, t.B)
-		return ast.Sigma{Binder: t.Binder, A: a, B: b}
-	case ast.Pair:
-		fst := Shift(d, cutoff, t.Fst)
-		snd := Shift(d, cutoff, t.Snd)
-		return ast.Pair{Fst: fst, Snd: snd}
-	case ast.Fst:
-		p := Shift(d, cutoff, t.P)
-		return ast.Fst{P: p}
-	case ast.Snd:
-		p := Shift(d, cutoff, t.P)
-		return ast.Snd{P: p}
-	case ast.Let:
-		ann := t.Ann
-		if ann != nil {
-			ann = Shift(d, cutoff, ann)
+	case *ast.Lam:
+		return &ast.Lam{
+			Binder: tm.Binder,
+			Ann:    Shift(d, cutoff, tm.Ann),
+			Body:   Shift(d, cutoff+1, tm.Body),
 		}
-		val := Shift(d, cutoff, t.Val)
-		body := Shift(d, cutoff+1, t.Body)
-		return ast.Let{Binder: t.Binder, Ann: ann, Val: val, Body: body}
+	case *ast.App:
+		return &ast.App{
+			T: Shift(d, cutoff, tm.T),
+			U: Shift(d, cutoff, tm.U),
+		}
+	case *ast.Sigma:
+		return &ast.Sigma{
+			Binder: tm.Binder,
+			A:      Shift(d, cutoff, tm.A),
+			B:      Shift(d, cutoff+1, tm.B),
+		}
+	case *ast.Pair:
+		return &ast.Pair{
+			Fst: Shift(d, cutoff, tm.Fst),
+			Snd: Shift(d, cutoff, tm.Snd),
+		}
+	case *ast.Fst:
+		return &ast.Fst{P: Shift(d, cutoff, tm.P)}
+	case *ast.Snd:
+		return &ast.Snd{P: Shift(d, cutoff, tm.P)}
+	case *ast.Let:
+		return &ast.Let{
+			Binder: tm.Binder,
+			Ann:    Shift(d, cutoff, tm.Ann),
+			Val:    Shift(d, cutoff, tm.Val),
+			Body:   Shift(d, cutoff+1, tm.Body),
+		}
 	default:
-		panic("unhandled term type in Shift")
+		panic("unhandled term type")
 	}
 }
 
-// Subst substitutes s for Var(j) in t, adjusting free variables.
-// Follows TAPL §6.2.4.
+// Subst substitutes s for Var(j) in t.
 func Subst(j int, s ast.Term, t ast.Term) ast.Term {
-	switch t := t.(type) {
-	case ast.Var:
-		if t.Ix == j {
+	if t == nil {
+		return nil
+	}
+	switch tm := t.(type) {
+	case *ast.Var:
+		if tm.Ix == j {
 			return s
-		} else if t.Ix > j {
-			return ast.Var{Ix: t.Ix - 1}
+		} else if tm.Ix > j {
+			return &ast.Var{Ix: tm.Ix - 1}
 		}
-		return t
-	case ast.Sort:
-		return t
-	case ast.Global:
-		return t
-	case ast.Pi:
-		a := Subst(j, s, t.A)
-		b := Subst(j+1, Shift(1, 0, s), t.B)
-		return ast.Pi{Binder: t.Binder, A: a, B: b}
-	case ast.Lam:
-		ann := t.Ann
-		if ann != nil {
-			ann = Subst(j, s, ann)
+		return tm
+	case *ast.Sort:
+		return tm
+	case *ast.Global:
+		return tm
+	case *ast.Pi:
+		return &ast.Pi{
+			Binder: tm.Binder,
+			A:      Subst(j, s, tm.A),
+			B:      Subst(j+1, Shift(1, 0, s), tm.B),
 		}
-		body := Subst(j+1, Shift(1, 0, s), t.Body)
-		return ast.Lam{Binder: t.Binder, Ann: ann, Body: body}
-	case ast.App:
-		fun := Subst(j, s, t.T)
-		arg := Subst(j, s, t.U)
-		return ast.App{T: fun, U: arg}
-	case ast.Sigma:
-		a := Subst(j, s, t.A)
-		b := Subst(j+1, Shift(1, 0, s), t.B)
-		return ast.Sigma{Binder: t.Binder, A: a, B: b}
-	case ast.Pair:
-		fst := Subst(j, s, t.Fst)
-		snd := Subst(j, s, t.Snd)
-		return ast.Pair{Fst: fst, Snd: snd}
-	case ast.Fst:
-		p := Subst(j, s, t.P)
-		return ast.Fst{P: p}
-	case ast.Snd:
-		p := Subst(j, s, t.P)
-		return ast.Snd{P: p}
-	case ast.Let:
-		ann := t.Ann
-		if ann != nil {
-			ann = Subst(j, s, ann)
+	case *ast.Lam:
+		return &ast.Lam{
+			Binder: tm.Binder,
+			Ann:    Subst(j, s, tm.Ann),
+			Body:   Subst(j+1, Shift(1, 0, s), tm.Body),
 		}
-		val := Subst(j, s, t.Val)
-		body := Subst(j+1, Shift(1, 0, s), t.Body)
-		return ast.Let{Binder: t.Binder, Ann: ann, Val: val, Body: body}
+	case *ast.App:
+		return &ast.App{
+			T: Subst(j, s, tm.T),
+			U: Subst(j, s, tm.U),
+		}
+	case *ast.Sigma:
+		return &ast.Sigma{
+			Binder: tm.Binder,
+			A:      Subst(j, s, tm.A),
+			B:      Subst(j+1, Shift(1, 0, s), tm.B),
+		}
+	case *ast.Pair:
+		return &ast.Pair{
+			Fst: Subst(j, s, tm.Fst),
+			Snd: Subst(j, s, tm.Snd),
+		}
+	case *ast.Fst:
+		return &ast.Fst{P: Subst(j, s, tm.P)}
+	case *ast.Snd:
+		return &ast.Snd{P: Subst(j, s, tm.P)}
+	case *ast.Let:
+		return &ast.Let{
+			Binder: tm.Binder,
+			Ann:    Subst(j, s, tm.Ann),
+			Val:    Subst(j, s, tm.Val),
+			Body:   Subst(j+1, Shift(1, 0, s), tm.Body),
+		}
 	default:
-		panic("unhandled term type in Subst")
+		panic("unhandled term type")
 	}
 }

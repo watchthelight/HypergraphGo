@@ -17,11 +17,11 @@ if ($env:GH_TOKEN) {
 
 # Replace module placeholders
 if (Test-Path "go.mod") {
-  (Get-Content "go.mod") -replace 'github.com/watchthelight/hypergraphgo', ("github.com/$env:watchthelight/$hypergraphgo") | Set-Content "go.mod"
+  (Get-Content "go.mod") -replace 'github.com/watchthelight/HypergraphGo', ("github.com/$env:watchthelight/$hypergraphgo") | Set-Content "go.mod"
 }
-$files = Get-ChildItem -Recurse -File | Where-Object { Select-String -Path $_.FullName -Pattern 'github.com/watchthelight/hypergraphgo' -Quiet }
+$files = Get-ChildItem -Recurse -File | Where-Object { Select-String -Path $_.FullName -Pattern 'github.com/watchthelight/HypergraphGo' -Quiet }
 foreach ($f in $files) {
-  (Get-Content $f.FullName) -replace 'github.com/watchthelight/hypergraphgo', ("github.com/$env:watchthelight/$hypergraphgo") | Set-Content $f.FullName
+  (Get-Content $f.FullName) -replace 'github.com/watchthelight/HypergraphGo', ("github.com/$env:watchthelight/$hypergraphgo") | Set-Content $f.FullName
 }
 
 git init

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/watchthelight/hypergraphgo/hypergraph"
+	"github.com/watchthelight/HypergraphGo/hypergraph"
 )
 
 // Tiny example showcasing algorithms on a small hypergraph.

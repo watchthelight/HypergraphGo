@@ -3,8 +3,8 @@ package core_test
 import (
 	"testing"
 
-	"github.com/watchthelight/hypergraphgo/internal/ast"
-	"github.com/watchthelight/hypergraphgo/internal/core"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/core"
 )
 
 func lamId() ast.Term { return ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}} }

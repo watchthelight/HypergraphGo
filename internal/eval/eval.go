@@ -1,8 +1,8 @@
 package eval
 
 import (
-	"github.com/watchthelight/hypergraphgo/internal/ast"
-	"github.com/watchthelight/hypergraphgo/kernel/subst"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/kernel/subst"
 )
 
 // Normalize reduces a term to weak head normal form using beta-reduction and projections.

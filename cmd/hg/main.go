@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/watchthelight/hypergraphgo/hypergraph"
+	"github.com/watchthelight/HypergraphGo/hypergraph"
 )
 
 func main() {

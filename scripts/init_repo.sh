@@ -17,11 +17,11 @@ fi
 
 # Replace module placeholders
 if [[ -f go.mod ]]; then
-  sed -i.bak "s#github.com/watchthelight/hypergraphgo#github.com/${watchthelight}/${hypergraphgo}#g" go.mod
+  sed -i.bak "s#github.com/watchthelight/HypergraphGo#github.com/${watchthelight}/${hypergraphgo}#g" go.mod
   rm -f go.mod.bak
 fi
 # Update any import paths containing the placeholder
-grep -rl "github.com/watchthelight/hypergraphgo" . | xargs sed -i.bak "s#github.com/watchthelight/hypergraphgo#github.com/${watchthelight}/${hypergraphgo}#g" || true
+grep -rl "github.com/watchthelight/HypergraphGo" . | xargs sed -i.bak "s#github.com/watchthelight/HypergraphGo#github.com/${watchthelight}/${hypergraphgo}#g" || true
 find . -name "*.bak" -delete
 
 git init

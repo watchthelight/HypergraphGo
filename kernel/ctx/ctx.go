@@ -1,7 +1,7 @@
 package ctx
 
 import (
-	"github.com/watchthelight/hypergraphgo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
 // Binding represents a binding in the context.

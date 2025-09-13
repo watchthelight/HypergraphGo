@@ -1,6 +1,6 @@
 # HypergraphGo
 
-[![CI](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml)
+[![CI](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml)
 
 A work-in-progress implementation of a **native HoTT (Homotopy Type Theory) kernel in Go**, evolving from an earlier hypergraph theory library.
 

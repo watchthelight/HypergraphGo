@@ -3,8 +3,8 @@ package eval_test
 import (
 	"testing"
 
-	"github.com/watchthelight/hypergraphgo/internal/ast"
-	"github.com/watchthelight/hypergraphgo/internal/eval"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
 
 func BenchmarkNormalize_SpineDepth32(b *testing.B) {

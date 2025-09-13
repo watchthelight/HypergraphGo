@@ -3,7 +3,7 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/watchthelight/hypergraphgo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
 func TestSprint_Id(t *testing.T) {

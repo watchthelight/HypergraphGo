@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/watchthelight/hypergraphgo/internal/ast"
-	"github.com/watchthelight/hypergraphgo/internal/eval"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
 
 type EtaFlags struct{ Pi, Sigma bool }

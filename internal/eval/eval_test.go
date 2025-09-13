@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/watchthelight/hypergraphgo/internal/ast"
-	"github.com/watchthelight/hypergraphgo/internal/eval"
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
 
 func nf(t ast.Term) string { return ast.Sprint(eval.Normalize(t)) }
