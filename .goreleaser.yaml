@@ -1,43 +1,25 @@
 version: 2
-
-before:
-  hooks:
-    - go mod tidy
+project_name: hottgo
 
 builds:
-  - id: hottgo
-    main: ./cmd/hg
-    binary: hottgo
+  - id: cli
+    main: ./cmd/hottgo
     env:
       - CGO_ENABLED=0
-    goos: [linux, darwin, windows]
+    goos: [linux, windows, darwin]
     goarch: [amd64, arm64]
+    binary: hottgo
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
-
-checksum:
-  name_template: "checksums.txt"
+      - -s -w
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
 
 archives:
-  - format_overrides:
-      - goos: windows
-        format: zip
-    name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: tgz
+    builds: [cli]
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
-
-release:
-  draft: false
-  prerelease: false
-  mode: replace
-
-changelog:
-  use: git
-  sort: asc
-  filters:
-    exclude:
-      - '^chore'
-      - '^docs'
-      - '^ci'
-      - '^test'
