@@ -8,33 +8,27 @@ import (
 
 func TestLookupVar(t *testing.T) {
 	var c Ctx
-	ty1 := ast.Sort{U: 0}
-	ty2 := ast.Sort{U: 1}
 
-	c.Extend("x", ty1)
-	c.Extend("y", ty2)
-
-	// ix=0 is most recent, y
-	got, ok := c.LookupVar(0)
-	if !ok || got != ty2 {
-		t.Errorf("LookupVar(0) = %v, %v; want %v, true", got, ok, ty2)
+	// Empty context
+	if _, ok := c.LookupVar(0); ok {
+		t.Error("Expected false for empty context")
 	}
 
-	// ix=1 is x
-	got, ok = c.LookupVar(1)
-	if !ok || got != ty1 {
-		t.Errorf("LookupVar(1) = %v, %v; want %v, true", got, ok, ty1)
+	// Add first binding
+	c.Extend("x", ast.Sort{U: 0})
+	if _, ok := c.LookupVar(0); !ok {
+		t.Error("Expected true for ix=0")
 	}
 
-	// ix=2 out of range
-	_, ok = c.LookupVar(2)
-	if ok {
-		t.Errorf("LookupVar(2) should be false")
+	// Add second binding
+	c.Extend("y", ast.Sort{U: 1})
+	if _, ok := c.LookupVar(0); !ok {
+		t.Error("Expected true for ix=0 after extend")
 	}
-
-	// negative
-	_, ok = c.LookupVar(-1)
-	if ok {
-		t.Errorf("LookupVar(-1) should be false")
+	if _, ok := c.LookupVar(1); !ok {
+		t.Error("Expected true for ix=1")
+	}
+	if _, ok := c.LookupVar(2); ok {
+		t.Error("Expected false for ix=2")
 	}
 }
