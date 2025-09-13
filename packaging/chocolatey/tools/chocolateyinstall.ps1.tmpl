@@ -2,9 +2,9 @@ $ErrorActionPreference = 'Stop'
 
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 
-$url = '{{URL}}'
+$url = 'https://github.com/watchthelight/HypergraphGo/releases/download/v$version$/hottgo_$version$_Windows_amd64.zip'
 
-$checksum = '{{CHECKSUM}}'
+$checksum = '$sha256_amd64$'
 
 $packageArgs = @{
   packageName   = $env:ChocolateyPackageName

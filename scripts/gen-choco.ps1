@@ -1,10 +1,10 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]$Version
+    [string]$Version,
+    [string]$Repo = "watchthelight/HypergraphGo"
 )
 
-$repo = "watchthelight/HypergraphGo"
-$checksumsUrl = "https://github.com/$repo/releases/download/v$Version/checksums.txt"
+$checksumsUrl = "https://github.com/$Repo/releases/download/v$Version/checksums.txt"
 
 try {
     $checksums = Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing | Select-Object -ExpandProperty Content
@@ -16,24 +16,22 @@ try {
 $lines = $checksums -split "`n"
 $checksum = $null
 foreach ($line in $lines) {
-    if ($line -match "hottgo_${Version}_windows_amd64\.zip") {
+    if ($line -match "hottgo_${Version}_Windows_amd64\.zip") {
         $checksum = ($line -split " ")[0]
         break
     }
 }
 
 if (-not $checksum) {
-    Write-Error "Checksum for hottgo_${Version}_windows_amd64.zip not found"
+    Write-Error "Checksum for hottgo_${Version}_Windows_amd64.zip not found"
     exit 1
 }
-
-$url = "https://github.com/$repo/releases/download/v$Version/hottgo_${Version}_windows_amd64.zip"
 
 $templatePath = "packaging/chocolatey/tools/chocolateyinstall.ps1.tmpl"
 $installScriptPath = "packaging/chocolatey/tools/chocolateyinstall.ps1"
 
 $template = Get-Content $templatePath -Raw
-$installScript = $template -replace '{{URL}}', $url -replace '{{CHECKSUM}}', $checksum
+$installScript = $template -replace '\$version\$', $Version -replace '\$sha256_amd64\$', $checksum
 Set-Content $installScriptPath $installScript
 
 # Update nuspec version
