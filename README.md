@@ -1,9 +1,9 @@
 # HypergraphGo
 
-[![CI](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml)
+[![Linux](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml/badge.svg?branch=main)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml)
+[![Windows](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml/badge.svg?branch=main)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml)
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/License-MIT-informational)
-![Platforms](https://img.shields.io/badge/CI-ubuntu%20%7C%20windows-success)
 
 A work-in-progress implementation of a **native HoTT kernel in Go**. This project began as a hypergraph library and is expanding into a full proof kernel with dependent types.
 

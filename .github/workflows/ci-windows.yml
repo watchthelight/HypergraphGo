@@ -1,0 +1,54 @@
+name: CI (Windows)
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  test-windows:
+    name: test (windows-latest)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash   # use bash to avoid PowerShell quirks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Show module state
+        run: |
+          echo "PWD=$(pwd)"
+          echo "GOMOD=$(go env GOMOD)"
+          ls -la
+
+      - name: Tidy, download, verify modules
+        run: |
+          go mod tidy
+          go mod download all || true
+          go mod verify
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (with coverage)
+        run: go test ./... -count=1 -v -coverprofile=coverage.out
+
+      - name: Coverage summary
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -n1 | awk '{print $3}')
+          echo "Windows total coverage: $total" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-windows
+          path: coverage.out
