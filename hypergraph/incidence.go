@@ -1,8 +1,8 @@
 package hypergraph
 
 import (
-    "fmt"
-    "sort"
+	"fmt"
+	"sort"
 )
 
 // COO represents a sparse matrix in coordinate format.

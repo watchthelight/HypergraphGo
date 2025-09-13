@@ -8,7 +8,10 @@ import (
 
 type fakeGlobals map[string]struct{}
 
-func (g fakeGlobals) Has(name string) bool { _, ok := g[name]; ok = ok; return ok }
+func (g fakeGlobals) Has(name string) bool {
+	_, ok := g[name]
+	return ok
+}
 
 func TestResolve_PiLamApp(t *testing.T) {
 	// Raw: (\x => x) y  where y is global

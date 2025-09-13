@@ -7,16 +7,16 @@ func (h *Hypergraph[V]) IsEmpty() bool {
 
 // Copy returns a deep copy of the hypergraph.
 func (h *Hypergraph[V]) Copy() *Hypergraph[V] {
-    copy := NewHypergraph[V]()
-    for v := range h.vertices {
-        copy.AddVertex(v)
-    }
-    for id, edge := range h.edges {
-        members := make([]V, 0)
-        for v := range edge.Set {
-            members = append(members, v)
-        }
-        copy.AddEdge(id, members) //nolint:errcheck // original edges are valid and IDs unique
-    }
-    return copy
+	copy := NewHypergraph[V]()
+	for v := range h.vertices {
+		copy.AddVertex(v)
+	}
+	for id, edge := range h.edges {
+		members := make([]V, 0)
+		for v := range edge.Set {
+			members = append(members, v)
+		}
+		copy.AddEdge(id, members) //nolint:errcheck // original edges are valid and IDs unique
+	}
+	return copy
 }

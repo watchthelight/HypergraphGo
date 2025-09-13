@@ -1,9 +1,9 @@
 package hypergraph
 
 import (
-    "fmt"
-    "sort"
-    "time"
+	"fmt"
+	"sort"
+	"time"
 )
 
 // GreedyHittingSet returns a greedy hitting set.
@@ -56,7 +56,7 @@ func (h *Hypergraph[V]) EnumerateMinimalTransversals(maxSolutions int, maxTime t
 		if len(transversals) >= maxSolutions {
 			return
 		}
-    		// Check if current covers all edges
+		// Check if current covers all edges
 		covered := make(map[string]struct{})
 		for _, v := range current {
 			for e := range h.vertexToEdges[v] {
@@ -66,7 +66,7 @@ func (h *Hypergraph[V]) EnumerateMinimalTransversals(maxSolutions int, maxTime t
 		if len(covered) == len(h.edges) {
 			// Minimal check: no subset works
 			minimal := true
-    			for i := range current {
+			for i := range current {
 				sub := make([]V, 0, len(current)-1)
 				sub = append(sub, current[:i]...)
 				sub = append(sub, current[i+1:]...)
