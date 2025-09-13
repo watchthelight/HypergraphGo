@@ -45,8 +45,16 @@ nfpms:
 publish:
   - name: cloudsmith
     ids: [packages]
-    cloudsmith:
-      name: watchthelight/hottgo
+    cloudsmiths:
+      - organization: watchthelight
+        repository: hottgo
+        distributions:
+          - deb: ubuntu/noble
+          - deb: ubuntu/jammy
+          - deb: debian/bookworm
+          - rpm: el/9
+          - rpm: fedora/40
+          - alpine: alpine/v3.20
   - name: homebrew
     homebrew:
       name: hottgo
