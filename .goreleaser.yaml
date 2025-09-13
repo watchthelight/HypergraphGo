@@ -1,85 +1,27 @@
-version: 2
-project_name: hottgo
-
-builds:
-  - id: cli
-    main: ./cmd/hottgo
-    env:
-      - CGO_ENABLED=0
-    goos: [linux, windows, darwin]
-    goarch: [amd64, arm64]
-    binary: hottgo
-    ldflags:
-      - -s -w
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
-
-archives:
-  - id: tgz
-    builds: [cli]
-    format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-
-checksum:
-  name_template: 'checksums.txt'
-
-nfpms:
-  - id: packages
-    builds: [cli]
-    formats:
-      - deb
-      - rpm
-      - apk
-      - archlinux
-    vendor: watchthelight
+brews:
+  - name: hottgo
+    ids: [tgz_zip]
+    repository:
+      owner: watchthelight
+      name: homebrew-hottgo
+    commit_author:
+      name: watchthelight-bot
+      email: admin@watchthelight.org
     homepage: https://github.com/watchthelight/HypergraphGo
-    maintainer: watchthelight
-    description: HypergraphGo is a tool for working with hypergraphs.
+    description: Hypergraph & HoTT tooling in Go
     license: MIT
-    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    skip_upload: false
 
-publishers:
-  - name: cloudsmith
-    ids: [packages]
-    cloudsmiths:
-      - organization: watchthelight
-        repository: hottgo
-        distributions:
-          - deb: ubuntu/noble
-          - deb: ubuntu/jammy
-          - deb: debian/bookworm
-          - rpm: el/9
-          - rpm: fedora/40
-          - alpine: alpine/v3.20
-  - name: homebrew
-    homebrew:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: homebrew-hottgo
-      cask: true
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
-  - name: scoop
-    scoop:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: scoop-bucket
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
-  - name: winget
-    winget:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: winget-pkgs
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
+scoops:
+  - name: hottgo
+    ids: [tgz_zip]
+    repository:
+      owner: watchthelight
+      name: scoop-bucket
+    commit_author:
+      name: watchthelight-bot
+      email: admin@watchthelight.org
+    homepage: https://github.com/watchthelight/HypergraphGo
+    description: Hypergraph & HoTT tooling in Go
+    license: MIT
+    skip_upload: false
