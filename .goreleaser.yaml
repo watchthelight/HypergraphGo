@@ -18,13 +18,8 @@ builds:
 checksum:
   name_template: "checksums.txt"
 
-sboms:
-  - artifacts: [binary]
-    generator: cyclonedx
-
 archives:
-  - id: tgz_zip
-    format_overrides:
+  - format_overrides:
       - goos: windows
         format: zip
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -46,18 +41,3 @@ changelog:
       - '^docs'
       - '^ci'
       - '^test'
-
-# Homebrew/Scoop taps can be added later; kept commented for future:
-# brews:
-#   - tap:
-#       owner: watchthelight
-#       name: homebrew-tap
-#     name: hottgo
-#     commit_author:
-#       name: goreleaser
-#       email: noreply@github.com
-# scoops:
-#   - bucket:
-#       owner: watchthelight
-#       name: scoop-bucket
-#     name: hottgo
