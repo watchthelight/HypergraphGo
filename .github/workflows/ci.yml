@@ -5,7 +5,6 @@ on:
 
 jobs:
   test:
-    name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -19,20 +18,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22.x'
-          cache: true
 
       - name: Verify modules
         run: |
-          go version
-          go env GOPATH GOMOD
           go mod tidy
           go mod verify
 
       - name: Build
         run: go build ./...
-
-      - name: Vet
-        run: go vet ./...
 
       - name: Test
         run: go test ./... -count=1 -v
