@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>hottgo</id>
+    <version>__REPLACE__</version>
+    <title>hottgo</title>
+    <authors>watchthelight</authors>
+    <owners>watchthelight</owners>
+    <licenseUrl>https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/watchthelight/HypergraphGo</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>hottgo is a CLI tool for Hypergraph operations.</description>
+    <summary>CLI tool for Hypergraph</summary>
+    <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases</releaseNotes>
+    <copyright>Copyright 2025 watchthelight</copyright>
+    <tags>cli tool hypergraph</tags>
+    <dependencies>
+      <dependency id="chocolatey" version="0.10.15" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,17 @@
+$ErrorActionPreference = 'Stop'
+
+$toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
+
+$url = '{{URL}}'
+
+$checksum = '{{CHECKSUM}}'
+
+$packageArgs = @{
+  packageName   = $env:ChocolateyPackageName
+  unzipLocation = $toolsDir
+  url           = $url
+  checksum      = $checksum
+  checksumType  = 'sha256'
+}
+
+Install-ChocolateyZipPackage @packageArgs
