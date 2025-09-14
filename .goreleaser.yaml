@@ -1,15 +1,15 @@
 version: 2
 
-project_name: hottgo
+project_name: hg
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: hottgo
-    main: ./cmd/hottgo
-    binary: hottgo
+  - id: hg
+    main: ./cmd/hg
+    binary: hg
     env:
       - CGO_ENABLED=0
     goos: [linux, windows, darwin]
@@ -20,24 +20,22 @@ builds:
 
 archives:
   - id: unix-tarballs
-    builds: [hottgo]
+    builds: [hg]
     format: tar.gz
-    # linux/darwin end up here
     wrap_in_directory: false
     files:
       - LICENSE
       - README.md
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
   - id: windows-zips
-    builds: [hottgo]
+    builds: [hg]
     format: zip
-    # windows ends up here automatically
     wrap_in_directory: false
     files:
       - LICENSE
       - README.md
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -55,26 +53,11 @@ release:
   draft: false
   prerelease: false
 
-# Generate deb/rpm via nfpm (optional but useful for apt/yum repos)
-nfpms:
-  - id: linux-packages
-    package_name: hottgo
-    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
-    builds: [hottgo]
-    vendor: watchthelight
-    maintainer: "watchthelight <admin@watchthelight.org>"
-    license: MIT
-    homepage: "https://github.com/watchthelight/HypergraphGo"
-    description: "Hypergraph & HoTT tooling in Go"
-    formats: [deb, rpm]
-    bindir: /usr/bin
-
-# Homebrew (formula in your tap)
 brews:
-  - name: hottgo
+  - name: hg
     repository:
-      owner: watchthelight
-      name: homebrew-hottgo
+      owner: TODO
+      name: TODO
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_author:
       name: watchthelight-bot
@@ -83,15 +66,17 @@ brews:
     homepage: "https://github.com/watchthelight/HypergraphGo"
     license: "MIT"
     install: |
-      bin.install "hottgo"
+      bin.install "hg"
 
-# Upload built artifacts + packages to Cloudsmith
-publishers:
-  - name: cloudsmith
-    # Requires CLOUDSMITH_TOKEN env set in CI
-    cmd: >
-      cloudsmith push raw watchthelight/hottgo
-      --name "{{ .ArtifactName }}"
-      --version "{{ .Version }}"
-      "{{ .ArtifactPath }}"
-    ids: ["all"]
+scoops:
+  - name: hg
+    repository:
+      owner: TODO
+      name: TODO
+      token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+    commit_author:
+      name: watchthelight-bot
+      email: admin@watchthelight.org
+    description: "Hypergraph & HoTT tooling in Go"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    license: "MIT"
