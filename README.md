@@ -8,7 +8,7 @@
 
 A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
 
-**🚀 Now includes HoTT (Homotopy Type Theory) kernel implementation with normalization by evaluation!**
+**Now includes HoTT (Homotopy Type Theory) kernel implementation with normalization by evaluation.**
 
 ## Overview
 
@@ -177,5 +177,6 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 ## License
 
 MIT License © 2025 watchthelight
+
 
 
