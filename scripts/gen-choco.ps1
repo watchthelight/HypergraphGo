@@ -30,6 +30,8 @@ if (-not $checksum -or -not $zipName) {
     exit 1
 }
 
+Write-Host "Found Windows amd64 zip: $zipName with checksum: $checksum"
+
 $templatePath = "packaging/chocolatey/tools/chocolateyinstall.ps1.tmpl"
 $installScriptPath = "packaging/chocolatey/tools/chocolateyinstall.ps1"
 
