@@ -56,6 +56,7 @@ release:
 brews:
   - name: hg
     ids: [unix-tarballs]
+    skip_upload: true
     repository:
       owner: TODO
       name: TODO
@@ -72,6 +73,7 @@ brews:
 scoops:
   - name: hg
     ids: [windows-zips]
+    skip_upload: true
     repository:
       owner: TODO
       name: TODO
