@@ -1,5 +1,5 @@
 # Hypergraph-Go
-[![CI](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/hypergraphgo/actions/workflows/ci.yml)
+[![CI](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml/badge.svg)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci.yml)
 
 A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
 
@@ -118,3 +118,4 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 ## License
 
 MIT License Â© 2025 watchthelight
+
