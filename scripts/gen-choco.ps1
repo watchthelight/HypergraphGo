@@ -15,15 +15,18 @@ try {
 
 $lines = $checksums -split "`n"
 $checksum = $null
+$zipName = $null
 foreach ($line in $lines) {
-    if ($line -match "hottgo_${Version}_Windows_amd64\.zip") {
-        $checksum = ($line -split " ")[0]
+    if ($line -match "_windows_amd64\.zip$") {
+        $parts = $line -split " "
+        $checksum = $parts[0]
+        $zipName = $parts[1]
         break
     }
 }
 
-if (-not $checksum) {
-    Write-Error "Checksum for hottgo_${Version}_Windows_amd64.zip not found"
+if (-not $checksum -or -not $zipName) {
+    Write-Error "Checksum for Windows amd64 zip not found in checksums.txt"
     exit 1
 }
 
@@ -31,11 +34,11 @@ $templatePath = "packaging/chocolatey/tools/chocolateyinstall.ps1.tmpl"
 $installScriptPath = "packaging/chocolatey/tools/chocolateyinstall.ps1"
 
 $template = Get-Content $templatePath -Raw
-$installScript = $template -replace '\$version\$', $Version -replace '\$sha256_amd64\$', $checksum
+$installScript = $template -replace '\$version\$', $Version -replace '\$sha256_amd64\$', $checksum -replace '\$zipName\$', $zipName
 Set-Content $installScriptPath $installScript
 
 # Update nuspec version
-$nuspecPath = "packaging/chocolatey/hottgo.nuspec"
+$nuspecPath = "packaging/chocolatey/hg.nuspec"
 $nuspec = Get-Content $nuspecPath -Raw
 $nuspec = $nuspec -replace '__REPLACE__', $Version
 Set-Content $nuspecPath $nuspec
@@ -44,7 +47,7 @@ Set-Content $nuspecPath $nuspec
 choco pack $nuspecPath
 
 # Push
-$nupkg = "hottgo.$Version.nupkg"
+$nupkg = "hg.$Version.nupkg"
 if (Test-Path $nupkg) {
     choco push $nupkg --api-key $env:CHOCOLATEY_API_KEY
 } else {
