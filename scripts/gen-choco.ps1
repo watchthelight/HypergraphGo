@@ -7,7 +7,13 @@ param(
 $checksumsUrl = "https://github.com/$Repo/releases/download/v$Version/checksums.txt"
 
 try {
-    $checksums = Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing | Select-Object -ExpandProperty Content
+    $resp = Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing
+    $raw = $resp.Content
+    if ($raw -is [byte[]]) {
+        $checksums = [Text.Encoding]::UTF8.GetString($raw)
+    } else {
+        $checksums = [string]$raw
+    }
 } catch {
     Write-Error "Failed to download checksums.txt from $checksumsUrl"
     exit 1
