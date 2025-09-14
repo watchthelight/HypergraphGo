@@ -59,7 +59,9 @@ choco pack $nuspecPath
 # Push
 $nupkg = "hg.$Version.nupkg"
 if (Test-Path $nupkg) {
-    choco push $nupkg --api-key $env:CHOCOLATEY_API_KEY
+    choco push $nupkg `
+      --source "https://push.chocolatey.org/" `
+      --api-key $env:CHOCOLATEY_API_KEY
 } else {
     Write-Error "Nupkg file $nupkg not found"
     exit 1
