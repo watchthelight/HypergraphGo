@@ -6,12 +6,17 @@
     <title>HypergraphGo</title>
     <authors>watchthelight</authors>
     <owners>watchthelight</owners>
-    <licenseUrl>https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE</licenseUrl>
+    <iconUrl>https://raw.githubusercontent.com/watchthelight/HypergraphGo/main/.github/hg.png</iconUrl>
+    <packageSourceUrl>https://github.com/watchthelight/HypergraphGo/tree/main/packaging/chocolatey</packageSourceUrl>
     <projectUrl>https://github.com/watchthelight/HypergraphGo</projectUrl>
+    <projectSourceUrl>https://github.com/watchthelight/HypergraphGo</projectSourceUrl>
+    <docsUrl>https://github.com/watchthelight/HypergraphGo#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/watchthelight/HypergraphGo/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE.md</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Hypergraph &amp; HoTT tooling in Go</description>
     <summary>CLI tool for Hypergraph</summary>
-    <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases</releaseNotes>
+    <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases/tag/v__REPLACE__</releaseNotes>
     <copyright>Copyright 2025 watchthelight</copyright>
     <tags>cli tool hypergraph</tags>
     <dependencies>
