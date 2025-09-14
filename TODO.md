@@ -1,0 +1,8 @@
+- [x] Rename cmd/hg directory to cmd/hottgo
+- [x] Create internal/version/version.go with specified content
+- [x] Add build target to Makefile
+- [x] Update .goreleaser.yaml to match minimal config
+- [x] Update .github/workflows/release.yml to set go-version to 1.23.x
+- [x] Verify make build works locally
+- [x] Commit changes
+- [x] Push to repo
