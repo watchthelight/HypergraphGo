@@ -3,7 +3,8 @@
 [![CI (Linux)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml/badge.svg?branch=main)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml)
 [![release](https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver)](https://github.com/watchthelight/HypergraphGo/releases)
 [![choco](https://img.shields.io/chocolatey/v/hypergraphgo?label=choco)](https://community.chocolatey.org/packages/hypergraphgo)
-[![AUR version](https://img.shields.io/aur/version/hypergraphgo?logo=archlinux&label=AUR)](https://aur.archlinux.org/packages/hypergraphgo)
+[![AUR](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Faur.archlinux.org%2Frpc%2F%3Fv%3D5%26type%3Dinfo%26arg%5B%5D%3Dhypergraphgo&query=$.results[0].Version&label=AUR&logo=archlinux)](https://aur.archlinux.org/packages/hypergraphgo)
+
 
 A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
 
@@ -122,6 +123,7 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 ## License
 
 MIT License Â© 2025 watchthelight
+
 
 
 
