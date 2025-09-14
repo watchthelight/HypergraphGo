@@ -13,14 +13,16 @@ try {
     exit 1
 }
 
-$lines = $checksums -split "`n"
+$lines = ($checksums -replace "`r","") -split "`n"
 $checksum = $null
 $zipName = $null
 foreach ($line in $lines) {
-    if ($line -match "_windows_amd64\.zip$") {
-        $parts = $line -split " "
+    $t = $line.Trim()
+    if ($t -match '_windows_amd64\.zip$') {
+        $parts = $t -split '\s+'
         $checksum = $parts[0]
         $zipName = $parts[1]
+        Write-Host "Resolved Windows zip from checksums.txt -> $zipName"
         break
     }
 }
