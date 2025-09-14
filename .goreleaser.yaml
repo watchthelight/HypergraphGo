@@ -55,6 +55,7 @@ release:
 
 brews:
   - name: hg
+    ids: [unix-tarballs]
     repository:
       owner: TODO
       name: TODO
