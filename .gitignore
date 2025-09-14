@@ -50,3 +50,16 @@ credentials.ini
 # Downloaded tools
 goreleaser.zip
 goreleaser2.zip
+dist/
+temp_goreleaser/
+temp_goreleaser2/
+completions/
+manpages/
+
+# Local config and secrets
+config.ini
+credentials.ini
+
+# Downloaded tools
+goreleaser.zip
+goreleaser2.zip

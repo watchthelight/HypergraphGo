@@ -19,23 +19,18 @@ builds:
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: unix-tarballs
+  - id: universal
     builds: [hg]
     format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
     wrap_in_directory: false
     files:
       - LICENSE*
       - README.md
+    # keep lowercase os/arch in names
     name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-
-  - id: windows-zips
-    builds: [hg]
-    format: zip
-    wrap_in_directory: false
-    files:
-      - LICENSE*
-      - README.md
-    name_template: "hg_{{ .Version }}_windows_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -55,7 +50,7 @@ release:
 
 brews:
   - name: hg
-    ids: [unix-tarballs]
+    ids: [universal]
     skip_upload: true
     repository:
       owner: TODO
@@ -72,7 +67,7 @@ brews:
 
 scoops:
   - name: hg
-    ids: [windows-zips]
+    ids: [universal]
     skip_upload: true
     repository:
       owner: TODO

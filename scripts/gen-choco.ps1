@@ -7,20 +7,28 @@ param(
 $checksumsUrl = "https://github.com/$Repo/releases/download/v$Version/checksums.txt"
 
 try {
-    $checksums = Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing | Select-Object -ExpandProperty Content
+    $resp = Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing
+    $raw = $resp.Content
+    if ($raw -is [byte[]]) {
+        $checksums = [Text.Encoding]::UTF8.GetString($raw)
+    } else {
+        $checksums = [string]$raw
+    }
 } catch {
     Write-Error "Failed to download checksums.txt from $checksumsUrl"
     exit 1
 }
 
-$lines = $checksums -split "`n"
+$lines = ($checksums -replace "`r","") -split "`n"
 $checksum = $null
 $zipName = $null
 foreach ($line in $lines) {
-    if ($line -match "_windows_amd64\.zip$") {
-        $parts = $line -split " "
+    $t = $line.Trim()
+    if ($t -match '_windows_amd64\.zip$') {
+        $parts = $t -split '\s+'
         $checksum = $parts[0]
         $zipName = $parts[1]
+        Write-Host "Resolved Windows zip from checksums.txt -> $zipName"
         break
     }
 }
@@ -40,7 +48,7 @@ $installScript = $template -replace '\$version\$', $Version -replace '\$sha256_a
 Set-Content $installScriptPath $installScript
 
 # Update nuspec version
-$nuspecPath = "packaging/chocolatey/hg.nuspec"
+$nuspecPath = "packaging/chocolatey/hypergraphgo.nuspec"
 $nuspec = Get-Content $nuspecPath -Raw
 $nuspec = $nuspec -replace '__REPLACE__', $Version
 Set-Content $nuspecPath $nuspec
@@ -49,9 +57,11 @@ Set-Content $nuspecPath $nuspec
 choco pack $nuspecPath
 
 # Push
-$nupkg = "hg.$Version.nupkg"
+$nupkg = "hypergraphgo.$Version.nupkg"
 if (Test-Path $nupkg) {
-    choco push $nupkg --api-key $env:CHOCOLATEY_API_KEY
+    choco push $nupkg `
+      --source "https://push.chocolatey.org/" `
+      --api-key $env:CHOCOLATEY_API_KEY
 } else {
     Write-Error "Nupkg file $nupkg not found"
     exit 1
