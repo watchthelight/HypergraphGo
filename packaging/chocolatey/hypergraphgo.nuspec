@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
-    <id>hg</id>
+    <id>hypergraphgo</id>
     <version>__REPLACE__</version>
-    <title>hg</title>
+    <title>HypergraphGo</title>
     <authors>watchthelight</authors>
     <owners>watchthelight</owners>
     <licenseUrl>https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE</licenseUrl>
     <projectUrl>https://github.com/watchthelight/HypergraphGo</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>hg is a CLI tool for Hypergraph operations.</description>
+    <description>Hypergraph & HoTT tooling in Go</description>
     <summary>CLI tool for Hypergraph</summary>
     <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases</releaseNotes>
     <copyright>Copyright 2025 watchthelight</copyright>

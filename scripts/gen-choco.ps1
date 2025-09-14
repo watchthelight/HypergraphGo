@@ -48,7 +48,7 @@ $installScript = $template -replace '\$version\$', $Version -replace '\$sha256_a
 Set-Content $installScriptPath $installScript
 
 # Update nuspec version
-$nuspecPath = "packaging/chocolatey/hg.nuspec"
+$nuspecPath = "packaging/chocolatey/hypergraphgo.nuspec"
 $nuspec = Get-Content $nuspecPath -Raw
 $nuspec = $nuspec -replace '__REPLACE__', $Version
 Set-Content $nuspecPath $nuspec
@@ -57,7 +57,7 @@ Set-Content $nuspecPath $nuspec
 choco pack $nuspecPath
 
 # Push
-$nupkg = "hg.$Version.nupkg"
+$nupkg = "hypergraphgo.$Version.nupkg"
 if (Test-Path $nupkg) {
     choco push $nupkg `
       --source "https://push.chocolatey.org/" `
