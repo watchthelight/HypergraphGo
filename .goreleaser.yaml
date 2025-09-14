@@ -24,7 +24,7 @@ archives:
     format: tar.gz
     wrap_in_directory: false
     files:
-      - LICENSE
+      - LICENSE*
       - README.md
     name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
@@ -33,7 +33,7 @@ archives:
     format: zip
     wrap_in_directory: false
     files:
-      - LICENSE
+      - LICENSE*
       - README.md
     name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
