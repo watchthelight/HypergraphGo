@@ -71,6 +71,7 @@ brews:
 
 scoops:
   - name: hg
+    ids: [windows-zips]
     repository:
       owner: TODO
       name: TODO
