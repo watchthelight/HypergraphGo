@@ -97,8 +97,6 @@ go run ./examples/algorithms
 go get github.com/watchthelight/hypergraphgo
 ```
 
-Replace `watchthelight` and `hypergraphgo` with your GitHub username and repository name.
-
 ### Install via APT (Cloudsmith)
 ```bash
 curl -1sLf 'https://dl.cloudsmith.io/public/watchthelight/hypergraphgo/setup.deb.sh' | sudo -E bash
@@ -177,6 +175,7 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 ## License
 
 MIT License © 2025 watchthelight
+
 
 
 
