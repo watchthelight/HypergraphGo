@@ -35,7 +35,7 @@ archives:
     files:
       - LICENSE*
       - README.md
-    name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "hg_{{ .Version }}_windows_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
