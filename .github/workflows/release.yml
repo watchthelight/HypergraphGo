@@ -26,3 +26,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           SCOOP_GITHUB_TOKEN: ${{ secrets.SCOOP_GITHUB_TOKEN }}
+      
+      - name: Install Cloudsmith CLI
+        run: pipx install cloudsmith-cli
+
+      - name: Upload .deb to Cloudsmith (any distro/version)
+        env:
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+        run: |
+          set -euo pipefail
+          cloudsmith login --api-key "$CLOUDSMITH_API_KEY"
+          # Replace ORG and REPO below with our Cloudsmith slugs
+          ORG="watchthelight"
+          REPO="hypergraphgo"
+          shopt -s nullglob
+          for f in dist/*.deb; do
+            echo "Pushing $f"
+            cloudsmith push deb "$ORG/$REPO/any-distro/any-version" "$f"
+          done

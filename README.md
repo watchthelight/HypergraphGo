@@ -4,6 +4,7 @@
 [![release](https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver)](https://github.com/watchthelight/HypergraphGo/releases)
 [![AUR](https://img.shields.io/aur/version/hypergraphgo?label=AUR&logo=archlinux)](https://aur.archlinux.org/packages/hypergraphgo)
 [![choco](https://img.shields.io/chocolatey/v/hypergraphgo?label=choco)](https://community.chocolatey.org/packages/hypergraphgo)
+[![apt](https://img.shields.io/badge/apt-Cloudsmith-blue?logo=debian)](https://cloudsmith.io/~watchthelight/repos/hypergraphgo/packages/?q=hypergraphgo)
 
 A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
 
@@ -49,6 +50,13 @@ go get github.com/watchthelight/hypergraphgo
 ```
 
 Replace `watchthelight` and `hypergraphgo` with your GitHub username and repository name.
+
+### Debian/Ubuntu (APT)
+```bash
+curl -1sLf 'https://dl.cloudsmith.io/public/watchthelight/hypergraphgo/setup.deb.sh' | sudo -E bash
+sudo apt update
+sudo apt install hypergraphgo
+```
 
 ## Usage
 
@@ -121,15 +129,4 @@ This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
 
 ## License
 
-MIT License Â© 2025 watchthelight
-
-
-
-
-
-
-
-
-
-
-
+MIT License © 2025 watchthelight

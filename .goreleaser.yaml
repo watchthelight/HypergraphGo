@@ -46,7 +46,7 @@ changelog:
 
 release:
   draft: false
-  prerelease: false
+  prerelease: auto
 
 brews:
   - name: hg
@@ -79,3 +79,18 @@ scoops:
     description: "Hypergraph & HoTT tooling in Go"
     homepage: "https://github.com/watchthelight/HypergraphGo"
     license: "MIT"
+
+nfpms:
+  - id: deb
+    package_name: hypergraphgo
+    formats: [deb]
+    maintainer: "watchthelight <admin@watchthelight.org>"
+    description: "Hypergraph & HoTT tooling in Go"
+    license: "MIT"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    section: utils
+    priority: optional
+    bindir: /usr/bin
+    contents:
+      - src: ./dist/hg_*/hg
+        dst: /usr/bin/hg
