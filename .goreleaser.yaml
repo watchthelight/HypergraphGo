@@ -1,85 +1,97 @@
 version: 2
+
 project_name: hottgo
 
+before:
+  hooks:
+    - go mod tidy
+
 builds:
-  - id: cli
+  - id: hottgo
     main: ./cmd/hottgo
+    binary: hottgo
     env:
       - CGO_ENABLED=0
     goos: [linux, windows, darwin]
     goarch: [amd64, arm64]
-    binary: hottgo
     ldflags:
       - -s -w
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
-      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
+    mod_timestamp: "{{ .CommitDate }}"
 
 archives:
-  - id: tgz
-    builds: [cli]
+  - id: unix-tarballs
+    builds: [hottgo]
     format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # linux/darwin end up here
+    wrap_in_directory: false
     files:
       - LICENSE
       - README.md
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
-checksums:
-  name_template: 'checksums.txt'
+  - id: windows-zips
+    builds: [hottgo]
+    format: zip
+    # windows ends up here automatically
+    wrap_in_directory: false
+    files:
+      - LICENSE
+      - README.md
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^ci:"
+      - "^docs:"
+      - "^test:"
+
+release:
+  draft: false
+  prerelease: false
+
+# Generate deb/rpm via nfpm (optional but useful for apt/yum repos)
 nfpms:
-  - id: packages
-    builds: [cli]
-    formats:
-      - deb
-      - rpm
-      - apk
-      - archlinux
+  - id: linux-packages
+    package_name: hottgo
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+    builds: [hottgo]
     vendor: watchthelight
-    homepage: https://github.com/watchthelight/HypergraphGo
-    maintainer: watchthelight
-    description: HypergraphGo is a tool for working with hypergraphs.
+    maintainer: "watchthelight <admin@watchthelight.org>"
     license: MIT
-    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    description: "Hypergraph & HoTT tooling in Go"
+    formats: [deb, rpm]
+    bindir: /usr/bin
 
-publish:
+# Homebrew (formula in your tap)
+brews:
+  - name: hottgo
+    repository:
+      owner: watchthelight
+      name: homebrew-hottgo
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: watchthelight-bot
+      email: admin@watchthelight.org
+    description: "Hypergraph & HoTT tooling in Go"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    license: "MIT"
+    install: |
+      bin.install "hottgo"
+
+# Upload built artifacts + packages to Cloudsmith
+publishers:
   - name: cloudsmith
-    ids: [packages]
-    cloudsmiths:
-      - organization: watchthelight
-        repository: hottgo
-        distributions:
-          - deb: ubuntu/noble
-          - deb: ubuntu/jammy
-          - deb: debian/bookworm
-          - rpm: el/9
-          - rpm: fedora/40
-          - alpine: alpine/v3.20
-  - name: homebrew
-    homebrew:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: homebrew-hottgo
-      cask: true
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
-  - name: scoop
-    scoop:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: scoop-bucket
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
-  - name: winget
-    winget:
-      name: hottgo
-      repository:
-        owner: watchthelight
-        name: winget-pkgs
-      commit_author:
-        name: goreleaserbot
-        email: goreleaser@carlosbecker.com
+    # Requires CLOUDSMITH_TOKEN env set in CI
+    cmd: >
+      cloudsmith push raw watchthelight/hottgo
+      --name "{{ .ArtifactName }}"
+      --version "{{ .Version }}"
+      "{{ .ArtifactPath }}"
+    ids: ["all"]
