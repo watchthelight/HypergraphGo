@@ -563,3 +563,128 @@ func BenchmarkDeepNesting(b *testing.B) {
 		_, _ = checker.Synth(context, NoSpan(), term)
 	}
 }
+
+// TestNewCheckerWithEta tests eta-enabled checker creation.
+func TestNewCheckerWithEta(t *testing.T) {
+	checker := NewCheckerWithEta(NewGlobalEnvWithPrimitives())
+	if checker == nil {
+		t.Fatal("NewCheckerWithEta returned nil")
+	}
+	// Verify it can type check
+	context := emptyCtx()
+	_, err := checker.Synth(context, NoSpan(), ast.Global{Name: "Nat"})
+	if err != nil {
+		t.Errorf("Synth failed with eta checker: %v", err)
+	}
+}
+
+// TestInferAndCheck tests the combined infer-and-check convenience function.
+func TestInferAndCheck(t *testing.T) {
+	checker := NewChecker(NewGlobalEnvWithPrimitives())
+	context := emptyCtx()
+
+	// zero should infer Nat and match Nat
+	err := checker.InferAndCheck(context, NoSpan(), ast.Global{Name: "zero"}, ast.Global{Name: "Nat"})
+	if err != nil {
+		t.Errorf("InferAndCheck failed: %v", err)
+	}
+
+	// zero should not match Bool
+	err = checker.InferAndCheck(context, NoSpan(), ast.Global{Name: "zero"}, ast.Global{Name: "Bool"})
+	if err == nil {
+		t.Error("InferAndCheck should fail for zero : Bool")
+	}
+}
+
+// TestGlobalEnvAPI tests GlobalEnv methods.
+func TestGlobalEnvAPI(t *testing.T) {
+	env := NewGlobalEnv()
+
+	// Test AddDefinition and LookupDefinitionBody
+	env.AddDefinition("myNat", ast.Sort{U: 0}, ast.Global{Name: "Nat"}, Transparent)
+	body, ok := env.LookupDefinitionBody("myNat")
+	if !ok {
+		t.Error("LookupDefinitionBody should find transparent definition")
+	}
+	if g, ok := body.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("Expected Global{Nat}, got %v", body)
+	}
+
+	// Opaque definition should not return body
+	env.AddDefinition("opaque", ast.Sort{U: 0}, ast.Global{Name: "Bool"}, Opaque)
+	_, ok = env.LookupDefinitionBody("opaque")
+	if ok {
+		t.Error("LookupDefinitionBody should not return opaque body")
+	}
+
+	// Test AddInductive
+	env.AddInductive("MyType", ast.Sort{U: 0}, []Constructor{
+		{Name: "MkMyType", Type: ast.Global{Name: "MyType"}},
+	}, "myTypeElim")
+	ty := env.LookupType("MyType")
+	if ty == nil {
+		t.Error("LookupType should find inductive type")
+	}
+
+	// Test Has
+	if !env.Has("myNat") {
+		t.Error("Has should return true for myNat")
+	}
+	if env.Has("nonexistent") {
+		t.Error("Has should return false for nonexistent")
+	}
+
+	// Test Order
+	order := env.Order()
+	if len(order) == 0 {
+		t.Error("Order should return non-empty list")
+	}
+}
+
+// TestNilContext tests that nil context is handled gracefully.
+func TestNilContext(t *testing.T) {
+	checker := NewChecker(NewGlobalEnvWithPrimitives())
+
+	// Synth with nil context should work for closed terms
+	ty, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "Nat"})
+	if err != nil {
+		t.Errorf("Synth with nil context failed: %v", err)
+	}
+	if ty == nil {
+		t.Error("Synth returned nil type")
+	}
+
+	// Check with nil context should work
+	err = checker.Check(nil, NoSpan(), ast.Global{Name: "zero"}, ast.Global{Name: "Nat"})
+	if err != nil {
+		t.Errorf("Check with nil context failed: %v", err)
+	}
+
+	// CheckIsType with nil context should work
+	_, err = checker.CheckIsType(nil, NoSpan(), ast.Sort{U: 0})
+	if err != nil {
+		t.Errorf("CheckIsType with nil context failed: %v", err)
+	}
+}
+
+// TestErrorKindString tests ErrorKind.String() for all kinds.
+func TestErrorKindString(t *testing.T) {
+	kinds := []ErrorKind{
+		ErrUnboundVariable,
+		ErrTypeMismatch,
+		ErrNotAFunction,
+		ErrNotAPair,
+		ErrNotAType,
+		ErrUnknownGlobal,
+		ErrCannotInfer,
+		ErrOccursCheck,
+		ErrorKind(99), // unknown
+	}
+
+	for _, k := range kinds {
+		s := k.String()
+		if s == "" {
+			t.Errorf("ErrorKind(%d).String() returned empty", k)
+		}
+	}
+}

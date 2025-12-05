@@ -2,12 +2,12 @@ package check
 
 import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
-	"github.com/watchthelight/HypergraphGo/kernel/ctx"
+	tyctx "github.com/watchthelight/HypergraphGo/kernel/ctx"
 	"github.com/watchthelight/HypergraphGo/kernel/subst"
 )
 
 // synth implements type synthesis for all term constructors.
-func (c *Checker) synth(context *ctx.Ctx, span Span, term ast.Term) (ast.Term, *TypeError) {
+func (c *Checker) synth(context *tyctx.Ctx, span Span, term ast.Term) (ast.Term, *TypeError) {
 	if term == nil {
 		return nil, errCannotInfer(span, term)
 	}
@@ -53,7 +53,7 @@ func (c *Checker) synth(context *ctx.Ctx, span Span, term ast.Term) (ast.Term, *
 }
 
 // synthVar synthesizes the type of a variable by context lookup.
-func (c *Checker) synthVar(context *ctx.Ctx, span Span, v ast.Var) (ast.Term, *TypeError) {
+func (c *Checker) synthVar(context *tyctx.Ctx, span Span, v ast.Var) (ast.Term, *TypeError) {
 	ty, ok := context.LookupVar(v.Ix)
 	if !ok {
 		return nil, errUnboundVar(span, v.Ix)
@@ -78,7 +78,7 @@ func (c *Checker) synthGlobal(span Span, g ast.Global) (ast.Term, *TypeError) {
 
 // synthPi synthesizes the type of a Pi type.
 // Pi (x : A) . B : Sort (max U V) where A : Sort U and B : Sort V under x:A.
-func (c *Checker) synthPi(context *ctx.Ctx, span Span, pi ast.Pi) (ast.Term, *TypeError) {
+func (c *Checker) synthPi(context *tyctx.Ctx, span Span, pi ast.Pi) (ast.Term, *TypeError) {
 	// Check A is a type
 	levelA, err := c.checkIsType(context, span, pi.A)
 	if err != nil {
@@ -100,7 +100,7 @@ func (c *Checker) synthPi(context *ctx.Ctx, span Span, pi ast.Pi) (ast.Term, *Ty
 
 // synthSigma synthesizes the type of a Sigma type.
 // Sigma (x : A) . B : Sort (max U V) where A : Sort U and B : Sort V under x:A.
-func (c *Checker) synthSigma(context *ctx.Ctx, span Span, sigma ast.Sigma) (ast.Term, *TypeError) {
+func (c *Checker) synthSigma(context *tyctx.Ctx, span Span, sigma ast.Sigma) (ast.Term, *TypeError) {
 	// Check A is a type
 	levelA, err := c.checkIsType(context, span, sigma.A)
 	if err != nil {
@@ -122,7 +122,7 @@ func (c *Checker) synthSigma(context *ctx.Ctx, span Span, sigma ast.Sigma) (ast.
 
 // synthLam synthesizes the type of an annotated lambda.
 // Only annotated lambdas can be synthesized.
-func (c *Checker) synthLam(context *ctx.Ctx, span Span, lam ast.Lam) (ast.Term, *TypeError) {
+func (c *Checker) synthLam(context *tyctx.Ctx, span Span, lam ast.Lam) (ast.Term, *TypeError) {
 	if lam.Ann == nil {
 		return nil, errCannotInfer(span, lam)
 	}
@@ -148,7 +148,7 @@ func (c *Checker) synthLam(context *ctx.Ctx, span Span, lam ast.Lam) (ast.Term, 
 }
 
 // synthApp synthesizes the type of a function application.
-func (c *Checker) synthApp(context *ctx.Ctx, span Span, app ast.App) (ast.Term, *TypeError) {
+func (c *Checker) synthApp(context *tyctx.Ctx, span Span, app ast.App) (ast.Term, *TypeError) {
 	// Synthesize type of function
 	funTy, err := c.synth(context, span, app.T)
 	if err != nil {
@@ -171,7 +171,7 @@ func (c *Checker) synthApp(context *ctx.Ctx, span Span, app ast.App) (ast.Term, 
 }
 
 // synthFst synthesizes the type of a first projection.
-func (c *Checker) synthFst(context *ctx.Ctx, span Span, fst ast.Fst) (ast.Term, *TypeError) {
+func (c *Checker) synthFst(context *tyctx.Ctx, span Span, fst ast.Fst) (ast.Term, *TypeError) {
 	// Synthesize type of pair
 	pairTy, err := c.synth(context, span, fst.P)
 	if err != nil {
@@ -189,7 +189,7 @@ func (c *Checker) synthFst(context *ctx.Ctx, span Span, fst ast.Fst) (ast.Term, 
 }
 
 // synthSnd synthesizes the type of a second projection.
-func (c *Checker) synthSnd(context *ctx.Ctx, span Span, snd ast.Snd) (ast.Term, *TypeError) {
+func (c *Checker) synthSnd(context *tyctx.Ctx, span Span, snd ast.Snd) (ast.Term, *TypeError) {
 	// Synthesize type of pair
 	pairTy, err := c.synth(context, span, snd.P)
 	if err != nil {
@@ -207,7 +207,7 @@ func (c *Checker) synthSnd(context *ctx.Ctx, span Span, snd ast.Snd) (ast.Term, 
 }
 
 // synthLet synthesizes the type of a let expression.
-func (c *Checker) synthLet(context *ctx.Ctx, span Span, let ast.Let) (ast.Term, *TypeError) {
+func (c *Checker) synthLet(context *tyctx.Ctx, span Span, let ast.Let) (ast.Term, *TypeError) {
 	var valTy ast.Term
 
 	if let.Ann != nil {
@@ -246,7 +246,7 @@ func (c *Checker) synthLet(context *ctx.Ctx, span Span, let ast.Let) (ast.Term, 
 }
 
 // check implements type checking mode.
-func (c *Checker) check(context *ctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+func (c *Checker) check(context *tyctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
 	if term == nil {
 		return errCannotInfer(span, term)
 	}
@@ -271,7 +271,7 @@ func (c *Checker) check(context *ctx.Ctx, span Span, term ast.Term, expected ast
 }
 
 // checkBySynth checks a term by synthesizing its type and comparing.
-func (c *Checker) checkBySynth(context *ctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+func (c *Checker) checkBySynth(context *tyctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
 	inferred, err := c.synth(context, span, term)
 	if err != nil {
 		return err
@@ -284,7 +284,7 @@ func (c *Checker) checkBySynth(context *ctx.Ctx, span Span, term ast.Term, expec
 }
 
 // checkLam checks an unannotated lambda against a Pi type.
-func (c *Checker) checkLam(context *ctx.Ctx, span Span, lam ast.Lam, expected ast.Term) *TypeError {
+func (c *Checker) checkLam(context *tyctx.Ctx, span Span, lam ast.Lam, expected ast.Term) *TypeError {
 	// Ensure expected type is a Pi
 	pi, err := c.ensurePi(span, expected)
 	if err != nil {
@@ -300,7 +300,7 @@ func (c *Checker) checkLam(context *ctx.Ctx, span Span, lam ast.Lam, expected as
 }
 
 // checkPair checks a pair against a Sigma type.
-func (c *Checker) checkPair(context *ctx.Ctx, span Span, pair ast.Pair, expected ast.Term) *TypeError {
+func (c *Checker) checkPair(context *tyctx.Ctx, span Span, pair ast.Pair, expected ast.Term) *TypeError {
 	// Ensure expected type is a Sigma
 	sigma, err := c.ensureSigma(span, expected)
 	if err != nil {
@@ -320,7 +320,7 @@ func (c *Checker) checkPair(context *ctx.Ctx, span Span, pair ast.Pair, expected
 }
 
 // checkIsType checks that a term is a valid type and returns its universe level.
-func (c *Checker) checkIsType(context *ctx.Ctx, span Span, term ast.Term) (ast.Level, *TypeError) {
+func (c *Checker) checkIsType(context *tyctx.Ctx, span Span, term ast.Term) (ast.Level, *TypeError) {
 	ty, err := c.synth(context, span, term)
 	if err != nil {
 		return 0, err

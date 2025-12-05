@@ -4,7 +4,7 @@ import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 	"github.com/watchthelight/HypergraphGo/internal/core"
 	"github.com/watchthelight/HypergraphGo/internal/eval"
-	"github.com/watchthelight/HypergraphGo/kernel/ctx"
+	tyctx "github.com/watchthelight/HypergraphGo/kernel/ctx"
 )
 
 // Checker performs bidirectional type checking.
@@ -42,24 +42,40 @@ func (c *Checker) Globals() *GlobalEnv {
 
 // Synth synthesizes (infers) the type of a term.
 // Returns the inferred type and nil error on success.
-func (c *Checker) Synth(ctx *ctx.Ctx, span Span, term ast.Term) (ast.Term, *TypeError) {
+// If ctx is nil, an empty context is used.
+func (c *Checker) Synth(ctx *tyctx.Ctx, span Span, term ast.Term) (ast.Term, *TypeError) {
+	if ctx == nil {
+		ctx = &tyctx.Ctx{}
+	}
 	return c.synth(ctx, span, term)
 }
 
 // Check verifies that a term has the expected type.
 // Returns nil on success.
-func (c *Checker) Check(ctx *ctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+// If ctx is nil, an empty context is used.
+func (c *Checker) Check(ctx *tyctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+	if ctx == nil {
+		ctx = &tyctx.Ctx{}
+	}
 	return c.check(ctx, span, term, expected)
 }
 
 // CheckIsType verifies that a term is a well-formed type.
 // Returns the universe level and nil error on success.
-func (c *Checker) CheckIsType(ctx *ctx.Ctx, span Span, term ast.Term) (ast.Level, *TypeError) {
+// If ctx is nil, an empty context is used.
+func (c *Checker) CheckIsType(ctx *tyctx.Ctx, span Span, term ast.Term) (ast.Level, *TypeError) {
+	if ctx == nil {
+		ctx = &tyctx.Ctx{}
+	}
 	return c.checkIsType(ctx, span, term)
 }
 
 // InferAndCheck is a convenience that synthesizes a type and checks it against expected.
-func (c *Checker) InferAndCheck(ctx *ctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+// If ctx is nil, an empty context is used.
+func (c *Checker) InferAndCheck(ctx *tyctx.Ctx, span Span, term ast.Term, expected ast.Term) *TypeError {
+	if ctx == nil {
+		ctx = &tyctx.Ctx{}
+	}
 	inferred, err := c.synth(ctx, span, term)
 	if err != nil {
 		return err
@@ -73,11 +89,6 @@ func (c *Checker) InferAndCheck(ctx *ctx.Ctx, span Span, term ast.Term, expected
 // conv checks definitional equality using the core conversion checker.
 func (c *Checker) conv(t, u ast.Term) bool {
 	return core.Conv(core.NewEnv(), t, u, c.convOpts)
-}
-
-// normalize reduces a term to normal form using NbE.
-func (c *Checker) normalize(t ast.Term) ast.Term {
-	return eval.EvalNBE(t)
 }
 
 // whnf reduces a term to weak head normal form.
