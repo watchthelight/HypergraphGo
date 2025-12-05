@@ -2,7 +2,7 @@
 # Submit to: https://github.com/microsoft/winget-pkgs
 # Path: manifests/w/watchthelight/hg/<version>/watchthelight.hg.yaml
 PackageIdentifier: watchthelight.hg
-PackageVersion: "1.3.0"
+PackageVersion: "1.4.0"
 PackageLocale: en-US
 Publisher: watchthelight
 PublisherUrl: https://github.com/watchthelight
@@ -24,16 +24,16 @@ Tags:
   - type-theory
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.3.0/hg_1.3.0_windows_amd64.zip
-    InstallerSha256: PLACEHOLDER_SHA256_WINDOWS_AMD64
+    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.4.0/hg_1.4.0_windows_amd64.zip
+    InstallerSha256: 6f5025e1ae18f0e6c5be65657394b356578acb0dccb0706f826e7d9e3a2964fb
     InstallerType: zip
     NestedInstallerType: portable
     NestedInstallerFiles:
       - RelativeFilePath: hg.exe
         PortableCommandAlias: hg
   - Architecture: arm64
-    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.3.0/hg_1.3.0_windows_arm64.zip
-    InstallerSha256: PLACEHOLDER_SHA256_WINDOWS_ARM64
+    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.4.0/hg_1.4.0_windows_arm64.zip
+    InstallerSha256: 6034d4728e50e427b893cad0b91d9d9bee1c88ec704613789049987470ff1494
     InstallerType: zip
     NestedInstallerType: portable
     NestedInstallerFiles:

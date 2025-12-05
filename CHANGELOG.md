@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-05
+
+### Fixed
+- **Homebrew formula** (`Formula/hg.rb`)
+  - Updated to v1.4.0 with correct SHA256 checksums for all platforms
+- **Winget manifest** (`packaging/winget/watchthelight.hg.yaml`)
+  - Updated to v1.4.0 with correct SHA256 checksums for Windows amd64/arm64
+- **Chocolatey uninstall script** (`packaging/chocolatey/tools/chocolateyuninstall.ps1`)
+  - Fixed binary name from `hottgo.exe` to `hg.exe`
+- **GoReleaser configuration** (`.goreleaser.yaml`)
+  - Filled brew tap settings: `watchthelight/homebrew-tap`
+  - Filled scoop bucket settings: `watchthelight/scoop-bucket`
+
 ## [1.3.0] - 2025-12-05
 
 ### Added
