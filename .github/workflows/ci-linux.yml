@@ -9,6 +9,8 @@ jobs:
   test-linux:
     name: test (ubuntu-latest)
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     defaults:
       run:
         shell: bash

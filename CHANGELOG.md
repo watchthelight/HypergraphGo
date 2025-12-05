@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Nil context treated as empty context instead of causing panic
 - **Removed unused `etaExpand` function** (`internal/core/conv.go`)
   - Dead code cleanup; eta equality uses `etaEqual` instead
+- **CI toolchain version mismatch** (`.github/workflows/`)
+  - Added `GOTOOLCHAIN: local` to all workflows to prevent Go from auto-downloading newer toolchain versions
+  - Fixes version mismatch errors when GitHub Actions has older patch version than latest available
 
 ### Changed (Breaking)
 - **Go version requirement bumped to 1.25**
