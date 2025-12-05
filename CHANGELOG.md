@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-05
+
+### Added
+- **Martin-Lof Identity Types** (`internal/ast/term.go`, `kernel/check/bidir.go` - Phase 4 M6a)
+  - New AST nodes: `Id`, `Refl`, `J` for identity types
+  - Formation rule: `Id A x y : Type_i` where `A : Type_i` and `x, y : A`
+  - Introduction rule: `refl A x : Id A x x`
+  - Elimination rule: `J A C d x y p : C y p` (path induction)
+  - Computation rule: `J A C d x x (refl A x) --> d`
+- **NbE support** (`internal/eval/nbe.go`)
+  - New value types: `VId`, `VRefl`
+  - J reduction in semantic domain
+- **Substitution support** (`kernel/subst/subst.go`)
+  - `Shift` and `Subst` cases for Id, Refl, J
+- **Conversion support** (`internal/core/conv.go`)
+  - `AlphaEq` and `shiftTerm` cases for identity types
+- **Pretty printing** (`internal/ast/print.go`)
+  - S-expression printing for Id, Refl, J
+- **Documentation** (`docs/rules/id.md`)
+  - Complete typing rules for identity types
+  - Derived operations: transport, symmetry, transitivity, congruence
+- **Test suite** (`kernel/check/id_test.go`)
+  - TestIdTypeFormation, TestRefl, TestJComputation
+  - TestJTyping, TestTransport (success criterion)
+  - TestSymmetry, TestIdTypeMismatch, TestReflTypeMismatch
+- **Architecture diagrams** (`DIAGRAMS.md`)
+  - 12 Mermaid diagrams covering kernel architecture
+  - Term/Value type hierarchies, NbE pipeline, type checking flow
+
 ## [1.4.0] - 2025-12-05
 
 ### Fixed

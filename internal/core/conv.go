@@ -186,6 +186,26 @@ func shiftTerm(t ast.Term, d, cutoff int) ast.Term {
 			Val:    shiftTerm(tm.Val, d, cutoff),
 			Body:   shiftTerm(tm.Body, d, cutoff+1),
 		}
+	case ast.Id:
+		return ast.Id{
+			A: shiftTerm(tm.A, d, cutoff),
+			X: shiftTerm(tm.X, d, cutoff),
+			Y: shiftTerm(tm.Y, d, cutoff),
+		}
+	case ast.Refl:
+		return ast.Refl{
+			A: shiftTerm(tm.A, d, cutoff),
+			X: shiftTerm(tm.X, d, cutoff),
+		}
+	case ast.J:
+		return ast.J{
+			A: shiftTerm(tm.A, d, cutoff),
+			C: shiftTerm(tm.C, d, cutoff),
+			D: shiftTerm(tm.D, d, cutoff),
+			X: shiftTerm(tm.X, d, cutoff),
+			Y: shiftTerm(tm.Y, d, cutoff),
+			P: shiftTerm(tm.P, d, cutoff),
+		}
 	default:
 		return t
 	}
@@ -246,6 +266,19 @@ func AlphaEq(a, b ast.Term) bool {
 			return AlphaEq(a.Val, bb.Val) && AlphaEq(a.Body, bb.Body) &&
 				((a.Ann == nil && bb.Ann == nil) ||
 					(a.Ann != nil && bb.Ann != nil && AlphaEq(a.Ann, bb.Ann)))
+		}
+	case ast.Id:
+		if bb, ok := b.(ast.Id); ok {
+			return AlphaEq(a.A, bb.A) && AlphaEq(a.X, bb.X) && AlphaEq(a.Y, bb.Y)
+		}
+	case ast.Refl:
+		if bb, ok := b.(ast.Refl); ok {
+			return AlphaEq(a.A, bb.A) && AlphaEq(a.X, bb.X)
+		}
+	case ast.J:
+		if bb, ok := b.(ast.J); ok {
+			return AlphaEq(a.A, bb.A) && AlphaEq(a.C, bb.C) && AlphaEq(a.D, bb.D) &&
+				AlphaEq(a.X, bb.X) && AlphaEq(a.Y, bb.Y) && AlphaEq(a.P, bb.P)
 		}
 	}
 	return false

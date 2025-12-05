@@ -66,6 +66,23 @@ type VGlobal struct{ Name string }
 
 func (VGlobal) isValue() {}
 
+// VId represents identity type values.
+type VId struct {
+	A Value
+	X Value
+	Y Value
+}
+
+func (VId) isValue() {}
+
+// VRefl represents reflexivity proof values.
+type VRefl struct {
+	A Value
+	X Value
+}
+
+func (VRefl) isValue() {}
+
 // Closure captures an environment and a term for lazy evaluation.
 type Closure struct {
 	Env  *Env
@@ -181,6 +198,26 @@ func Eval(env *Env, t ast.Term) Value {
 		newEnv := env.Extend(val)
 		return Eval(newEnv, tm.Body)
 
+	case ast.Id:
+		a := Eval(env, tm.A)
+		x := Eval(env, tm.X)
+		y := Eval(env, tm.Y)
+		return VId{A: a, X: x, Y: y}
+
+	case ast.Refl:
+		a := Eval(env, tm.A)
+		x := Eval(env, tm.X)
+		return VRefl{A: a, X: x}
+
+	case ast.J:
+		a := Eval(env, tm.A)
+		c := Eval(env, tm.C)
+		d := Eval(env, tm.D)
+		x := Eval(env, tm.X)
+		y := Eval(env, tm.Y)
+		p := Eval(env, tm.P)
+		return evalJ(a, c, d, x, y, p)
+
 	default:
 		// Fallback for unknown terms
 		return VGlobal{Name: "unknown"}
@@ -252,6 +289,19 @@ func Snd(v Value) Value {
 	}
 }
 
+// evalJ handles J elimination (path induction).
+// The computation rule is: J A C d x x (refl A x) --> d
+func evalJ(a, c, d, x, y, p Value) Value {
+	// Check if p is refl - this triggers the computation rule
+	if _, ok := p.(VRefl); ok {
+		// J A C d x x (refl A x) --> d
+		return d
+	}
+	// Stuck: return neutral J application
+	head := Head{Glob: "J"}
+	return VNeutral{N: Neutral{Head: head, Sp: []Value{a, c, d, x, y, p}}}
+}
+
 // Reify converts a Value back to an ast.Term in normal form.
 //
 // This is the "read back" phase of NbE that extracts syntax from semantics:
@@ -300,6 +350,17 @@ func Reify(v Value) ast.Term {
 		bVal := Apply(VLam{Body: val.B}, freshVar)
 		b := Reify(bVal)
 		return ast.Sigma{Binder: "_", A: a, B: b}
+
+	case VId:
+		a := Reify(val.A)
+		x := Reify(val.X)
+		y := Reify(val.Y)
+		return ast.Id{A: a, X: x, Y: y}
+
+	case VRefl:
+		a := Reify(val.A)
+		x := Reify(val.X)
+		return ast.Refl{A: a, X: x}
 
 	default:
 		return ast.Global{Name: "reify_error"}

@@ -22,31 +22,31 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 
 ## Latest Release
 
-### v1.3.0 - Phase 3 Complete: Bidirectional Type Checking ✅
+### v1.5.0 - Phase 4 M6a: Martin-Löf Identity Types ✅
 
 **New HoTT Kernel Features:**
+- **Identity types**: `Id A x y` for propositional equality
+- **Reflexivity**: `refl A x : Id A x x`
+- **Path induction**: `J A C d x y p : C y p` eliminator
+- **Computation rule**: `J A C d x x (refl A x) --> d`
+- **NbE support**: `VId`, `VRefl` semantic values with J reduction
+- **Derived operations**: transport, symmetry, transitivity, congruence
+- **Success criterion met**: Transport operation proven via J ✓
+
+### v1.3.0 - Phase 3 Complete: Bidirectional Type Checking ✅
+
+**HoTT Kernel Features:**
 - **Bidirectional type checker** at `kernel/check` with `Synth`/`Check`/`CheckIsType` API
 - **Built-in primitives**: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
 - **Structured error types** with source spans for precise diagnostics
 - **Global environment** with axioms, definitions, inductives, and primitives
-- **Success criterion met**: `λA.λx.x : Π(A:Type).A→A` typechecks ✓
 
 ### v1.2.0 - Phase 2 Complete: Normalization and Definitional Equality ✅
 
 **HoTT Kernel Features:**
 - **NbE skeleton** integrated under `internal/eval` with semantic domain (Values, Closures, Neutrals)
 - **Definitional equality checker** added at `core.Conv` with environment support
-- **Optional η-rules** for functions (`f ≡ \x. f x`) and pairs (`p ≡ (fst p, snd p)`) behind feature flags
-- **Expanded test suite** with 22 new NbE tests + 15 conversion tests
-- **Performance benchmarks** showing ~108 ns/op for simple conversions
-- **WHNF + spine** representation for stuck computations
-- **Reify/reflect** infrastructure for Value ↔ Term conversion
-
-**Quality Improvements:**
-- All tests deterministic and CI-friendly
-- No panics in kernel paths, graceful error handling
-- Kernel boundary maintained (no Value types leak)
-- Standard library only, no external dependencies
+- **Optional η-rules** for functions and pairs behind feature flags
 
 ## Roadmap Progress
 
@@ -58,7 +58,7 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 1** | ✅ | Syntax, binding, pretty printing |
 | **Phase 2** | ✅ | **Normalization and definitional equality** |
 | **Phase 3** | ✅ | **Bidirectional type checking** |
-| **Phase 4** | 🚧 | Identity/Path types (cubical knob) |
+| **Phase 4** | ✅ | Identity types (M6a complete, cubical M6b planned) |
 | **Phase 5** | ⏳ | Inductives, recursors, positivity |
 | **Phase 6** | ⏳ | Univalence |
 | **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
@@ -66,8 +66,8 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current Milestone:** M6 - Identity/Path types
-**Next Target:** Cubical identity types and path operations
+**Current Milestone:** M6a Complete - Martin-Löf Identity Types
+**Next Target:** M6b - Cubical Path types (gated with build tags)
 
 ## Quickstart
 

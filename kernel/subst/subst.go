@@ -59,6 +59,26 @@ func Shift(d, cutoff int, t ast.Term) ast.Term {
 			Val:    Shift(d, cutoff, tm.Val),
 			Body:   Shift(d, cutoff+1, tm.Body),
 		}
+	case ast.Id:
+		return ast.Id{
+			A: Shift(d, cutoff, tm.A),
+			X: Shift(d, cutoff, tm.X),
+			Y: Shift(d, cutoff, tm.Y),
+		}
+	case ast.Refl:
+		return ast.Refl{
+			A: Shift(d, cutoff, tm.A),
+			X: Shift(d, cutoff, tm.X),
+		}
+	case ast.J:
+		return ast.J{
+			A: Shift(d, cutoff, tm.A),
+			C: Shift(d, cutoff, tm.C),
+			D: Shift(d, cutoff, tm.D),
+			X: Shift(d, cutoff, tm.X),
+			Y: Shift(d, cutoff, tm.Y),
+			P: Shift(d, cutoff, tm.P),
+		}
 	default:
 		// Unknown term types are returned unchanged (treated as terminals)
 		return t
@@ -121,6 +141,26 @@ func Subst(j int, s ast.Term, t ast.Term) ast.Term {
 			Ann:    Subst(j, s, tm.Ann),
 			Val:    Subst(j, s, tm.Val),
 			Body:   Subst(j+1, Shift(1, 0, s), tm.Body),
+		}
+	case ast.Id:
+		return ast.Id{
+			A: Subst(j, s, tm.A),
+			X: Subst(j, s, tm.X),
+			Y: Subst(j, s, tm.Y),
+		}
+	case ast.Refl:
+		return ast.Refl{
+			A: Subst(j, s, tm.A),
+			X: Subst(j, s, tm.X),
+		}
+	case ast.J:
+		return ast.J{
+			A: Subst(j, s, tm.A),
+			C: Subst(j, s, tm.C),
+			D: Subst(j, s, tm.D),
+			X: Subst(j, s, tm.X),
+			Y: Subst(j, s, tm.Y),
+			P: Subst(j, s, tm.P),
 		}
 	default:
 		// Unknown term types are returned unchanged (treated as terminals)

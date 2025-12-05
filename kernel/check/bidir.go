@@ -47,6 +47,15 @@ func (c *Checker) synth(context *tyctx.Ctx, span Span, term ast.Term) (ast.Term,
 	case ast.Let:
 		return c.synthLet(context, span, t)
 
+	case ast.Id:
+		return c.synthId(context, span, t)
+
+	case ast.Refl:
+		return c.synthRefl(context, span, t)
+
+	case ast.J:
+		return c.synthJ(context, span, t)
+
 	default:
 		return nil, errCannotInfer(span, term)
 	}
@@ -243,6 +252,114 @@ func (c *Checker) synthLet(context *tyctx.Ctx, span Span, let ast.Let) (ast.Term
 
 	// Substitute value into body type: bodyTy[val/x]
 	return subst.Subst(0, let.Val, bodyTy), nil
+}
+
+// synthId synthesizes the type of an identity type.
+// Id A x y : Sort U where A : Sort U, x : A, y : A
+func (c *Checker) synthId(context *tyctx.Ctx, span Span, id ast.Id) (ast.Term, *TypeError) {
+	// Check A is a type
+	level, err := c.checkIsType(context, span, id.A)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check x : A
+	if checkErr := c.check(context, span, id.X, id.A); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Check y : A
+	if checkErr := c.check(context, span, id.Y, id.A); checkErr != nil {
+		return nil, checkErr
+	}
+
+	return ast.Sort{U: level}, nil
+}
+
+// synthRefl synthesizes the type of a reflexivity proof.
+// refl A x : Id A x x
+func (c *Checker) synthRefl(context *tyctx.Ctx, span Span, refl ast.Refl) (ast.Term, *TypeError) {
+	// Check A is a type
+	_, err := c.checkIsType(context, span, refl.A)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check x : A
+	if checkErr := c.check(context, span, refl.X, refl.A); checkErr != nil {
+		return nil, checkErr
+	}
+
+	return ast.Id{A: refl.A, X: refl.X, Y: refl.X}, nil
+}
+
+// synthJ synthesizes the type of J elimination (path induction).
+// J A C d x y p : C y p
+// where:
+//
+//	A : Type
+//	C : (y : A) -> Id A x y -> Type   (motive)
+//	d : C x (refl A x)                (base case)
+//	x : A                             (left endpoint)
+//	y : A                             (right endpoint)
+//	p : Id A x y                      (proof of equality)
+func (c *Checker) synthJ(context *tyctx.Ctx, span Span, j ast.J) (ast.Term, *TypeError) {
+	// Check A is a type
+	levelA, err := c.checkIsType(context, span, j.A)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check x : A
+	if checkErr := c.check(context, span, j.X, j.A); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Check y : A
+	if checkErr := c.check(context, span, j.Y, j.A); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Build motive type: (y : A) -> Id A x y -> Type
+	motiveType := c.mkJMotiveType(j.A, j.X, levelA)
+	if checkErr := c.check(context, span, j.C, motiveType); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Check d : C x (refl A x)
+	// dType = C applied to x and (refl A x)
+	reflXX := ast.Refl{A: j.A, X: j.X}
+	dType := ast.MkApps(j.C, j.X, reflXX)
+	if checkErr := c.check(context, span, j.D, dType); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Check p : Id A x y
+	idType := ast.Id{A: j.A, X: j.X, Y: j.Y}
+	if checkErr := c.check(context, span, j.P, idType); checkErr != nil {
+		return nil, checkErr
+	}
+
+	// Result type: C y p
+	return ast.MkApps(j.C, j.Y, j.P), nil
+}
+
+// mkJMotiveType builds the motive type for J: (y : A) -> Id A x y -> Type
+func (c *Checker) mkJMotiveType(a, x ast.Term, level ast.Level) ast.Term {
+	// Pi (y : A). Pi (p : Id A x y). Sort level
+	// Under the y binder: x is shifted by 1, A is shifted by 1
+	aShifted := subst.Shift(1, 0, a)
+	xShifted := subst.Shift(1, 0, x)
+
+	return ast.Pi{
+		Binder: "y",
+		A:      a,
+		B: ast.Pi{
+			Binder: "p",
+			A:      ast.Id{A: aShifted, X: xShifted, Y: ast.Var{Ix: 0}},
+			B:      ast.Sort{U: level},
+		},
+	}
 }
 
 // check implements type checking mode.

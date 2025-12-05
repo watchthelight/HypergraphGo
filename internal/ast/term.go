@@ -81,6 +81,45 @@ type Let struct {
 
 func (Let) isCoreTerm() {}
 
+// Id represents the identity type: Id A x y
+// "x and y are propositionally equal in type A"
+type Id struct {
+	A Term // Type
+	X Term // Left endpoint
+	Y Term // Right endpoint
+}
+
+func (Id) isCoreTerm() {}
+
+// Refl is the reflexivity constructor: refl A x : Id A x x
+type Refl struct {
+	A Term // Type
+	X Term // The term being proven equal to itself
+}
+
+func (Refl) isCoreTerm() {}
+
+// J is the identity eliminator (path induction).
+// J A C d x y p : C y p
+// where:
+//
+//	A : Type
+//	C : (y : A) -> Id A x y -> Type   (motive)
+//	D : C x (refl A x)                (base case)
+//	X : A                             (left endpoint)
+//	Y : A                             (right endpoint)
+//	P : Id A x y                      (proof of equality)
+type J struct {
+	A Term // Type
+	C Term // Motive: (y : A) -> Id A x y -> Type
+	D Term // Base case: C x (refl A x)
+	X Term // Left endpoint
+	Y Term // Right endpoint
+	P Term // Proof: Id A x y
+}
+
+func (J) isCoreTerm() {}
+
 // Term is the interface for all core terms.
 type Term interface{ isCoreTerm() }
 
