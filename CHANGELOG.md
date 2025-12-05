@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Removed panics in substitution functions** (`kernel/subst/subst.go`)
+  - `Shift` and `Subst` now return unknown term types unchanged instead of panicking
+  - Improves robustness when encountering unexpected AST nodes
+- **Nil environment handling in Eval** (`internal/eval/nbe.go`)
+  - `Eval` now handles nil environment gracefully by using empty environment
+  - Prevents nil pointer dereference when called without environment
+- **Edge case in GreedyHittingSet** (`hypergraph/algorithms.go`)
+  - Fixed potential use of uninitialized vertex when no vertices have positive degree
+  - Changed condition from `maxDeg == 0` to `maxDeg <= 0` to handle empty graphs
+
 ## [1.2.0] - 2024-12-19
 
 ### Added

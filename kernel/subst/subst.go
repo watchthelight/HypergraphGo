@@ -60,7 +60,8 @@ func Shift(d, cutoff int, t ast.Term) ast.Term {
 			Body:   Shift(d, cutoff+1, tm.Body),
 		}
 	default:
-		panic("unhandled term type in Shift")
+		// Unknown term types are returned unchanged (treated as terminals)
+		return t
 	}
 }
 
@@ -122,6 +123,7 @@ func Subst(j int, s ast.Term, t ast.Term) ast.Term {
 			Body:   Subst(j+1, Shift(1, 0, s), tm.Body),
 		}
 	default:
-		panic("unhandled term type in Subst")
+		// Unknown term types are returned unchanged (treated as terminals)
+		return t
 	}
 }

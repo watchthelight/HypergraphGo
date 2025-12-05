@@ -102,6 +102,9 @@ func Eval(env *Env, t ast.Term) Value {
 	if t == nil {
 		return VGlobal{Name: "nil"} // fallback for nil terms
 	}
+	if env == nil {
+		env = &Env{Bindings: nil} // use empty environment if nil
+	}
 
 	switch tm := t.(type) {
 	case ast.Var:

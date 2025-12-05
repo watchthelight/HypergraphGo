@@ -29,8 +29,8 @@ func (h *Hypergraph[V]) GreedyHittingSet() []V {
 				bestV = v
 			}
 		}
-		if maxDeg == 0 {
-			break
+		if maxDeg <= 0 {
+			break // no vertex found with positive degree
 		}
 		hittingSet = append(hittingSet, bestV)
 		for e := range h.vertexToEdges[bestV] {
