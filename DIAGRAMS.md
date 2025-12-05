@@ -405,45 +405,45 @@ flowchart TB
     CheckDispatch --> TypeError
     Reify --> NormalForm
 
-    %% DARK COLOR SCHEME
-    style InputLayer fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style KernelCheck fill:#1a4731,stroke:#22c55e,color:#fff
-    style KernelSubst fill:#1a4731,stroke:#22c55e,color:#fff
-    style KernelCtx fill:#1a4731,stroke:#22c55e,color:#fff
-    style InternalCore fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style InternalEval fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style InternalAST fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style OutputLayer fill:#5f1e2e,stroke:#ef4444,color:#fff
+    %% DARK COLOR SCHEME - All black/dark gray
+    style InputLayer fill:#1a1a1a,stroke:#444,color:#fff
+    style KernelCheck fill:#1a1a1a,stroke:#444,color:#fff
+    style KernelSubst fill:#1a1a1a,stroke:#444,color:#fff
+    style KernelCtx fill:#1a1a1a,stroke:#444,color:#fff
+    style InternalCore fill:#1a1a1a,stroke:#444,color:#fff
+    style InternalEval fill:#1a1a1a,stroke:#444,color:#fff
+    style InternalAST fill:#1a1a1a,stroke:#444,color:#fff
+    style OutputLayer fill:#1a1a1a,stroke:#444,color:#fff
 
-    style CheckerCore fill:#134e3a,stroke:#10b981,color:#fff
-    style SynthesisMode fill:#14532d,stroke:#22c55e,color:#fff
-    style CheckingMode fill:#14532d,stroke:#22c55e,color:#fff
-    style Helpers fill:#1c4428,stroke:#4ade80,color:#fff
+    style CheckerCore fill:#222,stroke:#555,color:#fff
+    style SynthesisMode fill:#222,stroke:#555,color:#fff
+    style CheckingMode fill:#222,stroke:#555,color:#fff
+    style Helpers fill:#222,stroke:#555,color:#fff
 
-    style AtomicSynth fill:#0f3d2e,stroke:#34d399,color:#fff
-    style FunctionSynth fill:#0f3d2e,stroke:#34d399,color:#fff
-    style ProductSynth fill:#0f3d2e,stroke:#34d399,color:#fff
-    style IdentitySynth fill:#0f3d2e,stroke:#34d399,color:#fff
-    style ControlSynth fill:#0f3d2e,stroke:#34d399,color:#fff
+    style AtomicSynth fill:#2a2a2a,stroke:#666,color:#fff
+    style FunctionSynth fill:#2a2a2a,stroke:#666,color:#fff
+    style ProductSynth fill:#2a2a2a,stroke:#666,color:#fff
+    style IdentitySynth fill:#2a2a2a,stroke:#666,color:#fff
+    style ControlSynth fill:#2a2a2a,stroke:#666,color:#fff
 
-    style EvalCore fill:#2e1a47,stroke:#c084fc,color:#fff
-    style EvalDispatch fill:#2e1a47,stroke:#c084fc,color:#fff
-    style ApplyCore fill:#2e1a47,stroke:#c084fc,color:#fff
-    style JElim fill:#2e1a47,stroke:#c084fc,color:#fff
-    style ReifyDispatch fill:#2e1a47,stroke:#c084fc,color:#fff
-    style SemanticDomain fill:#1e1338,stroke:#a78bfa,color:#fff
-    style NeutralTerms fill:#1e1338,stroke:#a78bfa,color:#fff
-    style Environment fill:#1e1338,stroke:#a78bfa,color:#fff
-    style Closure fill:#1e1338,stroke:#a78bfa,color:#fff
+    style EvalCore fill:#222,stroke:#555,color:#fff
+    style EvalDispatch fill:#222,stroke:#555,color:#fff
+    style ApplyCore fill:#222,stroke:#555,color:#fff
+    style JElim fill:#222,stroke:#555,color:#fff
+    style ReifyDispatch fill:#222,stroke:#555,color:#fff
+    style SemanticDomain fill:#2a2a2a,stroke:#666,color:#fff
+    style NeutralTerms fill:#2a2a2a,stroke:#666,color:#fff
+    style Environment fill:#2a2a2a,stroke:#666,color:#fff
+    style Closure fill:#2a2a2a,stroke:#666,color:#fff
 
-    style TermInterface fill:#2e1a47,stroke:#c084fc,color:#fff
-    style TermTypes fill:#1e1338,stroke:#a78bfa,color:#fff
-    style Atomic fill:#1a1030,stroke:#8b5cf6,color:#fff
-    style Functions fill:#1a1030,stroke:#8b5cf6,color:#fff
-    style Products fill:#1a1030,stroke:#8b5cf6,color:#fff
-    style Identity fill:#1a1030,stroke:#8b5cf6,color:#fff
-    style Control fill:#1a1030,stroke:#8b5cf6,color:#fff
-    style Printing fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style TermInterface fill:#222,stroke:#555,color:#fff
+    style TermTypes fill:#2a2a2a,stroke:#666,color:#fff
+    style Atomic fill:#333,stroke:#777,color:#fff
+    style Functions fill:#333,stroke:#777,color:#fff
+    style Products fill:#333,stroke:#777,color:#fff
+    style Identity fill:#333,stroke:#777,color:#fff
+    style Control fill:#333,stroke:#777,color:#fff
+    style Printing fill:#333,stroke:#777,color:#fff
 ```
 
 ---
@@ -507,10 +507,10 @@ flowchart TB
 
     eval --> ast
 
-    style kernel fill:#1a4731,stroke:#22c55e,color:#fff
-    style internal fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style cmd fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style hypergraph fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style kernel fill:#1a1a1a,stroke:#444,color:#fff
+    style internal fill:#1a1a1a,stroke:#444,color:#fff
+    style cmd fill:#1a1a1a,stroke:#444,color:#fff
+    style hypergraph fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Package Dependencies (Detailed)
@@ -543,14 +543,14 @@ flowchart LR
 
     eval -->|Term, Value| ast
 
-    style Kernel fill:#1a4731,stroke:#22c55e,color:#fff
-    style Internal fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style check fill:#134e3a,stroke:#10b981,color:#fff
-    style ctx fill:#134e3a,stroke:#10b981,color:#fff
-    style subst fill:#134e3a,stroke:#10b981,color:#fff
-    style ast fill:#2e1a47,stroke:#c084fc,color:#fff
-    style eval fill:#2e1a47,stroke:#c084fc,color:#fff
-    style core fill:#2e1a47,stroke:#c084fc,color:#fff
+    style Kernel fill:#1a1a1a,stroke:#444,color:#fff
+    style Internal fill:#1a1a1a,stroke:#444,color:#fff
+    style check fill:#222,stroke:#555,color:#fff
+    style ctx fill:#222,stroke:#555,color:#fff
+    style subst fill:#222,stroke:#555,color:#fff
+    style ast fill:#222,stroke:#555,color:#fff
+    style eval fill:#222,stroke:#555,color:#fff
+    style core fill:#222,stroke:#555,color:#fff
 ```
 
 ---
@@ -696,11 +696,11 @@ flowchart TB
     Id --> Refl
     Refl --> J
 
-    style Atomic fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style Function fill:#1a4731,stroke:#22c55e,color:#fff
-    style Product fill:#5f3a1e,stroke:#f59e0b,color:#fff
-    style Identity fill:#5f1e4d,stroke:#ec4899,color:#fff
-    style Control fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style Atomic fill:#1a1a1a,stroke:#444,color:#fff
+    style Function fill:#1a1a1a,stroke:#444,color:#fff
+    style Product fill:#1a1a1a,stroke:#444,color:#fff
+    style Identity fill:#1a1a1a,stroke:#444,color:#fff
+    style Control fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -846,8 +846,8 @@ flowchart TB
     CheckPair --> ResultCheck
     CheckBySynth --> ResultCheck
 
-    style SynthMode fill:#1a4731,stroke:#22c55e,color:#fff
-    style CheckMode fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style SynthMode fill:#1a1a1a,stroke:#444,color:#fff
+    style CheckMode fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -870,8 +870,8 @@ flowchart LR
 
     Term -.->|"EvalNBE(term)"| NormalForm
 
-    style Syntax fill:#5f3a1e,stroke:#f59e0b,color:#fff
-    style Semantics fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style Syntax fill:#1a1a1a,stroke:#444,color:#fff
+    style Semantics fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### NbE Complete Pipeline
@@ -955,7 +955,7 @@ flowchart TB
     EvalJ --> Result
     ReturnNil --> Result
 
-    style Switch fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style Switch fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -990,9 +990,9 @@ flowchart TB
     ExtendSpine --> Result
     BadApp --> Result
 
-    style BetaReduce fill:#1a4731,stroke:#22c55e,color:#fff
-    style ExtendSpine fill:#5f3a1e,stroke:#f59e0b,color:#fff
-    style BadApp fill:#5f1e2e,stroke:#ef4444,color:#fff
+    style BetaReduce fill:#1a1a1a,stroke:#444,color:#fff
+    style ExtendSpine fill:#1a1a1a,stroke:#444,color:#fff
+    style BadApp fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Beta Reduction Example
@@ -1068,9 +1068,9 @@ flowchart TB
     ReifyId --> Result
     ReifyRefl --> Result
 
-    style ReifyLam fill:#1a4731,stroke:#22c55e,color:#fff
-    style ReifyPi fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style ReifySigma fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style ReifyLam fill:#1a1a1a,stroke:#444,color:#fff
+    style ReifyPi fill:#1a1a1a,stroke:#444,color:#fff
+    style ReifySigma fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Reify Neutral Terms
@@ -1098,7 +1098,7 @@ flowchart TB
     CreateFst --> Result
     CreateSnd --> Result
 
-    style ApplySpine fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style ApplySpine fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -1128,8 +1128,8 @@ flowchart TB
     ComputationRule --> Result([Value])
     StuckNeutral --> Result
 
-    style ComputationRule fill:#1a4731,stroke:#22c55e,color:#fff
-    style StuckNeutral fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style ComputationRule fill:#1a1a1a,stroke:#444,color:#fff
+    style StuckNeutral fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### J Typing Rules
@@ -1154,7 +1154,7 @@ flowchart TB
         p --> result
     end
 
-    style JType fill:#5f1e4d,stroke:#ec4899,color:#fff
+    style JType fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -1190,8 +1190,8 @@ flowchart TB
     EtaEqual --> Result([bool])
     AlphaEq --> Result
 
-    style EvalBoth fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style Reify fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style EvalBoth fill:#1a1a1a,stroke:#444,color:#fff
+    style Reify fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Alpha Equality
@@ -1224,7 +1224,7 @@ flowchart TB
 
     Compare --> Result([bool])
 
-    style Compare fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style Compare fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ---
@@ -1248,8 +1248,8 @@ flowchart LR
 
     Ctx --> Operations
 
-    style Ctx fill:#1a4731,stroke:#22c55e,color:#fff
-    style Operations fill:#134e3a,stroke:#10b981,color:#fff
+    style Ctx fill:#1a1a1a,stroke:#444,color:#fff
+    style Operations fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### De Bruijn Environment (internal/eval)
@@ -1279,9 +1279,9 @@ flowchart TB
     Env --> EnvOps
     EnvOps --> Example
 
-    style Env fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style EnvOps fill:#2e1a47,stroke:#c084fc,color:#fff
-    style Example fill:#1e1338,stroke:#a78bfa,color:#fff
+    style Env fill:#1a1a1a,stroke:#444,color:#fff
+    style EnvOps fill:#1a1a1a,stroke:#444,color:#fff
+    style Example fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Global Environment (kernel/check)
@@ -1395,12 +1395,12 @@ flowchart TB
     TypeChecker --> Type
     TypeChecker --> Error
 
-    style Input fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    style TypeChecker fill:#1a4731,stroke:#22c55e,color:#fff
-    style NbE fill:#3b1f5f,stroke:#a855f7,color:#fff
-    style Helpers fill:#5f3a1e,stroke:#f59e0b,color:#fff
-    style CoreOps fill:#1e4f5f,stroke:#06b6d4,color:#fff
-    style Output fill:#5f1e2e,stroke:#ef4444,color:#fff
+    style Input fill:#1a1a1a,stroke:#444,color:#fff
+    style TypeChecker fill:#1a1a1a,stroke:#444,color:#fff
+    style NbE fill:#1a1a1a,stroke:#444,color:#fff
+    style Helpers fill:#1a1a1a,stroke:#444,color:#fff
+    style CoreOps fill:#1a1a1a,stroke:#444,color:#fff
+    style Output fill:#1a1a1a,stroke:#444,color:#fff
 ```
 
 ### Complete Example: Type Checking Identity Function
