@@ -27,6 +27,81 @@ jobs:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           SCOOP_GITHUB_TOKEN: ${{ secrets.SCOOP_GITHUB_TOKEN }}
 
+  build-dmg:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    needs: goreleaser
+    steps:
+      - name: Download release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the release tag
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "Building DMGs for release: $TAG"
+
+          # Download darwin tar.gz files
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "hg_*_darwin_*.tar.gz" \
+            --dir ./downloads
+
+          ls -la ./downloads/
+
+      - name: Create DMG files
+        run: |
+          mkdir -p ./dmg-output
+
+          for tarball in ./downloads/hg_*_darwin_*.tar.gz; do
+            filename=$(basename "$tarball" .tar.gz)
+            arch=$(echo "$filename" | sed 's/.*_darwin_//')
+            version=$(echo "$filename" | sed 's/hg_\(.*\)_darwin_.*/\1/')
+
+            echo "Processing: $filename (arch: $arch, version: $version)"
+
+            # Create temp directory for this build
+            workdir=$(mktemp -d)
+
+            # Extract tarball
+            tar -xzf "$tarball" -C "$workdir"
+
+            # Create DMG directory structure
+            dmg_contents="$workdir/dmg-contents"
+            mkdir -p "$dmg_contents"
+
+            # Copy binary and docs
+            cp "$workdir/hg" "$dmg_contents/"
+            [ -f "$workdir/README.md" ] && cp "$workdir/README.md" "$dmg_contents/"
+            [ -f "$workdir/LICENSE" ] && cp "$workdir/LICENSE" "$dmg_contents/"
+
+            # Create DMG
+            dmg_name="hg_${version}_darwin_${arch}.dmg"
+            hdiutil create -volname "hg-${version}" \
+              -srcfolder "$dmg_contents" \
+              -ov -format UDZO \
+              "./dmg-output/${dmg_name}"
+
+            echo "Created: $dmg_name"
+
+            # Cleanup
+            rm -rf "$workdir"
+          done
+
+          ls -la ./dmg-output/
+
+      - name: Upload DMGs to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          for dmg in ./dmg-output/*.dmg; do
+            echo "Uploading: $(basename $dmg)"
+            gh release upload "$TAG" "$dmg" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          done
+
   publish-deb:
     name: Publish .deb to Cloudsmith
     runs-on: ubuntu-latest

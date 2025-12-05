@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Error case tests with span verification
     - Nil context handling, API coverage, ErrorKind tests
 
+### Added
+- **macOS DMG releases** (`.github/workflows/release.yml`)
+  - New `build-dmg` job creates `.dmg` installers for macOS (amd64 and arm64)
+  - DMGs built natively on macOS runner using `hdiutil`
+
 ### Fixed
 - **Nil context handling** (`kernel/check/`)
   - Public API methods (`Synth`, `Check`, `CheckIsType`, `InferAndCheck`) now accept nil context
