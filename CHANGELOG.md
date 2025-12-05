@@ -30,6 +30,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **macOS DMG releases** (`.github/workflows/release.yml`)
   - New `build-dmg` job creates `.dmg` installers for macOS (amd64 and arm64)
   - DMGs built natively on macOS runner using `hdiutil`
+- **Mermaid diagram agent** (`.claude/commands/mermaid.md`)
+  - Claude Code slash command for generating Mermaid diagrams
+  - Supports flowcharts, class diagrams, sequence diagrams, state diagrams
+  - Codebase-aware: understands HypergraphGo package structure and key types
+  - Usage: `/mermaid <description of desired diagram>`
+- **Platform packaging guide** (`docs/PACKAGING.md`)
+  - Comprehensive guide for Winget, Chocolatey, RPM, Homebrew, musl/Alpine, static binaries
+  - Includes copy-pasteable manifests with placeholders
+  - GitHub Actions workflow examples (manual and GoReleaser)
+  - Maintainer checklist for release processes
+- **Homebrew formula** (`Formula/hg.rb`)
+  - Multi-arch support for macOS (amd64/arm64) and Linux (amd64/arm64)
+  - Ready for use with a Homebrew tap
+- **Winget manifest** (`packaging/winget/watchthelight.hg.yaml`)
+  - Windows Package Manager support for amd64 and arm64
+  - Ready for submission to microsoft/winget-pkgs
+- **RPM packaging** (`packaging/rpm/hypergraphgo.spec`, `.goreleaser.yaml`)
+  - RPM spec file for Fedora/RHEL/CentOS
+  - GoReleaser nfpms integration for automated RPM builds
+- **musl/Alpine static builds** (`.goreleaser.yaml`)
+  - Fully static Linux binaries with netgo and osusergo tags
+  - Artifacts: `hg_{{VERSION}}_linux_{{ARCH}}_musl.tar.gz`
 
 ### Fixed
 - **Nil context handling** (`kernel/check/`)

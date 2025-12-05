@@ -18,6 +18,21 @@ builds:
       - -s -w
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  # musl/Alpine static builds
+  - id: hg-musl
+    main: ./cmd/hg
+    binary: hg
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -extldflags "-static"
+    tags:
+      - netgo
+      - osusergo
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
 archives:
   - id: universal
     builds: [hg]
@@ -31,6 +46,16 @@ archives:
       - README.md
     # keep lowercase os/arch in names
     name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  # musl/Alpine static archives
+  - id: musl
+    builds: [hg-musl]
+    format: tar.gz
+    wrap_in_directory: false
+    files:
+      - LICENSE*
+      - README.md
+    name_template: "hg_{{ .Version }}_{{ .Os }}_{{ .Arch }}_musl"
 
 checksum:
   name_template: "checksums.txt"
@@ -82,6 +107,7 @@ scoops:
 
 nfpms:
   - id: deb
+    builds: [hg]
     package_name: hypergraphgo
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}.deb"
     vendor: watchthelight
@@ -92,3 +118,16 @@ nfpms:
     bindir: /usr/bin
     formats:
       - deb
+
+  - id: rpm
+    builds: [hg]
+    package_name: hypergraphgo
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}.rpm"
+    vendor: watchthelight
+    maintainer: "watchthelight <admin@watchthelight.org>"
+    homepage: "https://github.com/watchthelight/HypergraphGo"
+    description: "Hypergraph & HoTT tooling in Go"
+    license: MIT
+    bindir: /usr/bin
+    formats:
+      - rpm

@@ -64,3 +64,4 @@ credentials.ini
 goreleaser.zip
 goreleaser2.zip
 CLAUDE.md
+.claude/

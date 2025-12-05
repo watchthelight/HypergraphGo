@@ -1,0 +1,43 @@
+# Winget manifest for HypergraphGo
+# Submit to: https://github.com/microsoft/winget-pkgs
+# Path: manifests/w/watchthelight/hg/<version>/watchthelight.hg.yaml
+PackageIdentifier: watchthelight.hg
+PackageVersion: "1.3.0"
+PackageLocale: en-US
+Publisher: watchthelight
+PublisherUrl: https://github.com/watchthelight
+PublisherSupportUrl: https://github.com/watchthelight/HypergraphGo/issues
+PackageName: HypergraphGo
+PackageUrl: https://github.com/watchthelight/HypergraphGo
+License: MIT
+LicenseUrl: https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE.md
+ShortDescription: Hypergraph & HoTT tooling in Go
+Description: |-
+  A production-quality Go library for hypergraph theory, supporting generic vertex types,
+  advanced algorithms, and CLI tools. Includes HoTT (Homotopy Type Theory) kernel
+  implementation with normalization by evaluation.
+Tags:
+  - cli
+  - hypergraph
+  - go
+  - hott
+  - type-theory
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.3.0/hg_1.3.0_windows_amd64.zip
+    InstallerSha256: PLACEHOLDER_SHA256_WINDOWS_AMD64
+    InstallerType: zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: hg.exe
+        PortableCommandAlias: hg
+  - Architecture: arm64
+    InstallerUrl: https://github.com/watchthelight/HypergraphGo/releases/download/v1.3.0/hg_1.3.0_windows_arm64.zip
+    InstallerSha256: PLACEHOLDER_SHA256_WINDOWS_ARM64
+    InstallerType: zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: hg.exe
+        PortableCommandAlias: hg
+ManifestType: singleton
+ManifestVersion: 1.6.0
