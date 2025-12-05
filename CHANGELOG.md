@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2025-12-05
 
 ### Added
 - **Bidirectional Type Checking** (`kernel/check/` package - Phase 3 M5)
@@ -20,10 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Axioms (type only), Definitions (type + body + transparency), Inductives (type + constructors), Primitives (built-in)
   - Built-in primitives: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
   - Integration with existing `kernel/ctx`, `kernel/subst`, `internal/core`, and `internal/eval`
-  - Comprehensive test suite (~20 tests + 2 benchmarks):
+  - Comprehensive test suite (~24 tests + 2 benchmarks):
     - Identity function `λA.λx.x : Π(A:Type).A→A` (success criterion)
     - Composition function, Nat/Bool primitives, type formation, dependent pairs
     - Error case tests with span verification
+    - Nil context handling, API coverage, ErrorKind tests
+
+### Fixed
+- **Nil context handling** (`kernel/check/`)
+  - Public API methods (`Synth`, `Check`, `CheckIsType`, `InferAndCheck`) now accept nil context
+  - Nil context treated as empty context instead of causing panic
+- **Removed unused `etaExpand` function** (`internal/core/conv.go`)
+  - Dead code cleanup; eta equality uses `etaEqual` instead
 
 ### Changed (Breaking)
 - **Generic constraint changed from `comparable` to `cmp.Ordered`**

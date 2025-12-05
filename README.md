@@ -17,14 +17,23 @@ Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect a
 Additionally, this project includes a cutting-edge **HoTT kernel** implementation featuring:
 - Normalization by Evaluation (NbE) with closure-based semantic domain
 - Definitional equality checking with optional η-rules for Π/Σ types
-- De Bruijn index-based core AST with bidirectional type checking (in progress)
+- De Bruijn index-based core AST with bidirectional type checking
 - Cubical type theory foundations for univalent mathematics
 
 ## Latest Release
 
-### v1.2.0 - Phase 2 Complete: Normalization and Definitional Equality ✅
+### v1.3.0 - Phase 3 Complete: Bidirectional Type Checking ✅
 
 **New HoTT Kernel Features:**
+- **Bidirectional type checker** at `kernel/check` with `Synth`/`Check`/`CheckIsType` API
+- **Built-in primitives**: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
+- **Structured error types** with source spans for precise diagnostics
+- **Global environment** with axioms, definitions, inductives, and primitives
+- **Success criterion met**: `λA.λx.x : Π(A:Type).A→A` typechecks ✓
+
+### v1.2.0 - Phase 2 Complete: Normalization and Definitional Equality ✅
+
+**HoTT Kernel Features:**
 - **NbE skeleton** integrated under `internal/eval` with semantic domain (Values, Closures, Neutrals)
 - **Definitional equality checker** added at `core.Conv` with environment support
 - **Optional η-rules** for functions (`f ≡ \x. f x`) and pairs (`p ≡ (fst p, snd p)`) behind feature flags
@@ -48,8 +57,8 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 0** | ✅ | Ground rules and interfaces |
 | **Phase 1** | ✅ | Syntax, binding, pretty printing |
 | **Phase 2** | ✅ | **Normalization and definitional equality** |
-| **Phase 3** | 🚧 | Bidirectional type checking |
-| **Phase 4** | ⏳ | Identity/Path types (cubical knob) |
+| **Phase 3** | ✅ | **Bidirectional type checking** |
+| **Phase 4** | 🚧 | Identity/Path types (cubical knob) |
 | **Phase 5** | ⏳ | Inductives, recursors, positivity |
 | **Phase 6** | ⏳ | Univalence |
 | **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
@@ -57,8 +66,8 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current Milestone:** M5 - Bidirectional checker (check.Synth/Check)  
-**Next Target:** Type checking for identity functions and composition with precise error spans
+**Current Milestone:** M6 - Identity/Path types
+**Next Target:** Cubical identity types and path operations
 
 ## Quickstart
 
