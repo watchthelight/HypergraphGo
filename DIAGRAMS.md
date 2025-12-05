@@ -2,6 +2,452 @@
 
 This document provides visual representations of the HypergraphGo HoTT (Homotopy Type Theory) kernel architecture, data flow, and key algorithms.
 
+---
+
+## MASTER DIAGRAM: Complete HoTT Kernel Architecture
+
+```mermaid
+flowchart TB
+    subgraph InputLayer["INPUT LAYER"]
+        direction LR
+        SourceTerm["Source Term<br/>(ast.Term)"]
+        TypingCtx["Typing Context<br/>(kernel/ctx.Ctx)"]
+        GlobalEnv["Global Environment<br/>(kernel/check.GlobalEnv)"]
+    end
+
+    subgraph KernelCheck["KERNEL: TYPE CHECKER (kernel/check)"]
+        direction TB
+
+        subgraph CheckerCore["Checker Core"]
+            Checker["Checker{globals, conv}"]
+            PublicAPI["Public API:<br/>Synth() / Check() / CheckIsType()"]
+        end
+
+        subgraph SynthesisMode["SYNTHESIS MODE (Infer Type)"]
+            direction TB
+            SynthDispatch{"synth()<br/>dispatch"}
+
+            subgraph AtomicSynth["Atomic Terms"]
+                SynthVar["synthVar<br/>ctx.LookupVar(ix)<br/>+ Shift"]
+                SynthSort["synthSort<br/>Sort U → Sort U+1"]
+                SynthGlobal["synthGlobal<br/>globals.LookupType"]
+            end
+
+            subgraph FunctionSynth["Function Types"]
+                SynthPi["synthPi<br/>checkIsType(A,B)<br/>→ Sort max(U,V)"]
+                SynthLam["synthLam<br/>(annotated only)<br/>→ Pi type"]
+                SynthApp["synthApp<br/>synth(f) → Pi<br/>check(u,A)<br/>→ B[u/x]"]
+            end
+
+            subgraph ProductSynth["Product Types"]
+                SynthSigma["synthSigma<br/>checkIsType(A,B)<br/>→ Sort max(U,V)"]
+                SynthFst["synthFst<br/>synth(p) → Sigma<br/>→ A"]
+                SynthSnd["synthSnd<br/>synth(p) → Sigma<br/>→ B[fst p/x]"]
+            end
+
+            subgraph IdentitySynth["Identity Types"]
+                SynthId["synthId<br/>checkIsType(A)<br/>check(x,y : A)<br/>→ Sort U"]
+                SynthRefl["synthRefl<br/>checkIsType(A)<br/>check(x : A)<br/>→ Id A x x"]
+                SynthJ["synthJ<br/>check motive C<br/>check base d<br/>check proof p<br/>→ C y p"]
+            end
+
+            subgraph ControlSynth["Control Flow"]
+                SynthLet["synthLet<br/>synth/check val<br/>extend ctx<br/>→ bodyTy[val/x]"]
+            end
+        end
+
+        subgraph CheckingMode["CHECKING MODE (Verify Type)"]
+            direction TB
+            CheckDispatch{"check()<br/>dispatch"}
+
+            CheckLam["checkLam<br/>(unannotated)<br/>ensurePi(expected)<br/>check(body, B)"]
+            CheckPair["checkPair<br/>ensureSigma(expected)<br/>check(fst, A)<br/>check(snd, B[fst/x])"]
+            CheckBySynth["checkBySynth<br/>synth(term)<br/>conv(inferred, expected)"]
+        end
+
+        subgraph Helpers["Helper Functions"]
+            CheckIsType["checkIsType<br/>synth → ensureSort<br/>→ Level"]
+            EnsurePi["ensurePi<br/>whnf → expect Pi"]
+            EnsureSigma["ensureSigma<br/>whnf → expect Sigma"]
+            EnsureSort["ensureSort<br/>whnf → expect Sort"]
+            WHNF["whnf<br/>→ EvalNBE"]
+            ConvCheck["conv<br/>→ core.Conv"]
+            MkJMotiveType["mkJMotiveType<br/>Π(y:A).Π(p:Id A x y).Type"]
+        end
+    end
+
+    subgraph KernelSubst["KERNEL: SUBSTITUTION (kernel/subst)"]
+        direction LR
+        Shift["Shift(d, c, term)<br/>Increment free vars by d"]
+        Subst["Subst(ix, repl, term)<br/>Replace var ix with repl"]
+    end
+
+    subgraph InternalCore["INTERNAL: CONVERSION (internal/core)"]
+        direction TB
+        Conv["Conv(env, t, u, opts)<br/>Definitional Equality"]
+        AlphaEq["AlphaEq(a, b)<br/>Structural Equality"]
+        EtaEqual["etaEqual(a, b)<br/>η-Equality (optional)"]
+        ShiftTerm["shiftTerm(d, c, term)<br/>Variable Shifting"]
+    end
+
+    subgraph InternalEval["INTERNAL: NbE ENGINE (internal/eval)"]
+        direction TB
+
+        subgraph EvalCore["Evaluation Core"]
+            EvalNBE["EvalNBE(term)<br/>Full Normalization"]
+            Eval["Eval(env, term)<br/>Syntax → Semantics"]
+            Reify["Reify(value)<br/>Semantics → Syntax"]
+        end
+
+        subgraph EvalDispatch["Eval Dispatch"]
+            EvalVar["Var → env.Lookup(ix)"]
+            EvalGlobal["Global → VGlobal{name}"]
+            EvalSort["Sort → VSort{level}"]
+            EvalLam["Lam → VLam{Closure{env,body}}"]
+            EvalApp["App → Apply(Eval(f), Eval(u))"]
+            EvalPair["Pair → VPair{Eval(fst), Eval(snd)}"]
+            EvalFst["Fst → doFst(Eval(p))"]
+            EvalSnd["Snd → doSnd(Eval(p))"]
+            EvalPi["Pi → VPi{Eval(A), Closure{env,B}}"]
+            EvalSigma["Sigma → VSigma{Eval(A), Closure{env,B}}"]
+            EvalLet["Let → Eval(env.Extend(val), body)"]
+            EvalId["Id → VId{Eval(A,X,Y)}"]
+            EvalRefl["Refl → VRefl{Eval(A,X)}"]
+            EvalJ["J → evalJ(...)"]
+        end
+
+        subgraph ApplyCore["Application & Projections"]
+            Apply["Apply(fun, arg)"]
+            BetaReduce["VLam: Beta Reduction<br/>Eval(env.Extend(arg), body)"]
+            NeutralApp["VNeutral: Extend Spine<br/>append(sp, arg)"]
+            DoFst["doFst(pair)<br/>VPair → Fst<br/>VNeutral → extend sp"]
+            DoSnd["doSnd(pair)<br/>VPair → Snd<br/>VNeutral → extend sp"]
+        end
+
+        subgraph JElim["J Elimination"]
+            EvalJFn["evalJ(a,c,d,x,y,p)"]
+            JCompRule["p = VRefl?<br/>YES → return d<br/>NO → VNeutral{J, spine}"]
+        end
+
+        subgraph ReifyDispatch["Reify Dispatch"]
+            ReifyNeutral["VNeutral → reifyNeutral"]
+            ReifyLam["VLam → Lam{Reify(Apply(lam,fresh))}"]
+            ReifyPair["VPair → Pair{Reify(fst,snd)}"]
+            ReifySort["VSort → Sort{level}"]
+            ReifyGlobal["VGlobal → Global{name}"]
+            ReifyPi["VPi → Pi{Reify(A), Reify(Apply(B,fresh))}"]
+            ReifySigma["VSigma → Sigma{Reify(A), Reify(Apply(B,fresh))}"]
+            ReifyId["VId → Id{Reify(A,X,Y)}"]
+            ReifyRefl["VRefl → Refl{Reify(A,X)}"]
+        end
+
+        subgraph SemanticDomain["SEMANTIC DOMAIN (Values)"]
+            direction LR
+            VSort["VSort{Level}"]
+            VGlobal["VGlobal{Name}"]
+            VLam["VLam{*Closure}"]
+            VPi["VPi{A, *Closure}"]
+            VSigma["VSigma{A, *Closure}"]
+            VPair["VPair{Fst, Snd}"]
+            VNeutral["VNeutral{Neutral}"]
+            VId["VId{A, X, Y}"]
+            VRefl["VRefl{A, X}"]
+        end
+
+        subgraph NeutralTerms["Neutral Terms"]
+            Neutral["Neutral{Head, Spine}"]
+            HeadVar["Head.Var: int"]
+            HeadGlob["Head.Glob: string"]
+            Spine["Spine: []Value"]
+        end
+
+        subgraph Environment["Environment"]
+            Env["Env{Bindings: []Value}"]
+            EnvExtend["Extend(v) → prepend v"]
+            EnvLookup["Lookup(ix) → Bindings[ix]"]
+        end
+
+        subgraph Closure["Closure"]
+            ClosureStruct["Closure{*Env, ast.Term}"]
+            ClosureApply["Apply: Eval(env.Extend(arg), term)"]
+        end
+    end
+
+    subgraph InternalAST["INTERNAL: AST (internal/ast)"]
+        direction TB
+
+        subgraph TermInterface["Term Interface"]
+            Term["Term interface<br/>isCoreTerm()"]
+        end
+
+        subgraph TermTypes["Term Types"]
+            direction LR
+
+            subgraph Atomic["Atomic"]
+                TSort["Sort{U}"]
+                TVar["Var{Ix}"]
+                TGlobal["Global{Name}"]
+            end
+
+            subgraph Functions["Functions (Π)"]
+                TPi["Pi{Binder,A,B}"]
+                TLam["Lam{Binder,Ann,Body}"]
+                TApp["App{T,U}"]
+            end
+
+            subgraph Products["Products (Σ)"]
+                TSigma["Sigma{Binder,A,B}"]
+                TPair["Pair{Fst,Snd}"]
+                TFst["Fst{P}"]
+                TSnd["Snd{P}"]
+            end
+
+            subgraph Identity["Identity (Id)"]
+                TId["Id{A,X,Y}"]
+                TRefl["Refl{A,X}"]
+                TJ["J{A,C,D,X,Y,P}"]
+            end
+
+            subgraph Control["Control"]
+                TLet["Let{Binder,Ann,Val,Body}"]
+            end
+        end
+
+        subgraph Printing["Pretty Printing"]
+            Sprint["Sprint(term) → string"]
+            Write["write(buf, term)"]
+        end
+    end
+
+    subgraph KernelCtx["KERNEL: CONTEXT (kernel/ctx)"]
+        direction TB
+        Ctx["Ctx{Tele: []Binding}"]
+        CtxExtend["Extend(name, type)<br/>prepend binding"]
+        CtxLookup["LookupVar(ix)<br/>→ type at index"]
+        CtxDrop["Drop()<br/>remove newest"]
+        Binding["Binding{Name, Type}"]
+    end
+
+    subgraph OutputLayer["OUTPUT LAYER"]
+        direction LR
+        InferredType["Inferred Type<br/>(ast.Term)"]
+        TypeError["Type Error<br/>(*TypeError)"]
+        NormalForm["Normal Form<br/>(ast.Term)"]
+    end
+
+    %% INPUT CONNECTIONS
+    SourceTerm --> Checker
+    TypingCtx --> Checker
+    GlobalEnv --> Checker
+
+    %% CHECKER CORE FLOW
+    Checker --> PublicAPI
+    PublicAPI --> SynthDispatch
+    PublicAPI --> CheckDispatch
+
+    %% SYNTHESIS DISPATCH
+    SynthDispatch --> SynthVar
+    SynthDispatch --> SynthSort
+    SynthDispatch --> SynthGlobal
+    SynthDispatch --> SynthPi
+    SynthDispatch --> SynthLam
+    SynthDispatch --> SynthApp
+    SynthDispatch --> SynthSigma
+    SynthDispatch --> SynthFst
+    SynthDispatch --> SynthSnd
+    SynthDispatch --> SynthId
+    SynthDispatch --> SynthRefl
+    SynthDispatch --> SynthJ
+    SynthDispatch --> SynthLet
+
+    %% CHECK DISPATCH
+    CheckDispatch --> CheckLam
+    CheckDispatch --> CheckPair
+    CheckDispatch --> CheckBySynth
+
+    %% HELPERS CONNECTIONS
+    SynthPi --> CheckIsType
+    SynthSigma --> CheckIsType
+    SynthId --> CheckIsType
+    SynthRefl --> CheckIsType
+    SynthJ --> CheckIsType
+    SynthJ --> MkJMotiveType
+    SynthApp --> EnsurePi
+    SynthFst --> EnsureSigma
+    SynthSnd --> EnsureSigma
+    CheckLam --> EnsurePi
+    CheckPair --> EnsureSigma
+    CheckIsType --> EnsureSort
+    EnsurePi --> WHNF
+    EnsureSigma --> WHNF
+    EnsureSort --> WHNF
+    CheckBySynth --> ConvCheck
+
+    %% WHNF TO NBE
+    WHNF --> EvalNBE
+
+    %% SUBST CONNECTIONS
+    SynthVar --> Shift
+    SynthApp --> Subst
+    SynthSnd --> Subst
+    SynthLet --> Subst
+    CheckPair --> Subst
+    MkJMotiveType --> Shift
+
+    %% CORE CONNECTIONS
+    ConvCheck --> Conv
+    Conv --> Eval
+    Conv --> Reify
+    Conv --> AlphaEq
+    Conv --> EtaEqual
+    AlphaEq --> ShiftTerm
+
+    %% EVALNBE FLOW
+    EvalNBE --> Eval
+    EvalNBE --> Reify
+
+    %% EVAL DISPATCH
+    Eval --> EvalVar
+    Eval --> EvalGlobal
+    Eval --> EvalSort
+    Eval --> EvalLam
+    Eval --> EvalApp
+    Eval --> EvalPair
+    Eval --> EvalFst
+    Eval --> EvalSnd
+    Eval --> EvalPi
+    Eval --> EvalSigma
+    Eval --> EvalLet
+    Eval --> EvalId
+    Eval --> EvalRefl
+    Eval --> EvalJ
+
+    %% APPLY CONNECTIONS
+    EvalApp --> Apply
+    Apply --> BetaReduce
+    Apply --> NeutralApp
+    EvalFst --> DoFst
+    EvalSnd --> DoSnd
+
+    %% J ELIM
+    EvalJ --> EvalJFn
+    EvalJFn --> JCompRule
+
+    %% REIFY DISPATCH
+    Reify --> ReifyNeutral
+    Reify --> ReifyLam
+    Reify --> ReifyPair
+    Reify --> ReifySort
+    Reify --> ReifyGlobal
+    Reify --> ReifyPi
+    Reify --> ReifySigma
+    Reify --> ReifyId
+    Reify --> ReifyRefl
+
+    %% VALUE TYPES
+    EvalSort --> VSort
+    EvalGlobal --> VGlobal
+    EvalLam --> VLam
+    EvalPi --> VPi
+    EvalSigma --> VSigma
+    EvalPair --> VPair
+    NeutralApp --> VNeutral
+    EvalId --> VId
+    EvalRefl --> VRefl
+
+    %% NEUTRAL STRUCTURE
+    VNeutral --> Neutral
+    Neutral --> HeadVar
+    Neutral --> HeadGlob
+    Neutral --> Spine
+
+    %% ENVIRONMENT
+    EvalVar --> EnvLookup
+    EvalLet --> EnvExtend
+    BetaReduce --> EnvExtend
+    Env --> EnvExtend
+    Env --> EnvLookup
+
+    %% CLOSURE
+    VLam --> ClosureStruct
+    VPi --> ClosureStruct
+    VSigma --> ClosureStruct
+    ClosureStruct --> ClosureApply
+    ClosureApply --> Eval
+
+    %% CONTEXT
+    SynthVar --> CtxLookup
+    SynthPi --> CtxExtend
+    SynthSigma --> CtxExtend
+    SynthLam --> CtxExtend
+    SynthLet --> CtxExtend
+    CheckLam --> CtxExtend
+    Ctx --> Binding
+
+    %% AST TERM TYPES
+    Term --> TSort
+    Term --> TVar
+    Term --> TGlobal
+    Term --> TPi
+    Term --> TLam
+    Term --> TApp
+    Term --> TSigma
+    Term --> TPair
+    Term --> TFst
+    Term --> TSnd
+    Term --> TId
+    Term --> TRefl
+    Term --> TJ
+    Term --> TLet
+
+    %% OUTPUT
+    SynthDispatch --> InferredType
+    CheckDispatch --> TypeError
+    Reify --> NormalForm
+
+    %% DARK COLOR SCHEME
+    style InputLayer fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style KernelCheck fill:#1a4731,stroke:#22c55e,color:#fff
+    style KernelSubst fill:#1a4731,stroke:#22c55e,color:#fff
+    style KernelCtx fill:#1a4731,stroke:#22c55e,color:#fff
+    style InternalCore fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style InternalEval fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style InternalAST fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style OutputLayer fill:#5f1e2e,stroke:#ef4444,color:#fff
+
+    style CheckerCore fill:#134e3a,stroke:#10b981,color:#fff
+    style SynthesisMode fill:#14532d,stroke:#22c55e,color:#fff
+    style CheckingMode fill:#14532d,stroke:#22c55e,color:#fff
+    style Helpers fill:#1c4428,stroke:#4ade80,color:#fff
+
+    style AtomicSynth fill:#0f3d2e,stroke:#34d399,color:#fff
+    style FunctionSynth fill:#0f3d2e,stroke:#34d399,color:#fff
+    style ProductSynth fill:#0f3d2e,stroke:#34d399,color:#fff
+    style IdentitySynth fill:#0f3d2e,stroke:#34d399,color:#fff
+    style ControlSynth fill:#0f3d2e,stroke:#34d399,color:#fff
+
+    style EvalCore fill:#2e1a47,stroke:#c084fc,color:#fff
+    style EvalDispatch fill:#2e1a47,stroke:#c084fc,color:#fff
+    style ApplyCore fill:#2e1a47,stroke:#c084fc,color:#fff
+    style JElim fill:#2e1a47,stroke:#c084fc,color:#fff
+    style ReifyDispatch fill:#2e1a47,stroke:#c084fc,color:#fff
+    style SemanticDomain fill:#1e1338,stroke:#a78bfa,color:#fff
+    style NeutralTerms fill:#1e1338,stroke:#a78bfa,color:#fff
+    style Environment fill:#1e1338,stroke:#a78bfa,color:#fff
+    style Closure fill:#1e1338,stroke:#a78bfa,color:#fff
+
+    style TermInterface fill:#2e1a47,stroke:#c084fc,color:#fff
+    style TermTypes fill:#1e1338,stroke:#a78bfa,color:#fff
+    style Atomic fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style Functions fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style Products fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style Identity fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style Control fill:#1a1030,stroke:#8b5cf6,color:#fff
+    style Printing fill:#1a1030,stroke:#8b5cf6,color:#fff
+```
+
+---
+
 ## Table of Contents
 
 1. [Package Architecture](#1-package-architecture)
@@ -61,9 +507,10 @@ flowchart TB
 
     eval --> ast
 
-    style kernel fill:#e0f2fe,stroke:#0284c7
-    style internal fill:#fef3c7,stroke:#d97706
-    style cmd fill:#f0fdf4,stroke:#16a34a
+    style kernel fill:#1a4731,stroke:#22c55e,color:#fff
+    style internal fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style cmd fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style hypergraph fill:#5f3a1e,stroke:#f59e0b,color:#fff
 ```
 
 ### Package Dependencies (Detailed)
@@ -96,8 +543,14 @@ flowchart LR
 
     eval -->|Term, Value| ast
 
-    style check fill:#3b82f6,color:#fff
-    style ast fill:#f59e0b,color:#fff
+    style Kernel fill:#1a4731,stroke:#22c55e,color:#fff
+    style Internal fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style check fill:#134e3a,stroke:#10b981,color:#fff
+    style ctx fill:#134e3a,stroke:#10b981,color:#fff
+    style subst fill:#134e3a,stroke:#10b981,color:#fff
+    style ast fill:#2e1a47,stroke:#c084fc,color:#fff
+    style eval fill:#2e1a47,stroke:#c084fc,color:#fff
+    style core fill:#2e1a47,stroke:#c084fc,color:#fff
 ```
 
 ---
@@ -243,11 +696,11 @@ flowchart TB
     Id --> Refl
     Refl --> J
 
-    style Atomic fill:#dbeafe
-    style Function fill:#dcfce7
-    style Product fill:#fef3c7
-    style Identity fill:#fce7f3
-    style Control fill:#f3e8ff
+    style Atomic fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style Function fill:#1a4731,stroke:#22c55e,color:#fff
+    style Product fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style Identity fill:#5f1e4d,stroke:#ec4899,color:#fff
+    style Control fill:#3b1f5f,stroke:#a855f7,color:#fff
 ```
 
 ---
@@ -393,8 +846,8 @@ flowchart TB
     CheckPair --> ResultCheck
     CheckBySynth --> ResultCheck
 
-    style SynthMode fill:#dcfce7
-    style CheckMode fill:#dbeafe
+    style SynthMode fill:#1a4731,stroke:#22c55e,color:#fff
+    style CheckMode fill:#1e3a5f,stroke:#3b82f6,color:#fff
 ```
 
 ---
@@ -417,8 +870,8 @@ flowchart LR
 
     Term -.->|"EvalNBE(term)"| NormalForm
 
-    style Syntax fill:#fef3c7
-    style Semantics fill:#dbeafe
+    style Syntax fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style Semantics fill:#3b1f5f,stroke:#a855f7,color:#fff
 ```
 
 ### NbE Complete Pipeline
@@ -502,7 +955,7 @@ flowchart TB
     EvalJ --> Result
     ReturnNil --> Result
 
-    style Switch fill:#f0f9ff
+    style Switch fill:#3b1f5f,stroke:#a855f7,color:#fff
 ```
 
 ---
@@ -537,9 +990,9 @@ flowchart TB
     ExtendSpine --> Result
     BadApp --> Result
 
-    style BetaReduce fill:#dcfce7
-    style ExtendSpine fill:#fef3c7
-    style BadApp fill:#fee2e2
+    style BetaReduce fill:#1a4731,stroke:#22c55e,color:#fff
+    style ExtendSpine fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style BadApp fill:#5f1e2e,stroke:#ef4444,color:#fff
 ```
 
 ### Beta Reduction Example
@@ -615,9 +1068,9 @@ flowchart TB
     ReifyId --> Result
     ReifyRefl --> Result
 
-    style ReifyLam fill:#dcfce7
-    style ReifyPi fill:#dbeafe
-    style ReifySigma fill:#fef3c7
+    style ReifyLam fill:#1a4731,stroke:#22c55e,color:#fff
+    style ReifyPi fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style ReifySigma fill:#5f3a1e,stroke:#f59e0b,color:#fff
 ```
 
 ### Reify Neutral Terms
@@ -644,6 +1097,8 @@ flowchart TB
     ApplySpine --> Result([ast.Term])
     CreateFst --> Result
     CreateSnd --> Result
+
+    style ApplySpine fill:#3b1f5f,stroke:#a855f7,color:#fff
 ```
 
 ---
@@ -673,8 +1128,8 @@ flowchart TB
     ComputationRule --> Result([Value])
     StuckNeutral --> Result
 
-    style ComputationRule fill:#dcfce7
-    style StuckNeutral fill:#fef3c7
+    style ComputationRule fill:#1a4731,stroke:#22c55e,color:#fff
+    style StuckNeutral fill:#5f3a1e,stroke:#f59e0b,color:#fff
 ```
 
 ### J Typing Rules
@@ -699,7 +1154,7 @@ flowchart TB
         p --> result
     end
 
-    style JType fill:#fce7f3
+    style JType fill:#5f1e4d,stroke:#ec4899,color:#fff
 ```
 
 ---
@@ -735,8 +1190,8 @@ flowchart TB
     EtaEqual --> Result([bool])
     AlphaEq --> Result
 
-    style EvalBoth fill:#dbeafe
-    style Reify fill:#fef3c7
+    style EvalBoth fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style Reify fill:#5f3a1e,stroke:#f59e0b,color:#fff
 ```
 
 ### Alpha Equality
@@ -768,6 +1223,8 @@ flowchart TB
     end
 
     Compare --> Result([bool])
+
+    style Compare fill:#3b1f5f,stroke:#a855f7,color:#fff
 ```
 
 ---
@@ -790,6 +1247,9 @@ flowchart LR
     end
 
     Ctx --> Operations
+
+    style Ctx fill:#1a4731,stroke:#22c55e,color:#fff
+    style Operations fill:#134e3a,stroke:#10b981,color:#fff
 ```
 
 ### De Bruijn Environment (internal/eval)
@@ -818,6 +1278,10 @@ flowchart TB
 
     Env --> EnvOps
     EnvOps --> Example
+
+    style Env fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style EnvOps fill:#2e1a47,stroke:#c084fc,color:#fff
+    style Example fill:#1e1338,stroke:#a78bfa,color:#fff
 ```
 
 ### Global Environment (kernel/check)
@@ -931,9 +1395,12 @@ flowchart TB
     TypeChecker --> Type
     TypeChecker --> Error
 
-    style TypeChecker fill:#dbeafe
-    style NbE fill:#dcfce7
-    style Helpers fill:#fef3c7
+    style Input fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style TypeChecker fill:#1a4731,stroke:#22c55e,color:#fff
+    style NbE fill:#3b1f5f,stroke:#a855f7,color:#fff
+    style Helpers fill:#5f3a1e,stroke:#f59e0b,color:#fff
+    style CoreOps fill:#1e4f5f,stroke:#06b6d4,color:#fff
+    style Output fill:#5f1e2e,stroke:#ef4444,color:#fff
 ```
 
 ### Complete Example: Type Checking Identity Function
