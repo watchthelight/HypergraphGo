@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Bidirectional Type Checking** (`kernel/check/` package - Phase 3 M5)
+  - `Checker` struct with `Synth`, `Check`, and `CheckIsType` public API
+  - Full bidirectional typing rules for all term constructors:
+    - Synthesis for: `Var`, `Sort`, `Global`, `Pi`, `Sigma`, `Lam` (annotated), `App`, `Fst`, `Snd`, `Let`
+    - Checking for: `Lam` (unannotated against Pi), `Pair` (against Sigma)
+  - Source position tracking with `Span` type for precise error locations
+  - Structured error types with `ErrorKind` categorization and detailed diagnostics:
+    - `ErrUnboundVariable`, `ErrTypeMismatch`, `ErrNotAFunction`, `ErrNotAPair`, `ErrNotAType`, `ErrUnknownGlobal`, `ErrCannotInfer`
+  - Global environment (`GlobalEnv`) with staged structure:
+    - Axioms (type only), Definitions (type + body + transparency), Inductives (type + constructors), Primitives (built-in)
+  - Built-in primitives: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
+  - Integration with existing `kernel/ctx`, `kernel/subst`, `internal/core`, and `internal/eval`
+  - Comprehensive test suite (~20 tests + 2 benchmarks):
+    - Identity function `λA.λx.x : Π(A:Type).A→A` (success criterion)
+    - Composition function, Nat/Bool primitives, type formation, dependent pairs
+    - Error case tests with span verification
+
 ### Changed (Breaking)
 - **Generic constraint changed from `comparable` to `cmp.Ordered`**
   - `Hypergraph[V]`, `Edge[V]`, `Graph[V]` now require `V` to satisfy `cmp.Ordered`
