@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dead code cleanup; eta equality uses `etaEqual` instead
 
 ### Changed (Breaking)
+- **Go version requirement bumped to 1.25**
+  - Updated `go.mod` and all CI workflows from Go 1.22.x to Go 1.25.x
 - **Generic constraint changed from `comparable` to `cmp.Ordered`**
   - `Hypergraph[V]`, `Edge[V]`, `Graph[V]` now require `V` to satisfy `cmp.Ordered`
   - Enables efficient native sorting without string conversion
