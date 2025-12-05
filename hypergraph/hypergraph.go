@@ -1,26 +1,31 @@
 // Package hypergraph provides a generic implementation of hypergraphs.
 // A hypergraph is a generalization of a graph where edges can connect any number of vertices.
+//
+// Concurrency: Hypergraph is NOT safe for concurrent use.
+// Callers must synchronize access when using from multiple goroutines.
 package hypergraph
 
 import (
+	"cmp"
 	"fmt"
 )
 
 // Hypergraph represents a hypergraph with generic vertex type V.
-type Hypergraph[V comparable] struct {
+// V must satisfy cmp.Ordered to enable efficient sorting operations.
+type Hypergraph[V cmp.Ordered] struct {
 	vertices      map[V]struct{}
 	edges         map[string]Edge[V]
 	vertexToEdges map[V]map[string]struct{}
 }
 
 // Edge represents a hyperedge with an ID and a set of vertices.
-type Edge[V comparable] struct {
+type Edge[V cmp.Ordered] struct {
 	ID  string
 	Set map[V]struct{}
 }
 
 // NewHypergraph creates a new empty hypergraph.
-func NewHypergraph[V comparable]() *Hypergraph[V] {
+func NewHypergraph[V cmp.Ordered]() *Hypergraph[V] {
 	return &Hypergraph[V]{
 		vertices:      make(map[V]struct{}),
 		edges:         make(map[string]Edge[V]),

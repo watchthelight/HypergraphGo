@@ -1,12 +1,18 @@
 package hypergraph
 
 import (
-	"fmt"
-	"sort"
+	"slices"
 	"time"
 )
 
-// GreedyHittingSet returns a greedy hitting set.
+// GreedyHittingSet computes a hitting set using a greedy algorithm.
+//
+// A hitting set is a subset of vertices that intersects every hyperedge.
+// The greedy algorithm iteratively selects the vertex with maximum degree
+// (number of remaining uncovered edges) until all edges are covered.
+//
+// Time complexity: O(|V| * |E|) where |V| is vertices and |E| is edges.
+// This is a polynomial-time approximation; the optimal hitting set problem is NP-hard.
 func (h *Hypergraph[V]) GreedyHittingSet() []V {
 	hittingSet := []V{}
 	remainingEdges := make(map[string]struct{})
@@ -40,14 +46,23 @@ func (h *Hypergraph[V]) GreedyHittingSet() []V {
 	return hittingSet
 }
 
-// EnumerateMinimalTransversals enumerates minimal transversals with cutoffs.
+// EnumerateMinimalTransversals enumerates minimal transversals using backtracking.
+//
+// A transversal (or hitting set) intersects every hyperedge. A minimal transversal
+// has no proper subset that is also a transversal. This function enumerates all
+// minimal transversals up to the specified limits.
+//
+// Parameters:
+//   - maxSolutions: stop after finding this many transversals
+//   - maxTime: stop after this duration
+//
+// Returns ErrCutoff if either limit is reached before complete enumeration.
+// Time complexity: exponential in worst case (NP-hard problem).
 func (h *Hypergraph[V]) EnumerateMinimalTransversals(maxSolutions int, maxTime time.Duration) ([][]V, error) {
 	start := time.Now()
 	var transversals [][]V
 	vertices := h.Vertices()
-	sort.Slice(vertices, func(i, j int) bool {
-		return fmt.Sprintf("%v", vertices[i]) < fmt.Sprintf("%v", vertices[j])
-	})
+	slices.Sort(vertices)
 	var backtrack func(int, []V)
 	backtrack = func(index int, current []V) {
 		if time.Since(start) > maxTime {
@@ -97,13 +112,18 @@ func (h *Hypergraph[V]) EnumerateMinimalTransversals(maxSolutions int, maxTime t
 	return transversals, nil
 }
 
-// GreedyColoring returns a greedy coloring.
+// GreedyColoring computes a vertex coloring using a greedy algorithm.
+//
+// A valid coloring assigns colors (integers) to vertices such that no two
+// vertices sharing a hyperedge have the same color. The greedy algorithm
+// processes vertices in sorted order, assigning the smallest available color.
+//
+// Returns a map from vertex to color (0-indexed integers).
+// Time complexity: O(|V| * |E|).
 func (h *Hypergraph[V]) GreedyColoring() map[V]int {
 	coloring := make(map[V]int)
 	vertices := h.Vertices()
-	sort.Slice(vertices, func(i, j int) bool {
-		return fmt.Sprintf("%v", vertices[i]) < fmt.Sprintf("%v", vertices[j])
-	})
+	slices.Sort(vertices)
 	for _, v := range vertices {
 		used := make(map[int]struct{})
 		for e := range h.vertexToEdges[v] {

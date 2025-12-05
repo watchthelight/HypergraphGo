@@ -64,6 +64,12 @@ func writeValue(b *bytes.Buffer, v Value) {
 }
 
 func writeNeutral(b *bytes.Buffer, n Neutral) {
+	// Check upfront if we need parentheses (avoid string reallocation)
+	needsParens := len(n.Sp) > 0
+	if needsParens {
+		b.WriteString("(")
+	}
+
 	// Write the head
 	writeHead(b, n.Head)
 
@@ -73,12 +79,7 @@ func writeNeutral(b *bytes.Buffer, n Neutral) {
 		writeValue(b, arg)
 	}
 
-	// If there are spine arguments, wrap in parentheses
-	if len(n.Sp) > 0 {
-		result := b.String()
-		b.Reset()
-		b.WriteString("(")
-		b.WriteString(result)
+	if needsParens {
 		b.WriteString(")")
 	}
 }

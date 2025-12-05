@@ -1,37 +1,34 @@
 package hypergraph
 
 import (
+	"cmp"
 	"encoding/json"
-	"fmt"
 	"io"
-	"sort"
+	"slices"
 )
 
 // SaveJSON saves the hypergraph to JSON.
 // Vertices and edge members are sorted for stable output; JSON map key order is not guaranteed.
 func (h *Hypergraph[V]) SaveJSON(w io.Writer) error {
+	vertices := h.Vertices()
+	slices.Sort(vertices)
 	data := map[string]interface{}{
-		"vertices": h.Vertices(),
+		"vertices": vertices,
 		"edges":    make(map[string][]V),
 	}
-	sort.Slice(data["vertices"].([]V), func(i, j int) bool {
-		return fmt.Sprintf("%v", data["vertices"].([]V)[i]) < fmt.Sprintf("%v", data["vertices"].([]V)[j])
-	})
 	for id, edge := range h.edges {
 		members := make([]V, 0)
 		for v := range edge.Set {
 			members = append(members, v)
 		}
-		sort.Slice(members, func(i, j int) bool {
-			return fmt.Sprintf("%v", members[i]) < fmt.Sprintf("%v", members[j])
-		})
+		slices.Sort(members)
 		data["edges"].(map[string][]V)[id] = members
 	}
 	return json.NewEncoder(w).Encode(data)
 }
 
 // LoadJSON loads the hypergraph from JSON.
-func LoadJSON[V comparable](r io.Reader) (*Hypergraph[V], error) {
+func LoadJSON[V cmp.Ordered](r io.Reader) (*Hypergraph[V], error) {
 	var data struct {
 		Vertices []V            `json:"vertices"`
 		Edges    map[string][]V `json:"edges"`

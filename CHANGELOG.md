@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Breaking)
+- **Generic constraint changed from `comparable` to `cmp.Ordered`**
+  - `Hypergraph[V]`, `Edge[V]`, `Graph[V]` now require `V` to satisfy `cmp.Ordered`
+  - Enables efficient native sorting without string conversion
+  - Migration: Custom vertex types must be ordered (string, int, float, or underlying ordered type)
+
+### Changed
+- **Sorting performance improvements** (hypergraph package)
+  - Replaced `fmt.Sprintf` comparisons with `slices.Sort()` and direct `<` comparison
+  - Affects: `algorithms.go`, `incidence.go`, `serialize.go`, `transforms.go`
+  - Eliminates quadratic string allocations during sorting
+
+### Added
+- **Comprehensive documentation**
+  - Package-level docs for `eval` package explaining NbE algorithm
+  - Algorithm documentation for `GreedyHittingSet`, `EnumerateMinimalTransversals`, `GreedyColoring`
+  - Detailed godoc for `Eval`, `Apply`, `Reify` functions
+  - Concurrency warning in hypergraph package docs
+- **Comprehensive test coverage** (~25 new tests)
+  - `hypergraph/edge_cases_test.go`: Empty graphs, vertex/edge removal, traversal edge cases
+  - `kernel/subst/edge_cases_test.go`: Nil handling, zero shifts, all term types
+  - `internal/eval/edge_cases_test.go`: Nil env/term, Let/Pi/Sigma eval, deep nesting
+  - New benchmarks for eval and hypergraph operations
+
 ### Fixed
 - **Removed panics in substitution functions** (`kernel/subst/subst.go`)
   - `Shift` and `Subst` now return unknown term types unchanged instead of panicking
@@ -17,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Edge case in GreedyHittingSet** (`hypergraph/algorithms.go`)
   - Fixed potential use of uninitialized vertex when no vertices have positive degree
   - Changed condition from `maxDeg == 0` to `maxDeg <= 0` to handle empty graphs
+- **Pretty printer efficiency** (`internal/eval/pretty.go`)
+  - Optimized `writeNeutral` to avoid string reallocation when adding parentheses
+- **Unused parameter cleanup** (`internal/ast/print.go`)
+  - Removed unused depth parameter from internal `write` function
 
 ## [1.2.0] - 2024-12-19
 

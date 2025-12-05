@@ -1,15 +1,18 @@
 package hypergraph
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+)
 
 // Graph represents a simple undirected graph.
-type Graph[V comparable] struct {
+type Graph[V cmp.Ordered] struct {
 	vertices map[V]struct{}
 	edges    map[string]struct{ From, To V }
 }
 
 // NewGraph creates a new graph.
-func NewGraph[V comparable]() *Graph[V] {
+func NewGraph[V cmp.Ordered]() *Graph[V] {
 	return &Graph[V]{
 		vertices: make(map[V]struct{}),
 		edges:    make(map[string]struct{ From, To V }),
@@ -48,7 +51,7 @@ func (h *Hypergraph[V]) TwoSection() *Graph[V] {
 		for i := 0; i < len(vs); i++ {
 			for j := i + 1; j < len(vs); j++ {
 				from, to := vs[i], vs[j]
-				if fmt.Sprintf("%v", from) > fmt.Sprintf("%v", to) {
+				if from > to {
 					from, to = to, from
 				}
 				edgeID := fmt.Sprintf("%v-%v", from, to)

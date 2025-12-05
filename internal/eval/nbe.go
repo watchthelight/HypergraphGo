@@ -1,3 +1,21 @@
+// Package eval implements Normalization by Evaluation (NbE) for the HoTT kernel.
+//
+// NbE is a technique for normalizing lambda calculus terms by:
+//  1. Evaluating syntax into a semantic domain (Values)
+//  2. Reifying Values back to syntax in normal form
+//
+// The semantic domain uses closures for lazy evaluation under binders,
+// and neutral terms to represent stuck computations (e.g., variable applications).
+//
+// Key concepts:
+//   - Value: semantic representation (VLam, VPi, VSigma, VPair, VSort, VNeutral)
+//   - Closure: captures environment + term for delayed evaluation
+//   - Neutral: stuck computation with head variable and argument spine
+//   - Env: de Bruijn environment mapping indices to Values
+//
+// References:
+//   - Abel, A. "Normalization by Evaluation: Dependent Types and Impredicativity"
+//   - Coquand, T. "An Algorithm for Type-Checking Dependent Types"
 package eval
 
 import "github.com/watchthelight/HypergraphGo/internal/ast"
@@ -97,7 +115,20 @@ func vGlobal(name string) Value {
 	return VNeutral{N: Neutral{Head: Head{Glob: name}}}
 }
 
-// Eval evaluates a term in an environment to weak head normal form.
+// Eval evaluates a term in an environment to weak head normal form (WHNF).
+//
+// Evaluation proceeds recursively, handling each term constructor:
+//   - Var: lookup in environment, return neutral if unbound
+//   - Lam: create closure capturing current environment
+//   - App: evaluate function and argument, then apply
+//   - Pi/Sigma: evaluate domain, create closure for codomain
+//   - Pair: evaluate both components
+//   - Fst/Snd: evaluate pair and project
+//   - Let: evaluate definition, extend environment, evaluate body
+//   - Sort/Global: convert directly to corresponding Value
+//
+// If env is nil, an empty environment is used.
+// If t is nil, returns VGlobal{"nil"} as a fallback.
 func Eval(env *Env, t ast.Term) Value {
 	if t == nil {
 		return VGlobal{Name: "nil"} // fallback for nil terms
@@ -157,6 +188,12 @@ func Eval(env *Env, t ast.Term) Value {
 }
 
 // Apply performs function application in the semantic domain.
+//
+// This is the key operation for beta reduction in NbE:
+//   - VLam: performs beta reduction by extending the closure's environment
+//     with the argument and evaluating the body
+//   - VNeutral: extends the spine with the new argument (stuck application)
+//   - Other: creates a "bad_app" neutral term (type error in well-typed terms)
 func Apply(fun Value, arg Value) Value {
 	switch f := fun.(type) {
 	case VLam:
@@ -215,7 +252,16 @@ func Snd(v Value) Value {
 	}
 }
 
-// Reify converts a Value back to an ast.Term.
+// Reify converts a Value back to an ast.Term in normal form.
+//
+// This is the "read back" phase of NbE that extracts syntax from semantics:
+//   - VLam: applies to a fresh variable, reifies the result under a binder
+//   - VPi/VSigma: reifies domain, applies closure to fresh var for codomain
+//   - VPair: reifies both components
+//   - VNeutral: reconstructs term from head and spine
+//   - VSort/VGlobal: direct conversion
+//
+// The result is in beta-normal form (no reducible beta redexes).
 func Reify(v Value) ast.Term {
 	switch val := v.(type) {
 	case VNeutral:

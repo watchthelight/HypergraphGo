@@ -1,7 +1,7 @@
 package hypergraph
 
 import (
-	"fmt"
+	"slices"
 	"sort"
 )
 
@@ -15,9 +15,7 @@ type COO struct {
 func (h *Hypergraph[V]) IncidenceMatrix() (vertexIndex map[V]int, edgeIndex map[string]int, coo COO) {
 	// Create stable vertex index
 	vertices := h.Vertices()
-	sort.Slice(vertices, func(i, j int) bool {
-		return fmt.Sprintf("%v", vertices[i]) < fmt.Sprintf("%v", vertices[j])
-	})
+	slices.Sort(vertices)
 	vertexIndex = make(map[V]int)
 	for i, v := range vertices {
 		vertexIndex[v] = i

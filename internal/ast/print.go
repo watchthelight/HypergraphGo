@@ -5,10 +5,10 @@ import (
 	"strconv"
 )
 
-// Print a compact S-expression-like string for debugging.
+// Sprint returns a compact S-expression-like string for debugging.
 func Sprint(t Term) string {
 	var b bytes.Buffer
-	write(&b, t, 0)
+	write(&b, t)
 	return b.String()
 }
 
@@ -25,7 +25,7 @@ func collectSpine(t Term) (fun Term, args []Term) {
 	return
 }
 
-func write(b *bytes.Buffer, t Term, _ int) {
+func write(b *bytes.Buffer, t Term) {
 	switch t := t.(type) {
 	case Sort:
 		b.WriteString("Type")
@@ -45,9 +45,9 @@ func write(b *bytes.Buffer, t Term, _ int) {
 			b.WriteString("_")
 		}
 		b.WriteString(": ")
-		write(b, t.A, 0)
+		write(b, t.A)
 		b.WriteString(" . ")
-		write(b, t.B, 0)
+		write(b, t.B)
 		b.WriteString(")")
 	case Lam:
 		// (\x [:Ann] => Body)
@@ -59,18 +59,18 @@ func write(b *bytes.Buffer, t Term, _ int) {
 		}
 		if t.Ann != nil {
 			b.WriteString(" : ")
-			write(b, t.Ann, 0)
+			write(b, t.Ann)
 		}
 		b.WriteString(" => ")
-		write(b, t.Body, 0)
+		write(b, t.Body)
 		b.WriteString(")")
 	case App:
 		fun, args := collectSpine(t)
 		b.WriteString("(")
-		write(b, fun, 0)
+		write(b, fun)
 		for _, arg := range args {
 			b.WriteString(" ")
-			write(b, arg, 0)
+			write(b, arg)
 		}
 		b.WriteString(")")
 	case Sigma:
@@ -81,23 +81,23 @@ func write(b *bytes.Buffer, t Term, _ int) {
 			b.WriteString("_")
 		}
 		b.WriteString(": ")
-		write(b, t.A, 0)
+		write(b, t.A)
 		b.WriteString(" . ")
-		write(b, t.B, 0)
+		write(b, t.B)
 		b.WriteString(")")
 	case Pair:
 		b.WriteString("(")
-		write(b, t.Fst, 0)
+		write(b, t.Fst)
 		b.WriteString(" , ")
-		write(b, t.Snd, 0)
+		write(b, t.Snd)
 		b.WriteString(")")
 	case Fst:
 		b.WriteString("(fst ")
-		write(b, t.P, 0)
+		write(b, t.P)
 		b.WriteString(")")
 	case Snd:
 		b.WriteString("(snd ")
-		write(b, t.P, 0)
+		write(b, t.P)
 		b.WriteString(")")
 	case Let:
 		b.WriteString("(let ")
@@ -108,12 +108,12 @@ func write(b *bytes.Buffer, t Term, _ int) {
 		}
 		if t.Ann != nil {
 			b.WriteString(" : ")
-			write(b, t.Ann, 0)
+			write(b, t.Ann)
 		}
 		b.WriteString(" = ")
-		write(b, t.Val, 0)
+		write(b, t.Val)
 		b.WriteString(" in ")
-		write(b, t.Body, 0)
+		write(b, t.Body)
 		b.WriteString(")")
 	default:
 		b.WriteString("<?>")
