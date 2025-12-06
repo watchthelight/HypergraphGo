@@ -260,7 +260,8 @@ func Eval(env *Env, t ast.Term) Value {
 // This is the key operation for beta reduction in NbE:
 //   - VLam: performs beta reduction by extending the closure's environment
 //     with the argument and evaluating the body
-//   - VNeutral: extends the spine with the new argument (stuck application)
+//   - VNeutral: extends the spine with the new argument (stuck application),
+//     and checks for recursor computation rules
 //   - Other: creates a "bad_app" neutral term (type error in well-typed terms)
 func Apply(fun Value, arg Value) Value {
 	switch f := fun.(type) {
@@ -274,6 +275,12 @@ func Apply(fun Value, arg Value) Value {
 		newSp := make([]Value, len(f.N.Sp)+1)
 		copy(newSp, f.N.Sp)
 		newSp[len(f.N.Sp)] = arg
+
+		// Check for recursor computation rules
+		if result := tryRecursorReduction(f.N.Head, newSp); result != nil {
+			return result
+		}
+
 		return VNeutral{N: Neutral{Head: f.N.Head, Sp: newSp}}
 
 	default:
@@ -285,6 +292,132 @@ func Apply(fun Value, arg Value) Value {
 		head := Head{Glob: "error:bad_app"}
 		return VNeutral{N: Neutral{Head: head, Sp: []Value{fun, arg}}}
 	}
+}
+
+// tryRecursorReduction attempts to reduce a recursor application if the scrutinee
+// is a constructor. Returns nil if no reduction is possible.
+//
+// Supported recursors:
+//   - natElim P pz ps n: reduces when n is zero or (succ m)
+//   - boolElim P pt pf b: reduces when b is true or false
+func tryRecursorReduction(head Head, sp []Value) Value {
+	switch head.Glob {
+	case "natElim":
+		return tryNatElimReduction(sp)
+	case "boolElim":
+		return tryBoolElimReduction(sp)
+	default:
+		return nil
+	}
+}
+
+// tryNatElimReduction handles computation rules for natElim.
+//
+// natElim : (P : Nat -> Type) -> P zero -> ((n : Nat) -> P n -> P (succ n)) -> (n : Nat) -> P n
+//
+// Computation rules:
+//   - natElim P pz ps zero --> pz
+//   - natElim P pz ps (succ n) --> ps n (natElim P pz ps n)
+func tryNatElimReduction(sp []Value) Value {
+	// natElim needs 4 arguments: P, pz, ps, n
+	if len(sp) < 4 {
+		return nil // Not fully applied yet
+	}
+
+	p := sp[0]   // motive
+	pz := sp[1]  // zero case
+	ps := sp[2]  // succ case
+	n := sp[3]   // scrutinee
+
+	// Check if scrutinee is a constructor
+	switch scrutinee := n.(type) {
+	case VNeutral:
+		// Check for zero (a global with no spine)
+		if scrutinee.N.Head.Glob == "zero" && len(scrutinee.N.Sp) == 0 {
+			// natElim P pz ps zero --> pz
+			result := pz
+			// Apply any additional arguments (natElim result is P n, might be a function)
+			for _, extra := range sp[4:] {
+				result = Apply(result, extra)
+			}
+			return result
+		}
+
+		// Check for succ (a global applied to one argument)
+		if scrutinee.N.Head.Glob == "succ" && len(scrutinee.N.Sp) == 1 {
+			// natElim P pz ps (succ m) --> ps m (natElim P pz ps m)
+			m := scrutinee.N.Sp[0] // The predecessor
+
+			// Recursive call: natElim P pz ps m
+			// We apply natElim step by step to trigger reduction if m is also a constructor
+			ih := Apply(Apply(Apply(Apply(vGlobal("natElim"), p), pz), ps), m)
+
+			// ps m ih
+			result := Apply(Apply(ps, m), ih)
+
+			// Apply any additional arguments
+			for _, extra := range sp[4:] {
+				result = Apply(result, extra)
+			}
+			return result
+		}
+
+	default:
+		// Scrutinee is not neutral (shouldn't happen for valid Nat values)
+		return nil
+	}
+
+	return nil // Stuck
+}
+
+// tryBoolElimReduction handles computation rules for boolElim.
+//
+// boolElim : (P : Bool -> Type) -> P true -> P false -> (b : Bool) -> P b
+//
+// Computation rules:
+//   - boolElim P pt pf true --> pt
+//   - boolElim P pt pf false --> pf
+func tryBoolElimReduction(sp []Value) Value {
+	// boolElim needs 4 arguments: P, pt, pf, b
+	if len(sp) < 4 {
+		return nil // Not fully applied yet
+	}
+
+	// p := sp[0]   // motive (unused in reduction)
+	pt := sp[1] // true case
+	pf := sp[2] // false case
+	b := sp[3]  // scrutinee
+
+	// Check if scrutinee is a constructor
+	switch scrutinee := b.(type) {
+	case VNeutral:
+		// Check for true (a global with no spine)
+		if scrutinee.N.Head.Glob == "true" && len(scrutinee.N.Sp) == 0 {
+			// boolElim P pt pf true --> pt
+			result := pt
+			// Apply any additional arguments
+			for _, extra := range sp[4:] {
+				result = Apply(result, extra)
+			}
+			return result
+		}
+
+		// Check for false (a global with no spine)
+		if scrutinee.N.Head.Glob == "false" && len(scrutinee.N.Sp) == 0 {
+			// boolElim P pt pf false --> pf
+			result := pf
+			// Apply any additional arguments
+			for _, extra := range sp[4:] {
+				result = Apply(result, extra)
+			}
+			return result
+		}
+
+	default:
+		return nil
+	}
+
+	return nil // Stuck
 }
 
 // Fst performs first projection in the semantic domain.

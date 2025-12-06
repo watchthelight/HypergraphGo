@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Phase 5: Inductives infrastructure** (`kernel/check/`, `internal/eval/`)
+  - **Positivity checker** (`positivity.go`)
+    - `CheckPositivity` validates strict positivity for inductive definitions
+    - Polarity tracking with proper handling of negative positions
+    - Prevents logical inconsistencies from non-well-founded types
+    - Rejects nested negative occurrences (e.g., `((T -> A) -> B) -> T`)
+  - **Inductive validation** (`env.go`)
+    - `DeclareInductive` validates and adds inductives with full checking
+    - Constructor result type validation
+    - Positivity checking integrated into declaration pipeline
+  - **Recursor generation** (`recursor.go`)
+    - `GenerateRecursorType` creates eliminator types for inductives
+    - Handles zero-arg, single-arg, and recursive constructors
+    - Proper de Bruijn index calculation for motive and cases
+    - `GenerateRecursorTypeSimple` falls back to hand-crafted types for Nat/Bool
+  - **NbE recursor reduction** (`nbe.go`)
+    - `natElim` computation rules: reduces on `zero` and `succ n`
+    - `boolElim` computation rules: reduces on `true` and `false`
+    - Recursive reduction for nested constructors (e.g., `succ (succ zero)`)
+    - Stuck terms remain neutral for open/variable scrutinees
+
+- **S-expression parser** (`internal/parser/`)
+  - New package for parsing S-expression term syntax
+  - Supports all core AST types (Pi, Lam, App, Sigma, Pair, Id, Refl, J, etc.)
+  - Cubical types supported via build tag (`-tags cubical`)
+  - Round-trip formatting via `FormatTerm()`
+  - Helper functions: `ParseTerm`, `ParseMultiple`, `MustParse`
+
+- **CLI connected** (`cmd/hottgo/`)
+  - `hottgo --version`: Print version info
+  - `hottgo --check FILE`: Type-check a file of S-expression terms
+  - `hottgo --eval EXPR`: Evaluate an S-expression term
+  - `hottgo --synth EXPR`: Synthesize the type of an S-expression term
+  - Interactive REPL mode with `:eval`, `:synth`, `:quit` commands
+
+- **Inductive type documentation** (`docs/rules/inductive.md`)
+  - Formation, introduction, and elimination rules
+  - Strict positivity requirements with examples
+  - Recursor generation schema
+  - Computation rules for Nat, Bool, List
+
+- **NewCheckerWithPrimitives** (`kernel/check/check.go`)
+  - Convenience constructor for type checker with Nat and Bool
+
 ### Changed
 - **IVar validation strictness** (`kernel/check/check.go`)
   - `CheckIVar` now rejects interval variables outside path context

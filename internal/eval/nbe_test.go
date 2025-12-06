@@ -422,3 +422,143 @@ func TestNBE_ErrorHandling(t *testing.T) {
 	val4 := Fst(VSort{Level: 0})
 	_ = Reify(val4)
 }
+
+// Test natElim computation rules
+func TestNBE_NatElimZero(t *testing.T) {
+	// natElim P pz ps zero --> pz
+	// We test: natElim (\_ -> Nat) myZero mySucc zero
+	//   where myZero is some term, mySucc is the succ case
+	// Result should be myZero
+
+	natElim := glob("natElim")
+	motive := lam("_", glob("Nat")) // P : Nat -> Type = \_ -> Nat
+	pz := glob("myZero")            // P zero case
+	ps := lam("n", lam("ih", glob("myResult"))) // succ case (unused for zero)
+	zero := glob("zero")
+
+	term := ast.MkApps(natElim, motive, pz, ps, zero)
+
+	got := nf(term)
+	want := "myZero"
+
+	if got != want {
+		t.Errorf("natElim zero failed: got %q, want %q", got, want)
+	}
+}
+
+func TestNBE_NatElimSucc(t *testing.T) {
+	// natElim P pz ps (succ n) --> ps n (natElim P pz ps n)
+	// Test with: natElim (\_ -> Nat) zero (\n ih -> succ ih) (succ zero)
+	// This computes: ps zero (natElim ... zero) = succ (pz) = succ zero
+
+	natElim := glob("natElim")
+	motive := lam("_", glob("Nat"))
+	pz := glob("zero")
+	// ps: n -> ih -> succ ih (essentially "add 1 to the IH")
+	ps := lam("n", lam("ih", app(glob("succ"), vr(0))))
+	// succ zero = 1
+	one := app(glob("succ"), glob("zero"))
+
+	term := ast.MkApps(natElim, motive, pz, ps, one)
+
+	got := nf(term)
+	// Result should be succ zero (since we're adding 1 to the base case)
+	want := "(succ zero)"
+
+	if got != want {
+		t.Errorf("natElim succ failed: got %q, want %q", got, want)
+	}
+}
+
+func TestNBE_NatElimSuccSucc(t *testing.T) {
+	// Test recursion with succ (succ zero) = 2
+	// natElim (\_ -> Nat) zero (\n ih -> succ ih) 2
+	// Should give succ (succ zero)
+
+	natElim := glob("natElim")
+	motive := lam("_", glob("Nat"))
+	pz := glob("zero")
+	ps := lam("n", lam("ih", app(glob("succ"), vr(0))))
+	// succ (succ zero) = 2
+	two := app(glob("succ"), app(glob("succ"), glob("zero")))
+
+	term := ast.MkApps(natElim, motive, pz, ps, two)
+
+	got := nf(term)
+	want := "(succ (succ zero))"
+
+	if got != want {
+		t.Errorf("natElim succ succ failed: got %q, want %q", got, want)
+	}
+}
+
+func TestNBE_NatElimStuck(t *testing.T) {
+	// natElim P pz ps n where n is a neutral variable should stay stuck
+	natElim := glob("natElim")
+	motive := lam("_", glob("Nat"))
+	pz := glob("zero")
+	ps := lam("n", lam("ih", app(glob("succ"), vr(0))))
+	n := vr(0) // neutral variable
+
+	term := ast.MkApps(natElim, motive, pz, ps, n)
+
+	got := nf(term)
+	// Should be stuck as (natElim P pz ps n)
+	if got == "zero" || got == "(succ zero)" {
+		t.Errorf("natElim should be stuck with neutral scrutinee, got %q", got)
+	}
+}
+
+// Test boolElim computation rules
+func TestNBE_BoolElimTrue(t *testing.T) {
+	// boolElim P pt pf true --> pt
+	boolElim := glob("boolElim")
+	motive := lam("_", glob("Nat"))
+	pt := glob("trueCase")
+	pf := glob("falseCase")
+	true_ := glob("true")
+
+	term := ast.MkApps(boolElim, motive, pt, pf, true_)
+
+	got := nf(term)
+	want := "trueCase"
+
+	if got != want {
+		t.Errorf("boolElim true failed: got %q, want %q", got, want)
+	}
+}
+
+func TestNBE_BoolElimFalse(t *testing.T) {
+	// boolElim P pt pf false --> pf
+	boolElim := glob("boolElim")
+	motive := lam("_", glob("Nat"))
+	pt := glob("trueCase")
+	pf := glob("falseCase")
+	false_ := glob("false")
+
+	term := ast.MkApps(boolElim, motive, pt, pf, false_)
+
+	got := nf(term)
+	want := "falseCase"
+
+	if got != want {
+		t.Errorf("boolElim false failed: got %q, want %q", got, want)
+	}
+}
+
+func TestNBE_BoolElimStuck(t *testing.T) {
+	// boolElim P pt pf b where b is a neutral variable should stay stuck
+	boolElim := glob("boolElim")
+	motive := lam("_", glob("Nat"))
+	pt := glob("trueCase")
+	pf := glob("falseCase")
+	b := vr(0) // neutral variable
+
+	term := ast.MkApps(boolElim, motive, pt, pf, b)
+
+	got := nf(term)
+	// Should be stuck
+	if got == "trueCase" || got == "falseCase" {
+		t.Errorf("boolElim should be stuck with neutral scrutinee, got %q", got)
+	}
+}

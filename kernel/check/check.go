@@ -71,6 +71,11 @@ func NewCheckerWithEta(globals *GlobalEnv) *Checker {
 	}
 }
 
+// NewCheckerWithPrimitives creates a checker with built-in Nat and Bool types.
+func NewCheckerWithPrimitives() *Checker {
+	return NewChecker(NewGlobalEnvWithPrimitives())
+}
+
 // Globals returns the global environment.
 func (c *Checker) Globals() *GlobalEnv {
 	return c.globals

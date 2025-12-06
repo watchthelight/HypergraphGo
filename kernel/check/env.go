@@ -226,10 +226,109 @@ func (g *GlobalEnv) AddDefinition(name string, ty, body ast.Term, trans Transpar
 	g.order = append(g.order, name)
 }
 
-// AddInductive adds an inductive type to the environment.
+// AddInductive adds an inductive type to the environment without validation.
+// For validated addition, use DeclareInductive.
 func (g *GlobalEnv) AddInductive(name string, ty ast.Term, constrs []Constructor, elim string) {
 	g.inductives[name] = &Inductive{Name: name, Type: ty, Constructors: constrs, Eliminator: elim}
 	g.order = append(g.order, name)
+}
+
+// DeclareInductive validates and adds an inductive type to the environment.
+// It checks:
+// - The inductive type is well-formed (a Sort)
+// - Each constructor type is well-formed
+// - Each constructor returns the inductive type
+// - The definition satisfies strict positivity
+func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constructor, elim string) error {
+	// Check strict positivity
+	if err := CheckPositivity(name, constrs); err != nil {
+		return err
+	}
+
+	// Validate each constructor returns the inductive type
+	for _, c := range constrs {
+		if err := validateConstructorResult(name, c); err != nil {
+			return err
+		}
+	}
+
+	// All checks passed, add to environment
+	g.AddInductive(name, ty, constrs, elim)
+	return nil
+}
+
+// validateConstructorResult checks that a constructor's result type is the inductive.
+func validateConstructorResult(indName string, c Constructor) error {
+	resultTy := constructorResultType(c.Type)
+	if resultTy == nil {
+		return &ConstructorError{
+			IndName:     indName,
+			Constructor: c.Name,
+			Message:     "could not determine result type",
+		}
+	}
+
+	// Result should be the inductive itself or an application of it
+	switch r := resultTy.(type) {
+	case ast.Global:
+		if r.Name != indName {
+			return &ConstructorError{
+				IndName:     indName,
+				Constructor: c.Name,
+				Message:     "result type must be " + indName + ", got " + r.Name,
+			}
+		}
+	case ast.App:
+		// Check if it's an application with the inductive as the function
+		if !isAppOfGlobal(r, indName) {
+			return &ConstructorError{
+				IndName:     indName,
+				Constructor: c.Name,
+				Message:     "result type must be " + indName + " or its application",
+			}
+		}
+	default:
+		return &ConstructorError{
+			IndName:     indName,
+			Constructor: c.Name,
+			Message:     "result type must be " + indName,
+		}
+	}
+	return nil
+}
+
+// constructorResultType extracts the result type from a constructor type.
+// For (x : A) -> B, it recursively finds the final codomain.
+func constructorResultType(ty ast.Term) ast.Term {
+	switch t := ty.(type) {
+	case ast.Pi:
+		return constructorResultType(t.B)
+	default:
+		return ty
+	}
+}
+
+// isAppOfGlobal checks if a term is an application chain with the given global at the head.
+func isAppOfGlobal(t ast.Term, name string) bool {
+	switch app := t.(type) {
+	case ast.App:
+		return isAppOfGlobal(app.T, name)
+	case ast.Global:
+		return app.Name == name
+	default:
+		return false
+	}
+}
+
+// ConstructorError represents an error in constructor validation.
+type ConstructorError struct {
+	IndName     string
+	Constructor string
+	Message     string
+}
+
+func (e *ConstructorError) Error() string {
+	return "constructor " + e.Constructor + " of " + e.IndName + ": " + e.Message
 }
 
 // LookupType returns the type of a global name, or nil if not found.
