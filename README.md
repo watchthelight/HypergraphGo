@@ -22,6 +22,17 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 
 ## Latest Release
 
+### Unreleased - Phase 4 M6b: Cubical Path Types ✅
+
+**New HoTT Kernel Features (gated by `cubical` build tag):**
+- **Path types**: `Path A x y`, `PathP A x y` for cubical equality
+- **Path abstraction**: `<i> t : PathP (λi. A) t[i0/i] t[i1/i]`
+- **Path application**: `p @ r : A[r/i]` with endpoint beta reduction
+- **Transport**: `transport A e : A[i1/i]` with constant reduction
+- **Interval type**: `I`, `i0`, `i1`, `IVar` with separate de Bruijn space
+- **NbE support**: `VI0`, `VI1`, `VIVar`, `VPath`, `VPathP`, `VPathLam`, `VTransport`
+- **Build to enable**: `go build -tags cubical ./...`
+
 ### v1.5.0 - Phase 4 M6a: Martin-Löf Identity Types ✅
 
 **New HoTT Kernel Features:**
@@ -58,7 +69,7 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 1** | ✅ | Syntax, binding, pretty printing |
 | **Phase 2** | ✅ | **Normalization and definitional equality** |
 | **Phase 3** | ✅ | **Bidirectional type checking** |
-| **Phase 4** | ✅ | Identity types (M6a complete, cubical M6b planned) |
+| **Phase 4** | ✅ | Identity types (M6a) + Cubical path types (M6b) |
 | **Phase 5** | ⏳ | Inductives, recursors, positivity |
 | **Phase 6** | ⏳ | Univalence |
 | **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
@@ -66,8 +77,8 @@ Additionally, this project includes a cutting-edge **HoTT kernel** implementatio
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current Milestone:** M6a Complete - Martin-Löf Identity Types
-**Next Target:** M6b - Cubical Path types (gated with build tags)
+**Current Milestone:** Phase 4 Complete - Identity Types + Cubical Path Types
+**Next Target:** Phase 5 - Inductives, recursors, positivity
 
 ## Quickstart
 

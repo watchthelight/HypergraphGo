@@ -144,6 +144,9 @@ func write(b *bytes.Buffer, t Term) {
 		write(b, t.P)
 		b.WriteString(")")
 	default:
-		b.WriteString("<?>")
+		// Try extension writers (e.g., cubical terms when built with -tags cubical)
+		if !tryWriteExtension(b, t) {
+			b.WriteString("<?>")
+		}
 	}
 }

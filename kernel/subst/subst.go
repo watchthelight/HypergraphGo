@@ -80,6 +80,10 @@ func Shift(d, cutoff int, t ast.Term) ast.Term {
 			P: Shift(d, cutoff, tm.P),
 		}
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if result, ok := shiftExtension(d, cutoff, t); ok {
+			return result
+		}
 		// Unknown term types are returned unchanged (treated as terminals)
 		return t
 	}
@@ -163,6 +167,10 @@ func Subst(j int, s ast.Term, t ast.Term) ast.Term {
 			P: Subst(j, s, tm.P),
 		}
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if result, ok := substExtension(j, s, t); ok {
+			return result
+		}
 		// Unknown term types are returned unchanged (treated as terminals)
 		return t
 	}

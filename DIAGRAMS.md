@@ -1450,7 +1450,7 @@ sequenceDiagram
 This document provides a comprehensive visual guide to the HoTT kernel architecture:
 
 1. **Package Structure**: Clear separation between kernel (trusted), internal (implementation), and command layers
-2. **Term Hierarchy**: 13 term constructors covering dependent types, pairs, and identity types
+2. **Term Hierarchy**: 14 term constructors covering dependent types, pairs, and identity types
 3. **Value Hierarchy**: 9 value types for the NbE semantic domain
 4. **Bidirectional Type Checking**: Synth/Check modes with case analysis for each term type
 5. **NbE Pipeline**: Eval → Apply → Reify for normalization

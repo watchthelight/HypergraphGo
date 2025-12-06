@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Cubical Path Types** (Phase 4 M6b - gated by `cubical` build tag)
+  - New AST nodes: `Interval`, `I0`, `I1`, `IVar`, `Path`, `PathP`, `PathLam`, `PathApp`, `Transport` (`internal/ast/term_cubical.go`)
+  - Path formation: `Path A x y : Type_i` and `PathP A x y : Type_j`
+  - Path introduction: `<i> t : PathP (λi. A) t[i0/i] t[i1/i]`
+  - Path elimination: `p @ r : A[r/i]` with beta rules `(<i> t) @ i0 --> t[i0/i]`
+  - Transport: `transport A e : A[i1/i]` with constant reduction
+  - Separate interval de Bruijn index space with `IShift`, `ISubst` (`kernel/subst/subst_cubical.go`)
+  - NbE values: `VI0`, `VI1`, `VIVar`, `VPath`, `VPathP`, `VPathLam`, `VTransport` (`internal/eval/nbe_cubical.go`)
+  - Interval closures and environment: `IClosure`, `IEnv`
+  - Cubical evaluation: `EvalCubical`, `PathApply`, `EvalTransport`, `ReifyCubicalAt`
+  - Conversion checking: `alphaEqExtension`, `shiftTermExtension` (`internal/core/conv_cubical.go`)
+  - Type checking: `synthPath`, `synthPathP`, `synthPathLam`, `synthPathApp`, `synthTransport` (`kernel/check/bidir_cubical.go`)
+  - Pretty printing: S-expression output for cubical terms (`internal/ast/print_cubical.go`)
+  - Build tag gating: `//go:build cubical` on all cubical files
+  - Extension hooks in base files for conditional cubical support
+- **NbE reification bug tests** (`internal/eval/reify_bug_test.go`)
+  - `TestReifyFstWithSpineGt1`, `TestReifySndWithSpineGt1` for projection bugs
+  - `TestReifyNestedPi`, `TestReifyNestedPiThroughEval` for level tracking bugs
+- **Cubical test suite** (`kernel/check/path_test.go`)
+  - `TestPathTypeFormation`, `TestPathPTypeFormation`, `TestPathLamIntro`
+  - `TestPathAppBetaI0`, `TestPathAppBetaI1`
+  - `TestTransportConstant`, `TestTransportTyping`
+  - `TestReflAsPath`, `TestISubst`, `TestIShift`
+  - `TestCubicalPrinting`, `TestAlphaEqCubical`
+- **Documentation** (`docs/rules/path.md`)
+  - Complete typing rules for cubical path types
+  - Interval type, path formation, introduction, elimination
+  - Transport and computation rules
+  - Implementation notes with AST and NbE details
+
+### Fixed
+- **NbE reification bugs** (`internal/eval/nbe.go`)
+  - Fixed level tracking in Pi/Sigma type reification for nested dependent types
+  - Fresh variables now use level-indexed indices with proper de Bruijn conversion
+  - Nested `Π(A:Type). Π(x:A). A` now correctly reifies to `Pi{Sort{0}, Pi{Var{0}, Var{1}}}`
+- **fst/snd projection with spine > 1** (`internal/eval/nbe.go`)
+  - Fixed `reifyNeutral` to correctly handle fst/snd neutrals with applied arguments
+  - `(fst p) arg` now reifies to `App{Fst{p}, arg}` instead of `App{App{Global{fst}, p}, arg}`
+
+### Changed
+- **Documentation for evalJ** (`internal/eval/nbe.go`)
+  - Added explanation of why `x == y` check is not needed (typing invariant guarantees it)
+
 ## [1.5.0] - 2025-12-05
 
 ### Added

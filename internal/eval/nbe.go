@@ -219,6 +219,10 @@ func Eval(env *Env, t ast.Term) Value {
 		return evalJ(a, c, d, x, y, p)
 
 	default:
+		// Try extension evaluators (e.g., cubical terms when built with -tags cubical)
+		if val, ok := tryEvalCubical(env, t); ok {
+			return val
+		}
 		// Fallback for unknown terms
 		return VGlobal{Name: "unknown"}
 	}
@@ -291,8 +295,15 @@ func Snd(v Value) Value {
 
 // evalJ handles J elimination (path induction).
 // The computation rule is: J A C d x x (refl A x) --> d
+//
+// Note: We only check if p is VRefl, not that x == y. This is correct because:
+// - The type checker ensures p : Id A x y
+// - If p is refl A z, then p : Id A z z
+// - For well-typed terms, this means x == z == y
+// - NbE assumes well-typed input (standard practice in type theory implementations)
 func evalJ(a, c, d, x, y, p Value) Value {
 	// Check if p is refl - this triggers the computation rule
+	// For well-typed input, VRefl implies x == y by typing invariant
 	if _, ok := p.(VRefl); ok {
 		// J A C d x x (refl A x) --> d
 		return d
@@ -312,21 +323,30 @@ func evalJ(a, c, d, x, y, p Value) Value {
 //   - VSort/VGlobal: direct conversion
 //
 // The result is in beta-normal form (no reducible beta redexes).
+// Uses level-indexed fresh variables for correct de Bruijn handling under binders.
 func Reify(v Value) ast.Term {
+	return reifyAt(0, v)
+}
+
+// reifyAt reifies a value at a given binding level.
+// The level tracks how many binders we've gone under during reification.
+// Fresh variables use the level as their index, and neutral variables are
+// converted from levels to de Bruijn indices: index = level - varLevel - 1.
+func reifyAt(level int, v Value) ast.Term {
 	switch val := v.(type) {
 	case VNeutral:
-		return reifyNeutral(val.N)
+		return reifyNeutralAt(level, val.N)
 
 	case VLam:
-		// Create a fresh variable and reify the body
-		freshVar := vVar(0)
+		// Create a fresh variable at current level and reify body at level+1
+		freshVar := vVar(level)
 		bodyVal := Apply(val, freshVar)
-		bodyTerm := Reify(bodyVal)
+		bodyTerm := reifyAt(level+1, bodyVal)
 		return ast.Lam{Binder: "_", Body: bodyTerm}
 
 	case VPair:
-		fst := Reify(val.Fst)
-		snd := Reify(val.Snd)
+		fst := reifyAt(level, val.Fst)
+		snd := reifyAt(level, val.Snd)
 		return ast.Pair{Fst: fst, Snd: snd}
 
 	case VSort:
@@ -336,77 +356,99 @@ func Reify(v Value) ast.Term {
 		return ast.Global{Name: val.Name}
 
 	case VPi:
-		a := Reify(val.A)
-		// For Pi types, we need to reify under a binder
-		freshVar := vVar(0)
+		a := reifyAt(level, val.A)
+		// For Pi types, apply closure to fresh var and reify at level+1
+		freshVar := vVar(level)
 		bVal := Apply(VLam{Body: val.B}, freshVar)
-		b := Reify(bVal)
+		b := reifyAt(level+1, bVal)
 		return ast.Pi{Binder: "_", A: a, B: b}
 
 	case VSigma:
-		a := Reify(val.A)
-		// For Sigma types, we need to reify under a binder
-		freshVar := vVar(0)
+		a := reifyAt(level, val.A)
+		// For Sigma types, apply closure to fresh var and reify at level+1
+		freshVar := vVar(level)
 		bVal := Apply(VLam{Body: val.B}, freshVar)
-		b := Reify(bVal)
+		b := reifyAt(level+1, bVal)
 		return ast.Sigma{Binder: "_", A: a, B: b}
 
 	case VId:
-		a := Reify(val.A)
-		x := Reify(val.X)
-		y := Reify(val.Y)
+		a := reifyAt(level, val.A)
+		x := reifyAt(level, val.X)
+		y := reifyAt(level, val.Y)
 		return ast.Id{A: a, X: x, Y: y}
 
 	case VRefl:
-		a := Reify(val.A)
-		x := Reify(val.X)
+		a := reifyAt(level, val.A)
+		x := reifyAt(level, val.X)
 		return ast.Refl{A: a, X: x}
 
 	default:
+		// Try extension reifiers (e.g., cubical values when built with -tags cubical)
+		if term, ok := tryReifyCubical(level, v); ok {
+			return term
+		}
 		return ast.Global{Name: "reify_error"}
 	}
 }
 
-// reifyNeutral converts a Neutral back to an ast.Term.
-func reifyNeutral(n Neutral) ast.Term {
+// reifyNeutralAt converts a Neutral back to an ast.Term at a given level.
+// For variables, converts from level-indexed to de Bruijn: index = level - varLevel - 1.
+func reifyNeutralAt(level int, n Neutral) ast.Term {
 	var head ast.Term
 
-	if n.Head.Var >= 0 && n.Head.Glob == "" {
-		head = ast.Var{Ix: n.Head.Var}
-	} else if n.Head.Glob != "" {
+	if n.Head.Glob == "" {
+		// Variable: convert from level to de Bruijn index
+		// A variable created at level L, when reified at level M, becomes index M-L-1
+		ix := level - n.Head.Var - 1
+		if ix < 0 {
+			// Free variable (created before reification started)
+			// Keep original index as fallback
+			ix = n.Head.Var
+		}
+		head = ast.Var{Ix: ix}
+	} else {
 		switch n.Head.Glob {
 		case "fst":
-			if len(n.Sp) == 1 {
-				arg := Reify(n.Sp[0])
-				return ast.Fst{P: arg}
+			if len(n.Sp) >= 1 {
+				// First arg is the pair being projected
+				arg := reifyAt(level, n.Sp[0])
+				base := ast.Fst{P: arg}
+				// Apply remaining spine arguments (if projection result is a function)
+				var result ast.Term = base
+				for _, spArg := range n.Sp[1:] {
+					argTerm := reifyAt(level, spArg)
+					result = ast.App{T: result, U: argTerm}
+				}
+				return result
 			}
 			head = ast.Global{Name: n.Head.Glob}
 		case "snd":
-			if len(n.Sp) == 1 {
-				arg := Reify(n.Sp[0])
-				return ast.Snd{P: arg}
+			if len(n.Sp) >= 1 {
+				// First arg is the pair being projected
+				arg := reifyAt(level, n.Sp[0])
+				base := ast.Snd{P: arg}
+				// Apply remaining spine arguments (if projection result is a function)
+				var result ast.Term = base
+				for _, spArg := range n.Sp[1:] {
+					argTerm := reifyAt(level, spArg)
+					result = ast.App{T: result, U: argTerm}
+				}
+				return result
 			}
 			head = ast.Global{Name: n.Head.Glob}
 		default:
 			head = ast.Global{Name: n.Head.Glob}
 		}
-	} else {
-		head = ast.Global{Name: "neutral_error"}
 	}
 
 	// Apply spine arguments
 	result := head
 	for _, arg := range n.Sp {
-		argTerm := Reify(arg)
+		argTerm := reifyAt(level, arg)
 		result = ast.App{T: result, U: argTerm}
 	}
 
 	return result
-}
-
-// Reflect converts a Neutral to a Value (identity function, but useful for API completeness).
-func Reflect(neu Neutral) Value {
-	return VNeutral{N: neu}
 }
 
 // EvalNBE is a convenience function that evaluates and reifies a term using NbE.

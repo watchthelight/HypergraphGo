@@ -113,7 +113,7 @@ func PrettyValue(v Value) string {
 
 // PrettyNeutral converts a Neutral to a stable string representation for testing.
 func PrettyNeutral(n Neutral) string {
-	term := reifyNeutral(n)
+	term := reifyNeutralAt(0, n)
 	return ast.Sprint(term)
 }
 

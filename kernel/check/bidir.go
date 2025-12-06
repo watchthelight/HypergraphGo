@@ -57,6 +57,10 @@ func (c *Checker) synth(context *tyctx.Ctx, span Span, term ast.Term) (ast.Term,
 		return c.synthJ(context, span, t)
 
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if ty, err, ok := synthExtension(c, context, span, term); ok {
+			return ty, err
+		}
 		return nil, errCannotInfer(span, term)
 	}
 }
@@ -382,6 +386,10 @@ func (c *Checker) check(context *tyctx.Ctx, span Span, term ast.Term, expected a
 		return c.checkPair(context, span, t, expected)
 
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if err, ok := checkExtension(c, context, span, term, expected); ok {
+			return err
+		}
 		// Default: synthesize and compare
 		return c.checkBySynth(context, span, term, expected)
 	}

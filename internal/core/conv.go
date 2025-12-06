@@ -207,6 +207,10 @@ func shiftTerm(t ast.Term, d, cutoff int) ast.Term {
 			P: shiftTerm(tm.P, d, cutoff),
 		}
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if result, ok := shiftTermExtension(t, d, cutoff); ok {
+			return result
+		}
 		return t
 	}
 }
@@ -279,6 +283,11 @@ func AlphaEq(a, b ast.Term) bool {
 		if bb, ok := b.(ast.J); ok {
 			return AlphaEq(a.A, bb.A) && AlphaEq(a.C, bb.C) && AlphaEq(a.D, bb.D) &&
 				AlphaEq(a.X, bb.X) && AlphaEq(a.Y, bb.Y) && AlphaEq(a.P, bb.P)
+		}
+	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if result, ok := alphaEqExtension(a, b); ok {
+			return result
 		}
 	}
 	return false
