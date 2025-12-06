@@ -181,6 +181,185 @@ func TestEndToEnd_IllFormedConstructor(t *testing.T) {
 	}
 }
 
+// TestEndToEnd_List tests a List inductive with two constructors.
+// List A : Type with nil : List A, cons : A -> List A -> List A
+func TestEndToEnd_List(t *testing.T) {
+	eval.ClearRecursorRegistry()
+
+	env := NewGlobalEnvWithPrimitives()
+
+	// For simplicity, we use a monomorphic List (no type parameter A)
+	// List : Type with nil : List, cons : Nat -> List -> List
+	err := env.DeclareInductive("List", ast.Sort{U: 0}, []Constructor{
+		{Name: "nil", Type: ast.Global{Name: "List"}},
+		{Name: "cons", Type: ast.Pi{
+			Binder: "x",
+			A:      ast.Global{Name: "Nat"},
+			B: ast.Pi{
+				Binder: "xs",
+				A:      ast.Global{Name: "List"},
+				B:      ast.Global{Name: "List"},
+			},
+		}},
+	}, "listElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(List) failed: %v", err)
+	}
+
+	// Verify recursor info
+	info := eval.LookupRecursor("listElim")
+	if info == nil {
+		t.Fatal("listElim not registered")
+	}
+	if info.NumCases != 2 {
+		t.Errorf("listElim NumCases = %d, want 2", info.NumCases)
+	}
+	// cons has 2 args: x:Nat (non-recursive), xs:List (recursive at index 1)
+	if len(info.Ctors[1].RecursiveIdx) != 1 || info.Ctors[1].RecursiveIdx[0] != 1 {
+		t.Errorf("cons recursive indices = %v, want [1]", info.Ctors[1].RecursiveIdx)
+	}
+
+	// Test nil case: listElim P pnil pcons nil --> pnil
+	listElim := ast.Global{Name: "listElim"}
+	motive := ast.Lam{Binder: "_", Body: ast.Sort{U: 0}}
+	pnil := ast.Global{Name: "nilCase"}
+	// pcons takes x, xs, ih and returns something
+	pcons := ast.Lam{Binder: "x", Body: ast.Lam{Binder: "xs", Body: ast.Lam{Binder: "ih", Body: ast.Global{Name: "consCase"}}}}
+	nil_ := ast.Global{Name: "nil"}
+
+	term := ast.MkApps(listElim, motive, pnil, pcons, nil_)
+	normalized := eval.NormalizeNBE(term)
+
+	if normalized != "nilCase" {
+		t.Errorf("listElim _ nilCase _ nil = %q, want 'nilCase'", normalized)
+	}
+
+	// Test cons case: listElim P pnil pcons (cons x nil) --> pcons x nil (listElim P pnil pcons nil)
+	// Since pcons = λx.λxs.λih. consCase, this reduces to consCase
+	zero := ast.Global{Name: "zero"}
+	oneElem := ast.App{T: ast.App{T: ast.Global{Name: "cons"}, U: zero}, U: nil_}
+	term = ast.MkApps(listElim, motive, pnil, pcons, oneElem)
+	normalized = eval.NormalizeNBE(term)
+
+	if normalized != "consCase" {
+		t.Errorf("listElim _ _ _ (cons zero nil) = %q, want 'consCase'", normalized)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestEndToEnd_Tree tests a Tree inductive with nested List usage.
+// Tree : Type with leaf : Nat -> Tree, node : List Tree -> Tree
+func TestEndToEnd_Tree(t *testing.T) {
+	eval.ClearRecursorRegistry()
+
+	env := NewGlobalEnvWithPrimitives()
+
+	// First declare List of Tree: we need List in env
+	// For this test, we use a simple Tree without nested List since we don't have
+	// parameterized types. Instead: Tree : Type, leaf : Tree, branch : Tree -> Tree -> Tree
+	err := env.DeclareInductive("Tree", ast.Sort{U: 0}, []Constructor{
+		{Name: "leaf", Type: ast.Global{Name: "Tree"}},
+		{Name: "branch", Type: ast.Pi{
+			Binder: "l",
+			A:      ast.Global{Name: "Tree"},
+			B: ast.Pi{
+				Binder: "r",
+				A:      ast.Global{Name: "Tree"},
+				B:      ast.Global{Name: "Tree"},
+			},
+		}},
+	}, "treeElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Tree) failed: %v", err)
+	}
+
+	// Verify recursor info
+	info := eval.LookupRecursor("treeElim")
+	if info == nil {
+		t.Fatal("treeElim not registered")
+	}
+	if info.NumCases != 2 {
+		t.Errorf("treeElim NumCases = %d, want 2", info.NumCases)
+	}
+	// branch has 2 recursive args at indices 0 and 1
+	if len(info.Ctors[1].RecursiveIdx) != 2 {
+		t.Errorf("branch recursive indices = %v, want 2 indices", info.Ctors[1].RecursiveIdx)
+	}
+
+	// Test leaf case: treeElim P pleaf pbranch leaf --> pleaf
+	treeElim := ast.Global{Name: "treeElim"}
+	motive := ast.Lam{Binder: "_", Body: ast.Sort{U: 0}}
+	pleaf := ast.Global{Name: "leafCase"}
+	// pbranch takes l, ihl, r, ihr and returns something
+	pbranch := ast.Lam{Binder: "l", Body: ast.Lam{Binder: "ihl", Body: ast.Lam{Binder: "r", Body: ast.Lam{Binder: "ihr", Body: ast.Global{Name: "branchCase"}}}}}
+	leaf := ast.Global{Name: "leaf"}
+
+	term := ast.MkApps(treeElim, motive, pleaf, pbranch, leaf)
+	normalized := eval.NormalizeNBE(term)
+
+	if normalized != "leafCase" {
+		t.Errorf("treeElim _ leafCase _ leaf = %q, want 'leafCase'", normalized)
+	}
+
+	// Test branch case: treeElim P pleaf pbranch (branch leaf leaf)
+	// --> pbranch leaf (treeElim P pleaf pbranch leaf) leaf (treeElim P pleaf pbranch leaf)
+	// --> pbranch leaf leafCase leaf leafCase --> branchCase
+	twoLeaves := ast.App{T: ast.App{T: ast.Global{Name: "branch"}, U: leaf}, U: leaf}
+	term = ast.MkApps(treeElim, motive, pleaf, pbranch, twoLeaves)
+	normalized = eval.NormalizeNBE(term)
+
+	if normalized != "branchCase" {
+		t.Errorf("treeElim _ _ _ (branch leaf leaf) = %q, want 'branchCase'", normalized)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestEndToEnd_NestedRecursion tests nested recursive calls.
+// Uses MyNat to test succ (succ (succ mzero)) reduction.
+func TestEndToEnd_NestedRecursion(t *testing.T) {
+	eval.ClearRecursorRegistry()
+
+	env := NewGlobalEnv()
+
+	// Declare MyNat
+	err := env.DeclareInductive("MyNat", ast.Sort{U: 0}, []Constructor{
+		{Name: "mzero", Type: ast.Global{Name: "MyNat"}},
+		{Name: "msucc", Type: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "MyNat"},
+			B:      ast.Global{Name: "MyNat"},
+		}},
+	}, "myNatElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(MyNat) failed: %v", err)
+	}
+
+	// Build msucc (msucc (msucc mzero)) = 3
+	mzero := ast.Global{Name: "mzero"}
+	one := ast.App{T: ast.Global{Name: "msucc"}, U: mzero}
+	two := ast.App{T: ast.Global{Name: "msucc"}, U: one}
+	three := ast.App{T: ast.Global{Name: "msucc"}, U: two}
+
+	// Test that we can reduce recursively
+	// myNatElim P pz ps three should reduce to ps two (ps one (ps zero pz))
+	// With ps = λn.λih. succCase, this fully reduces to succCase
+	myNatElim := ast.Global{Name: "myNatElim"}
+	motive := ast.Lam{Binder: "_", Body: ast.Sort{U: 0}}
+	pz := ast.Global{Name: "zeroResult"}
+	ps := ast.Lam{Binder: "n", Body: ast.Lam{Binder: "ih", Body: ast.Global{Name: "succResult"}}}
+
+	term := ast.MkApps(myNatElim, motive, pz, ps, three)
+	normalized := eval.NormalizeNBE(term)
+
+	if normalized != "succResult" {
+		t.Errorf("myNatElim _ _ _ (msucc (msucc (msucc mzero))) = %q, want 'succResult'", normalized)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
 // TestEndToEnd_RecursorTypeStructure verifies the generated recursor type structure.
 func TestEndToEnd_RecursorTypeStructure(t *testing.T) {
 	env := NewGlobalEnv()

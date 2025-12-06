@@ -99,6 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TestEndToEnd_PositivityRejection`: Negative occurrences properly rejected
   - `TestEndToEnd_IllFormedConstructor`: Unknown types in constructors rejected
   - `TestEndToEnd_RecursorTypeStructure`: Generated eliminator structure verified
+  - `TestEndToEnd_List`: listElim reduces on nil and cons (demonstrates generic recursor)
+  - `TestEndToEnd_Tree`: treeElim with multiple recursive args (branch case)
+  - `TestEndToEnd_NestedRecursion`: Deep nested recursive calls (msucc (msucc (msucc mzero)))
 - **Generic recursor tests** (`internal/eval/nbe_test.go`)
   - `TestNBE_GenericRecursor`: Unit-like inductive reduction
   - `TestNBE_GenericRecursorWithRecursiveArg`: Nat-like recursive inductive
