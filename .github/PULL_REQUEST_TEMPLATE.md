@@ -1,20 +1,27 @@
-# Pull Request
-
 ## Summary
-Explain the purpose of this PR and what it changes.
 
-## Type of change
+What does this PR do? Be specific.
+
+## Type
+
 - [ ] Bug fix
 - [ ] Feature
 - [ ] Refactor
 - [ ] Docs
-- [ ] CI
+- [ ] CI/Build
 
 ## Checklist
-- [ ] Tests added or updated
-- [ ] Documentation updated
-- [ ] `go test ./...` passes locally
-- [ ] CI is green
 
-## Related issues
-Closes #<issue-number> (if applicable).
+- [ ] Tests added or updated
+- [ ] `go test ./...` passes
+- [ ] `golangci-lint run` passes
+- [ ] CHANGELOG updated (under `[Unreleased]`)
+- [ ] Docs updated if needed
+
+## Breaking Changes
+
+None / Describe any breaking changes.
+
+## Related Issues
+
+Closes #<!-- issue number -->

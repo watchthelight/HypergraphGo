@@ -1,0 +1,99 @@
+/* HoTTGo Indie Theme - Forest & Gold */
+
+:root {
+  /* Forest & Gold palette */
+  --md-primary-fg-color: #d4a847;
+  --md-primary-fg-color--light: #e8d090;
+  --md-primary-fg-color--dark: #a67c32;
+  --md-accent-fg-color: #d4a847;
+  --md-accent-fg-color--transparent: rgba(212, 168, 71, 0.15);
+
+  /* Dark forest background */
+  --md-default-bg-color: #0f1210;
+  --md-default-bg-color--light: #1a1f1a;
+  --md-default-bg-color--lighter: #242a24;
+  --md-default-bg-color--lightest: #3d4a35;
+
+  /* Text colors */
+  --md-default-fg-color: #c9b97a;
+  --md-default-fg-color--light: #8a9a7a;
+  --md-default-fg-color--lighter: #6a7a5a;
+  --md-default-fg-color--lightest: #4a5a42;
+
+  /* Code blocks */
+  --md-code-bg-color: #1a1f1a;
+  --md-code-fg-color: #c9b97a;
+}
+
+/* Serif headings for academic feel */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Cinzel", "Georgia", serif;
+  color: var(--md-primary-fg-color);
+}
+
+/* Gold accent on links */
+a {
+  color: var(--md-accent-fg-color);
+}
+
+a:hover {
+  color: var(--md-primary-fg-color--light);
+}
+
+/* Subtle gold border on code blocks */
+.md-typeset pre > code {
+  border-left: 3px solid var(--md-primary-fg-color);
+}
+
+/* Navigation styling */
+.md-nav__link--active {
+  color: var(--md-primary-fg-color) !important;
+}
+
+/* Header bar */
+.md-header {
+  background-color: #0a0d0a;
+  border-bottom: 1px solid #3d4a35;
+}
+
+/* Footer */
+.md-footer {
+  background-color: #0a0d0a;
+  border-top: 1px solid #3d4a35;
+}
+
+/* Tables */
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-bg-color--light);
+  color: var(--md-primary-fg-color);
+}
+
+/* Admonitions */
+.md-typeset .admonition,
+.md-typeset details {
+  border-left-color: var(--md-primary-fg-color);
+}
+
+/* Search */
+.md-search__input {
+  background-color: var(--md-default-bg-color--light);
+}
+
+/* Scrollbar (WebKit) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--md-default-bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--md-default-bg-color--lightest);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-primary-fg-color--dark);
+}

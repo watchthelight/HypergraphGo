@@ -1,88 +1,80 @@
-# Hypergraph-Go
-[![CI (Windows)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml/badge.svg?branch=main)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml)
-[![CI (Linux)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml/badge.svg?branch=main)](https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml)
-[![release](https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver)](https://github.com/watchthelight/HypergraphGo/releases)
-[![AUR](https://img.shields.io/aur/version/hypergraphgo?label=AUR&logo=archlinux)](https://aur.archlinux.org/packages/hypergraphgo)
-[![APT](https://img.shields.io/badge/apt-hypergraphgo-blue?logo=debian)](https://cloudsmith.io/~watchthelight/repos/hypergraphgo/packages/)
-[![choco](https://img.shields.io/chocolatey/v/hypergraphgo?label=choco)](https://community.chocolatey.org/packages/hypergraphgo)
+<p align="center">
+  <img src="assets/hottgo-banner.png" alt="HoTTGo Banner" width="100%">
+</p>
 
-A production-quality Go library for hypergraph theory, supporting generic vertex types, advanced algorithms, and CLI tools.
+<h1 align="center">HoTTGo</h1>
 
-**Now includes HoTT (Homotopy Type Theory) kernel implementation with normalization by evaluation.**
+<p align="center">
+  <strong>Homotopy Type Theory in Go</strong>
+</p>
 
-## Overview
+<p align="center">
+  <a href="https://github.com/watchthelight/HypergraphGo/releases"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&style=flat-square&color=d4a847" alt="Release"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-linux.yml?branch=main&label=linux&style=flat-square" alt="CI Linux"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-windows.yml?branch=main&label=windows&style=flat-square" alt="CI Windows"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/stargazers"><img src="https://img.shields.io/github/stars/watchthelight/HypergraphGo?style=flat-square&color=d4a847" alt="Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/watchthelight/HypergraphGo?style=flat-square" alt="License"></a>
+</p>
 
-Hypergraphs generalize graphs by allowing edges (called hyperedges) to connect any number of vertices. This library provides a flexible, efficient, and idiomatic Go implementation of hypergraphs with rich operations, transforms, and algorithms.
+---
 
-Additionally, this project includes a cutting-edge **HoTT kernel** implementation featuring:
-- Normalization by Evaluation (NbE) with closure-based semantic domain
-- Definitional equality checking with optional η-rules for Π/Σ types
-- De Bruijn index-based core AST with bidirectional type checking
-- Cubical type theory foundations for univalent mathematics
+## The Short Version
 
-## Latest Release
+A production-quality Go library for:
+- **Hypergraph theory** — generic vertex types, transforms, algorithms
+- **HoTT kernel** — normalization by evaluation, bidirectional typing, identity types, cubical path types
+- **CLI tools** — `hg` for hypergraphs, `hottgo` for type checking
 
-### Unreleased - Phase 4 M6b: Cubical Path Types ✅
+---
 
-**New HoTT Kernel Features (gated by `cubical` build tag):**
-- **Path types**: `Path A x y`, `PathP A x y` for cubical equality
-- **Path abstraction**: `<i> t : PathP (λi. A) t[i0/i] t[i1/i]`
-- **Path application**: `p @ r : A[r/i]` with endpoint beta reduction
-- **Transport**: `transport A e : A[i1/i]` with constant reduction
-- **Interval type**: `I`, `i0`, `i1`, `IVar` with separate de Bruijn space
-- **NbE support**: `VI0`, `VI1`, `VIVar`, `VPath`, `VPathP`, `VPathLam`, `VTransport`
-- **Build to enable**: `go build -tags cubical ./...`
+## Why This Exists
 
-### v1.5.0 - Phase 4 M6a: Martin-Löf Identity Types ✅
+Hypergraphs generalize graphs by allowing edges (hyperedges) to connect any number of vertices. This library provides a flexible, efficient, and idiomatic Go implementation with rich operations, transforms, and algorithms.
 
-**New HoTT Kernel Features:**
+The HoTT kernel implements a cutting-edge type theory foundation:
+- **Normalization by Evaluation (NbE)** with closure-based semantic domain
+- **Definitional equality** with optional η-rules for Π/Σ types
+- **De Bruijn indices** with bidirectional type checking
+- **Cubical type theory** foundations for univalent mathematics
+
+---
+
+## Highlights
+
+### Phase 4 Complete: Identity Types + Cubical Path Types
+
+**Martin-Löf Identity Types (v1.5.0):**
 - **Identity types**: `Id A x y` for propositional equality
 - **Reflexivity**: `refl A x : Id A x x`
 - **Path induction**: `J A C d x y p : C y p` eliminator
 - **Computation rule**: `J A C d x x (refl A x) --> d`
 - **NbE support**: `VId`, `VRefl` semantic values with J reduction
 - **Derived operations**: transport, symmetry, transitivity, congruence
-- **Success criterion met**: Transport operation proven via J ✓
 
-### v1.3.0 - Phase 3 Complete: Bidirectional Type Checking ✅
+**Cubical Path Types (gated by `cubical` build tag):**
+- **Path types**: `Path A x y`, `PathP A x y` for cubical equality
+- **Path abstraction**: `<i> t : PathP (λi. A) t[i0/i] t[i1/i]`
+- **Path application**: `p @ r : A[r/i]` with endpoint beta reduction
+- **Transport**: `transport A e : A[i1/i]` with constant reduction
+- **Interval type**: `I`, `i0`, `i1`, `IVar` with separate de Bruijn space
+- **Build to enable**: `go build -tags cubical ./...`
 
-**HoTT Kernel Features:**
+### Phase 3 Complete: Bidirectional Type Checking
+
 - **Bidirectional type checker** at `kernel/check` with `Synth`/`Check`/`CheckIsType` API
 - **Built-in primitives**: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
 - **Structured error types** with source spans for precise diagnostics
 - **Global environment** with axioms, definitions, inductives, and primitives
 
-### v1.2.0 - Phase 2 Complete: Normalization and Definitional Equality ✅
+### Phase 2 Complete: NbE & Definitional Equality
 
-**HoTT Kernel Features:**
-- **NbE skeleton** integrated under `internal/eval` with semantic domain (Values, Closures, Neutrals)
-- **Definitional equality checker** added at `core.Conv` with environment support
+- **NbE skeleton** under `internal/eval` with semantic domain (Values, Closures, Neutrals)
+- **Definitional equality** at `core.Conv` with environment support
 - **Optional η-rules** for functions and pairs behind feature flags
 
-## Roadmap Progress
-
-### HoTT Kernel Development Status
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| **Phase 0** | ✅ | Ground rules and interfaces |
-| **Phase 1** | ✅ | Syntax, binding, pretty printing |
-| **Phase 2** | ✅ | **Normalization and definitional equality** |
-| **Phase 3** | ✅ | **Bidirectional type checking** |
-| **Phase 4** | ✅ | Identity types (M6a) + Cubical path types (M6b) |
-| **Phase 5** | ⏳ | Inductives, recursors, positivity |
-| **Phase 6** | ⏳ | Univalence |
-| **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
-| **Phase 8** | ⏳ | Elaboration and tactics |
-| **Phase 9** | ⏳ | Standard library seed |
-| **Phase 10** | ⏳ | Performance, soundness, packaging |
-
-**Current Milestone:** Phase 4 Complete - Identity Types + Cubical Path Types
-**Next Target:** Phase 5 - Inductives, recursors, positivity
+---
 
 ## Quickstart
-
-Install the module and try a minimal snippet:
 
 ```bash
 go get github.com/watchthelight/hypergraphgo
@@ -111,41 +103,33 @@ go run ./examples/basic
 go run ./examples/algorithms
 ```
 
+---
+
 ## Installation
+
+### Go Module
 
 ```bash
 go get github.com/watchthelight/hypergraphgo
 ```
 
-### Install via APT (Cloudsmith)
+### APT (Cloudsmith)
+
 ```bash
 curl -1sLf 'https://dl.cloudsmith.io/public/watchthelight/hypergraphgo/setup.deb.sh' | sudo -E bash
 sudo apt install hypergraphgo
 ```
 
-## Usage
+### Other Package Managers
 
-### Basic usage
+[![AUR](https://img.shields.io/aur/version/hypergraphgo?label=AUR&logo=archlinux&style=flat-square)](https://aur.archlinux.org/packages/hypergraphgo)
+[![choco](https://img.shields.io/chocolatey/v/hypergraphgo?label=choco&style=flat-square)](https://community.chocolatey.org/packages/hypergraphgo)
 
-```go
-package main
+---
 
-import (
-    "fmt"
-    "github.com/watchthelight/hypergraphgo/hypergraph"
-)
+## CLI
 
-func main() {
-    hg := hypergraph.NewHypergraph[string]()
-    hg.AddVertex("A")
-    hg.AddVertex("B")
-    hg.AddEdge("E1", []string{"A", "B"})
-    fmt.Println("Vertices:", hg.Vertices())
-    fmt.Println("Edges:", hg.Edges())
-}
-```
-
-### CLI examples
+### Hypergraph CLI (`hg`)
 
 ```bash
 hg info -file example.json
@@ -154,48 +138,102 @@ hg add-edge -file example.json -id E1 -members "A,B,C"
 hg components -file example.json
 hg dual -in example.json -out dual.json
 hg section -in example.json -out section.json
-hg save -out example.json
-hg load -in example.json
 ```
 
-## Algorithms and Complexity
+### HoTT CLI (`hottgo`)
 
-- Greedy hitting set: polynomial time heuristic.
-- Minimal transversals enumeration: exponential, supports cutoffs.
-- Greedy coloring: heuristic.
-- Dual, 2-section, and line graph transforms.
-- Connectivity and traversal via BFS/DFS.
+```bash
+hottgo --version
+hottgo --check FILE        # Type-check S-expression terms
+hottgo --eval EXPR         # Evaluate an expression
+hottgo --synth EXPR        # Synthesize the type
+```
 
-## Example
+Interactive REPL with `:eval`, `:synth`, `:quit` commands.
 
-Build a small hypergraph, print degrees, components, dual, and 2-section graphs.
+---
 
-## Versioning
+## Architecture
 
-Starting at v0.1.0 with semantic versioning.
+The kernel follows strict design principles documented in [`DESIGN.md`](DESIGN.md):
 
-## Releasing
+- **Kernel boundary** — minimal, total, panic-free
+- **De Bruijn indices** — core terms only; surface syntax keeps user names
+- **NbE conversion** — no ad-hoc reductions outside documented rules
+- **Strict positivity** — validated for all inductive definitions
 
-Create and push a new tag based on the VERSION file.
+See [`DIAGRAMS.md`](DIAGRAMS.md) for comprehensive Mermaid architecture diagrams covering:
+- Package dependencies
+- Term and value type hierarchies
+- Bidirectional type checking flow
+- NbE pipeline (Eval → Apply → Reify)
+- J elimination and conversion checking
 
-Linux/macOS/WSL:
+---
+
+## Roadmap
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| **Phase 0** | ✅ | Ground rules and interfaces |
+| **Phase 1** | ✅ | Syntax, binding, pretty printing |
+| **Phase 2** | ✅ | Normalization and definitional equality |
+| **Phase 3** | ✅ | Bidirectional type checking |
+| **Phase 4** | ✅ | Identity types + Cubical path types |
+| **Phase 5** | ⏳ | Inductives, recursors, positivity |
+| **Phase 6** | ⏳ | Univalence |
+| **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
+| **Phase 8** | ⏳ | Elaboration and tactics |
+| **Phase 9** | ⏳ | Standard library seed |
+| **Phase 10** | ⏳ | Performance, soundness, packaging |
+
+**Current:** Phase 4 Complete
+**Next:** Phase 5 — Inductives, recursors, positivity
+
+---
+
+## Releases & Packaging
+
+Releases are automated via [GoReleaser](https://goreleaser.com/). See:
+- [`.goreleaser.yaml`](.goreleaser.yaml) for build configuration
+- [`CHANGELOG.md`](CHANGELOG.md) for version history
+- [`RELEASING.md`](RELEASING.md) for release process
+
+**Release a new version:**
 
 ```bash
 ./scripts/release.sh patch   # or minor | major | 1.2.3
 ```
 
-Windows PowerShell:
+This updates `VERSION`, creates tag `vX.Y.Z`, and pushes to `origin`.
 
-```powershell
-./scripts/release.ps1 patch  # or minor | major | 1.2.3
-```
+---
 
-This updates `VERSION`, creates tag `vX.Y.Z`, and pushes the tag to `origin`.
+## Algorithms
+
+- **Greedy hitting set**: polynomial time heuristic
+- **Minimal transversals**: exponential, supports cutoffs
+- **Greedy coloring**: heuristic
+- **Transforms**: dual, 2-section, line graph
+- **Traversal**: BFS/DFS connectivity
+
+---
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). The short version:
+
+- Small PRs. One logical change per PR.
+- Tests required. If it's not tested, it doesn't exist.
+- CHANGELOG entry required.
+- Kernel boundaries are sacred. Don't blur them.
+
+If your PR is a hot take, open an issue first. It saves everyone grief.
+
+---
 
 ## License
 
-MIT License © 2025 watchthelight
+MIT License © 2025 [watchthelight](https://github.com/watchthelight)
 
-
-
-
+See [`LICENSE`](LICENSE) for full text.

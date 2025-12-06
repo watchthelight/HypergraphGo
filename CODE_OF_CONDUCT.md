@@ -1,26 +1,40 @@
-# Contributor Covenant Code of Conduct
+# Code of Conduct
 
-## Our Pledge
-We as members, contributors, and leaders pledge to make participation in this project and community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, religion, or sexual identity and orientation.
+## The Short Version
 
-## Our Standards
-- Use welcoming and inclusive language
-- Respect differing viewpoints and experiences
-- Gracefully accept constructive criticism
-- Focus on what is best for the community
-- Show empathy towards other community members
+Be professional. Be respectful. Don't be a jerk.
 
-## Unacceptable Behavior
-Examples include: sexualized language or imagery, trolling or insulting comments, personal or political attacks, public or private harassment, publishing others’ private information without permission, or other conduct which could reasonably be considered inappropriate.
+## The Slightly Longer Version
 
-## Enforcement Responsibilities
-Project maintainers are responsible for clarifying and enforcing our standards and will take appropriate and fair corrective action.
+This project adheres to the [Contributor Covenant](https://www.contributor-covenant.org/) v2.1.
+
+### Expected Behavior
+
+- Be respectful of differing viewpoints
+- Accept constructive criticism gracefully
+- Focus on what's best for the project
+- Show empathy toward other contributors
+
+### Unacceptable Behavior
+
+- Harassment, trolling, or personal attacks
+- Publishing others' private information
+- Conduct that would be inappropriate in a professional setting
+
+### Enforcement
+
+Project maintainers will enforce this code of conduct. Violations may result in temporary or permanent bans from project spaces.
+
+### Reporting
+
+Report issues to: **admin@watchthelight.org**
+
+All reports will be reviewed and investigated. We will maintain confidentiality regarding the reporter.
 
 ## Scope
-This Code applies within all project spaces and in public spaces when an individual is representing the project or its community.
 
-## Enforcement
-Report unacceptable behavior to: **[YOUR SECURITY/CONTACT EMAIL HERE]**. Complaints will be reviewed and investigated promptly and fairly.
+This applies to all project spaces: issues, PRs, discussions, and any public representation of the project.
 
-## Attribution
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.
+---
+
+*Based on the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/), version 2.1.*

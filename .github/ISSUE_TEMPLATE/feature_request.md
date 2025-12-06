@@ -1,19 +1,29 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
+name: Feature Request
+about: Suggest something. Justify it.
 title: "[Feature]: "
 labels: enhancement
 assignees: ""
 ---
 
-**Problem**
-What problem does this solve?
+## Problem
 
-**Proposed solution**
-Describe the solution you’d like.
+What problem does this solve? If you can't articulate this, stop here.
 
-**Alternatives considered**
-Other approaches you’ve thought about.
+## Proposed Solution
 
-**Additional context**
-Links, sketches, examples.
+Describe the solution you'd like. Be concrete.
+
+## Alternatives Considered
+
+What else did you think about? Why didn't you go with those?
+
+## Impact
+
+- Who benefits?
+- What's the scope of change?
+- Does this affect the kernel?
+
+## Additional Context
+
+Links, sketches, prior art, related issues.

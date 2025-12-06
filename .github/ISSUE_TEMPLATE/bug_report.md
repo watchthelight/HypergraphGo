@@ -1,29 +1,36 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Bug Report
+about: Something's broken. Help us fix it.
 title: "[Bug]: "
 labels: bug
 assignees: ""
 ---
 
-**Describe the bug**
-A clear description of the problem.
+## Description
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. ...
-2. ...
+What happened? Be specific.
 
-**Expected behavior**
-What you expected to happen.
+## Steps to Reproduce
 
-**Actual behavior**
-What actually happened (include logs, panics, or screenshots if relevant).
+1.
+2.
+3.
 
-**Environment**
-- OS:
-- Go version:
-- Commit/Tag:
+## Expected Behavior
 
-**Additional context**
-Anything else we should know.
+What should have happened?
+
+## Actual Behavior
+
+What actually happened? Include error messages, stack traces, or logs.
+
+## Environment
+
+- **OS**:
+- **Go version**:
+- **HoTTGo version/commit**:
+- **Build tags** (if cubical):
+
+## Additional Context
+
+Anything else we should know?

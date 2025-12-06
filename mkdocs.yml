@@ -1,0 +1,59 @@
+site_name: HoTTGo
+site_description: Homotopy Type Theory and Hypergraph toolkit in Go
+site_url: https://watchthelight.github.io/HypergraphGo/
+repo_url: https://github.com/watchthelight/HypergraphGo
+repo_name: watchthelight/HypergraphGo
+
+theme:
+  name: material
+  logo: assets/hottgo-icon.png
+  favicon: assets/hottgo-icon.png
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - css/indie.css
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Rules:
+      - Identity Types: rules/id.md
+      - Path Types: rules/path.md
+      - Inductives: rules/inductive.md
+  - Contributing: CONTRIBUTING.md
+  - Packaging: PACKAGING.md
+  - Releasing: RELEASING.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/watchthelight/HypergraphGo
