@@ -224,46 +224,40 @@ func TestConstructorResultType(t *testing.T) {
 }
 
 func TestDeclareInductive_InvalidType(t *testing.T) {
-	// DeclareInductive should reject non-Sort inductive types
-	tests := []struct {
-		name    string
-		indName string
-		indType ast.Term
-		constrs []Constructor
-		elim    string
-	}{
-		{
-			name:    "Pi type instead of Sort",
-			indName: "Bad",
-			indType: ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}},
-			constrs: []Constructor{
-				{Name: "mk", Type: ast.Global{Name: "Bad"}},
-			},
-			elim: "badElim",
-		},
-		{
-			name:    "Global instead of Sort",
-			indName: "Bad2",
-			indType: ast.Global{Name: "Nat"},
-			constrs: []Constructor{
-				{Name: "mk", Type: ast.Global{Name: "Bad2"}},
-			},
-			elim: "bad2Elim",
-		},
-	}
+	// DeclareInductive should reject invalid inductive types
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			env := NewGlobalEnv()
-			err := env.DeclareInductive(tt.indName, tt.indType, tt.constrs, tt.elim)
-			if err == nil {
-				t.Error("DeclareInductive() expected error for non-Sort type, got nil")
-			}
-			if _, ok := err.(*InductiveError); !ok {
-				t.Errorf("DeclareInductive() expected InductiveError, got %T: %v", err, err)
-			}
-		})
-	}
+	t.Run("Pi not ending in Sort", func(t *testing.T) {
+		// A Pi type that doesn't end in a Sort is invalid
+		// (x : Type) -> Nat is not a valid inductive type
+		env := NewGlobalEnvWithPrimitives() // Need Nat defined
+		err := env.DeclareInductive("Bad", ast.Pi{
+			Binder: "x",
+			A:      ast.Sort{U: 0},
+			B:      ast.Global{Name: "Nat"}, // Ends in Nat, not Sort
+		}, []Constructor{
+			{Name: "mk", Type: ast.Global{Name: "Bad"}},
+		}, "badElim")
+		if err == nil {
+			t.Error("DeclareInductive() expected error for Pi not ending in Sort, got nil")
+		}
+		if _, ok := err.(*InductiveError); !ok {
+			t.Errorf("DeclareInductive() expected InductiveError, got %T: %v", err, err)
+		}
+	})
+
+	t.Run("Global instead of Sort", func(t *testing.T) {
+		// An inductive type that's just a Global (not a Sort) is invalid
+		env := NewGlobalEnvWithPrimitives()
+		err := env.DeclareInductive("Bad2", ast.Global{Name: "Nat"}, []Constructor{
+			{Name: "mk", Type: ast.Global{Name: "Bad2"}},
+		}, "bad2Elim")
+		if err == nil {
+			t.Error("DeclareInductive() expected error for non-Sort type, got nil")
+		}
+		if _, ok := err.(*InductiveError); !ok {
+			t.Errorf("DeclareInductive() expected InductiveError, got %T: %v", err, err)
+		}
+	})
 }
 
 func TestDeclareInductive_RegistersEliminator(t *testing.T) {

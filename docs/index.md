@@ -50,12 +50,12 @@ go get github.com/watchthelight/hypergraphgo
 
 ## Current Status
 
-**Phase 4 Complete**: Identity Types + Cubical Path Types
+**Phase 5 In Progress**: Inductives & Recursors (parameterized inductives complete)
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 0–4 | ✅ | Syntax, NbE, type checking, Id types, paths |
-| Phase 5 | ⏳ | Inductives, recursors, positivity |
+| Phase 5 | 🔄 | Inductives, recursors, positivity (parameterized ✓) |
 | Phase 6–10 | ⏳ | Univalence, HITs, tactics, stdlib |
 
 ---

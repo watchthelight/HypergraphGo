@@ -420,3 +420,188 @@ func TestEndToEnd_RecursorTypeStructure(t *testing.T) {
 		t.Errorf("boolElim target domain = %v, want Global{Bool}", pi4.A)
 	}
 }
+
+// TestEndToEnd_ParameterizedList tests parameterized inductive types.
+// List : Type -> Type with nil and cons constructors.
+func TestEndToEnd_ParameterizedList(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnv()
+
+	// List : Type -> Type
+	listType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+
+	// nil : (A : Type) -> List A
+	nilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 0}},
+	}
+
+	// cons : (A : Type) -> A -> List A -> List A
+	consType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0}, // A
+			B: ast.Pi{
+				Binder: "xs",
+				A:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 1}}, // List A
+				B:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 2}}, // List A
+			},
+		},
+	}
+
+	err := env.DeclareInductive("List", listType, []Constructor{
+		{Name: "nil", Type: nilType},
+		{Name: "cons", Type: consType},
+	}, "listElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(List) failed: %v", err)
+	}
+
+	// Verify NumParams was extracted
+	ind := env.inductives["List"]
+	if ind.NumParams != 1 {
+		t.Errorf("List.NumParams = %d, want 1", ind.NumParams)
+	}
+
+	// Verify RecursorInfo
+	info := eval.LookupRecursor("listElim")
+	if info == nil {
+		t.Fatal("listElim not registered")
+	}
+	if info.NumParams != 1 {
+		t.Errorf("RecursorInfo.NumParams = %d, want 1", info.NumParams)
+	}
+	if info.NumCases != 2 {
+		t.Errorf("RecursorInfo.NumCases = %d, want 2", info.NumCases)
+	}
+
+	// nil has 0 data args (1 param skipped)
+	if info.Ctors[0].NumArgs != 0 {
+		t.Errorf("nil.NumArgs = %d, want 0", info.Ctors[0].NumArgs)
+	}
+
+	// cons has 2 data args (x and xs, with 1 param skipped)
+	if info.Ctors[1].NumArgs != 2 {
+		t.Errorf("cons.NumArgs = %d, want 2", info.Ctors[1].NumArgs)
+	}
+
+	// cons.xs is recursive (index 1)
+	if len(info.Ctors[1].RecursiveIdx) != 1 || info.Ctors[1].RecursiveIdx[0] != 1 {
+		t.Errorf("cons.RecursiveIdx = %v, want [1]", info.Ctors[1].RecursiveIdx)
+	}
+
+	// Verify eliminator type structure
+	// listElim : (A : Type) -> (P : List A -> Type) -> P (nil A) -> (...) -> (xs : List A) -> P xs
+	elimType := env.LookupType("listElim")
+	if elimType == nil {
+		t.Fatal("listElim type not found")
+	}
+
+	// First binder should be parameter A
+	pi1, ok := elimType.(ast.Pi)
+	if !ok {
+		t.Fatalf("listElim level 1: expected Pi, got %T", elimType)
+	}
+	if pi1.Binder != "A" {
+		t.Errorf("listElim binder 1 = %q, want 'A'", pi1.Binder)
+	}
+
+	// Second binder should be motive P
+	pi2, ok := pi1.B.(ast.Pi)
+	if !ok {
+		t.Fatalf("listElim level 2: expected Pi, got %T", pi1.B)
+	}
+	if pi2.Binder != "P" {
+		t.Errorf("listElim binder 2 = %q, want 'P'", pi2.Binder)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestEndToEnd_ParameterizedListReduction tests that listElim reduces correctly.
+func TestEndToEnd_ParameterizedListReduction(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Declare List
+	listType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+
+	nilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 0}},
+	}
+
+	consType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B: ast.Pi{
+				Binder: "xs",
+				A:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 1}},
+				B:      ast.App{T: ast.Global{Name: "List"}, U: ast.Var{Ix: 2}},
+			},
+		},
+	}
+
+	err := env.DeclareInductive("List", listType, []Constructor{
+		{Name: "nil", Type: nilType},
+		{Name: "cons", Type: consType},
+	}, "listElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(List) failed: %v", err)
+	}
+
+	// Build: listElim Nat P pnil pcons (nil Nat)
+	// Should reduce to pnil
+	nat := ast.Global{Name: "Nat"}
+	listElim := ast.Global{Name: "listElim"}
+	motive := ast.Lam{Binder: "_", Body: ast.Sort{U: 0}}
+	pnil := ast.Global{Name: "nilResult"}
+	pcons := ast.Lam{
+		Binder: "x",
+		Body: ast.Lam{
+			Binder: "xs",
+			Body: ast.Lam{
+				Binder: "ih",
+				Body:   ast.Global{Name: "consResult"},
+			},
+		},
+	}
+	nilNat := ast.App{T: ast.Global{Name: "nil"}, U: nat}
+
+	term := ast.MkApps(listElim, nat, motive, pnil, pcons, nilNat)
+	normalized := eval.NormalizeNBE(term)
+
+	if normalized != "nilResult" {
+		t.Errorf("listElim Nat _ nilResult _ (nil Nat) = %q, want 'nilResult'", normalized)
+	}
+
+	// Build: listElim Nat P pnil pcons (cons Nat zero (nil Nat))
+	// Should reduce to pcons applied to zero, nil, and IH (pnil)
+	// With pcons = λx.λxs.λih. consResult, this fully reduces to consResult
+	zero := ast.Global{Name: "zero"}
+	consNat := ast.MkApps(ast.Global{Name: "cons"}, nat, zero, nilNat)
+
+	term2 := ast.MkApps(listElim, nat, motive, pnil, pcons, consNat)
+	normalized2 := eval.NormalizeNBE(term2)
+
+	if normalized2 != "consResult" {
+		t.Errorf("listElim Nat _ _ _ (cons Nat zero (nil Nat)) = %q, want 'consResult'", normalized2)
+	}
+
+	eval.ClearRecursorRegistry()
+}

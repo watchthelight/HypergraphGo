@@ -1,6 +1,8 @@
 package check
 
 import (
+	"fmt"
+
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
@@ -37,6 +39,8 @@ type Constructor struct {
 type Inductive struct {
 	Name         string
 	Type         ast.Term
+	NumParams    int        // Number of parameters extracted from Type
+	ParamTypes   []ast.Term // Types of each parameter
 	Constructors []Constructor
 	Eliminator   string // Name of the elimination principle
 }
@@ -229,24 +233,32 @@ func (g *GlobalEnv) AddDefinition(name string, ty, body ast.Term, trans Transpar
 
 // AddInductive adds an inductive type to the environment without validation.
 // For validated addition, use DeclareInductive.
-func (g *GlobalEnv) AddInductive(name string, ty ast.Term, constrs []Constructor, elim string) {
-	g.inductives[name] = &Inductive{Name: name, Type: ty, Constructors: constrs, Eliminator: elim}
+func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramTypes []ast.Term, constrs []Constructor, elim string) {
+	g.inductives[name] = &Inductive{
+		Name:         name,
+		Type:         ty,
+		NumParams:    numParams,
+		ParamTypes:   paramTypes,
+		Constructors: constrs,
+		Eliminator:   elim,
+	}
 	g.order = append(g.order, name)
 }
 
 // DeclareInductive validates and adds an inductive type to the environment.
 // It checks:
-// - The inductive type is well-formed (a Sort)
+// - The inductive type is well-formed (Sort or Pi chain ending in Sort)
 // - Each constructor type is well-formed (uses Checker API)
-// - Each constructor returns the inductive type
+// - Each constructor returns the inductive type applied to parameters
 // - The definition satisfies strict positivity
 // It also generates and registers the eliminator.
 func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constructor, elim string) error {
-	// 1. Validate the inductive type is a Sort
-	if err := validateIsSort(ty); err != nil {
+	// 1. Validate and extract parameters from inductive type
+	numParams, paramTypes, _, err := validateInductiveType(ty)
+	if err != nil {
 		return &InductiveError{
 			IndName: name,
-			Message: "inductive type must be a Sort: " + err.Error(),
+			Message: err.Error(),
 		}
 	}
 
@@ -275,15 +287,15 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 		return err
 	}
 
-	// 5. Validate each constructor returns the inductive type
+	// 5. Validate each constructor returns the inductive type with correct params
 	for _, c := range constrs {
-		if err := validateConstructorResult(name, c); err != nil {
+		if err := validateConstructorResult(name, numParams, c); err != nil {
 			return err
 		}
 	}
 
 	// 6. Add the inductive to the environment
-	g.AddInductive(name, ty, constrs, elim)
+	g.AddInductive(name, ty, numParams, paramTypes, constrs, elim)
 
 	// 7. Generate and register the eliminator
 	ind := g.inductives[name]
@@ -291,37 +303,46 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 	g.AddAxiom(elim, elimType)
 
 	// 8. Register the recursor for generic reduction
-	recursorInfo := buildRecursorInfo(name, elim, constrs)
+	recursorInfo := buildRecursorInfo(ind)
 	eval.RegisterRecursor(recursorInfo)
 
 	return nil
 }
 
-// buildRecursorInfo builds RecursorInfo from an inductive's constructors.
-// NumParams and NumIndices are set to 0 for non-parameterized inductives.
-// When parameterized inductive support is added, these should be extracted
-// from the inductive type (e.g., List : Type -> Type has NumParams=1).
-func buildRecursorInfo(indName, elimName string, constrs []Constructor) *eval.RecursorInfo {
+// buildRecursorInfo builds RecursorInfo from an inductive definition.
+// For parameterized inductives, NumParams is extracted from the inductive type,
+// and constructor arg counts exclude parameters.
+func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
-		ElimName:   elimName,
-		IndName:    indName,
-		NumParams:  0, // TODO: extract from inductive type when parameterized support is added
+		ElimName:   ind.Eliminator,
+		IndName:    ind.Name,
+		NumParams:  ind.NumParams,
 		NumIndices: 0, // TODO: extract from inductive type when indexed support is added
-		NumCases:   len(constrs),
-		Ctors:      make([]eval.ConstructorInfo, len(constrs)),
+		NumCases:   len(ind.Constructors),
+		Ctors:      make([]eval.ConstructorInfo, len(ind.Constructors)),
 	}
 
-	for i, c := range constrs {
-		args := extractPiArgs(c.Type)
+	for i, c := range ind.Constructors {
+		// Extract all Pi args from constructor type
+		allArgs := extractPiArgs(c.Type)
+
+		// Skip parameter args (first NumParams args are parameters)
+		dataArgs := allArgs
+		if ind.NumParams > 0 && len(allArgs) >= ind.NumParams {
+			dataArgs = allArgs[ind.NumParams:]
+		}
+
+		// Find recursive arguments among data args
 		recursiveIdx := []int{}
-		for j, arg := range args {
-			if isRecursiveArgType(indName, arg.Type) {
+		for j, arg := range dataArgs {
+			if isRecursiveArgType(ind.Name, arg.Type) {
 				recursiveIdx = append(recursiveIdx, j)
 			}
 		}
+
 		info.Ctors[i] = eval.ConstructorInfo{
 			Name:         c.Name,
-			NumArgs:      len(args),
+			NumArgs:      len(dataArgs), // Only count non-param args
 			RecursiveIdx: recursiveIdx,
 		}
 	}
@@ -376,6 +397,38 @@ func validateIsSort(ty ast.Term) error {
 	}
 }
 
+// extractParams extracts parameters from an inductive type.
+// For Type -> Type -> Type, returns (2, [Type, Type], Type)
+// For Type, returns (0, [], Type)
+func extractParams(ty ast.Term) (numParams int, paramTypes []ast.Term, resultSort ast.Term) {
+	current := ty
+	for {
+		if pi, ok := current.(ast.Pi); ok {
+			paramTypes = append(paramTypes, pi.A)
+			numParams++
+			current = pi.B
+		} else {
+			resultSort = current
+			break
+		}
+	}
+	return
+}
+
+// validateInductiveType validates that ty is a valid inductive type.
+// For non-parameterized: must be a Sort
+// For parameterized: must be Pi chain ending in Sort
+// Returns the number of parameters, their types, and the result sort.
+func validateInductiveType(ty ast.Term) (numParams int, paramTypes []ast.Term, resultSort ast.Sort, err error) {
+	numParams, paramTypes, result := extractParams(ty)
+	if sort, ok := result.(ast.Sort); ok {
+		return numParams, paramTypes, sort, nil
+	}
+	return 0, nil, ast.Sort{}, &ValidationError{
+		Msg: "inductive type must end in a Sort, got " + ast.Sprint(result),
+	}
+}
+
 // ValidationError represents a validation error during inductive declaration.
 type ValidationError struct {
 	Msg string
@@ -385,8 +438,9 @@ func (e *ValidationError) Error() string {
 	return e.Msg
 }
 
-// validateConstructorResult checks that a constructor's result type is the inductive.
-func validateConstructorResult(indName string, c Constructor) error {
+// validateConstructorResult checks that a constructor's result type is the inductive
+// applied to the correct number of parameters.
+func validateConstructorResult(indName string, numParams int, c Constructor) error {
 	resultTy := constructorResultType(c.Type)
 	if resultTy == nil {
 		return &ConstructorError{
@@ -396,32 +450,37 @@ func validateConstructorResult(indName string, c Constructor) error {
 		}
 	}
 
-	// Result should be the inductive itself or an application of it
-	switch r := resultTy.(type) {
-	case ast.Global:
-		if r.Name != indName {
-			return &ConstructorError{
-				IndName:     indName,
-				Constructor: c.Name,
-				Message:     "result type must be " + indName + ", got " + r.Name,
-			}
+	// For 0 params: result must be Global{indName}
+	if numParams == 0 {
+		if g, ok := resultTy.(ast.Global); ok && g.Name == indName {
+			return nil
 		}
-	case ast.App:
-		// Check if it's an application with the inductive as the function
-		if !isAppOfGlobal(r, indName) {
-			return &ConstructorError{
-				IndName:     indName,
-				Constructor: c.Name,
-				Message:     "result type must be " + indName + " or its application",
-			}
-		}
-	default:
 		return &ConstructorError{
 			IndName:     indName,
 			Constructor: c.Name,
 			Message:     "result type must be " + indName,
 		}
 	}
+
+	// For n params: result must be App chain of indName applied to n args
+	if !isAppOfGlobal(resultTy, indName) {
+		return &ConstructorError{
+			IndName:     indName,
+			Constructor: c.Name,
+			Message:     "result type must be " + indName + " applied to parameters",
+		}
+	}
+
+	// Count applications must match numParams
+	args := extractAppArgs(resultTy)
+	if len(args) != numParams {
+		return &ConstructorError{
+			IndName:     indName,
+			Constructor: c.Name,
+			Message:     fmt.Sprintf("result type must have %d type arguments, got %d", numParams, len(args)),
+		}
+	}
+
 	return nil
 }
 
@@ -446,6 +505,21 @@ func isAppOfGlobal(t ast.Term, name string) bool {
 	default:
 		return false
 	}
+}
+
+// extractAppArgs collects arguments from an application chain.
+// For ((f a) b) c, returns [a, b, c] in left-to-right order.
+func extractAppArgs(t ast.Term) []ast.Term {
+	var args []ast.Term
+	for {
+		if app, ok := t.(ast.App); ok {
+			args = append([]ast.Term{app.U}, args...)
+			t = app.T
+		} else {
+			break
+		}
+	}
+	return args
 }
 
 // ConstructorError represents an error in constructor validation.

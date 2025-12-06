@@ -336,7 +336,7 @@ func TestBuildCaseType_Nat(t *testing.T) {
 	numRecursive := 1
 	pBaseIdx := 1 // P is one case after this
 
-	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "succ")
+	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "succ", 0)
 
 	// Expected: (n : Nat) -> (ih_n : P n) -> P (succ n)
 	pi1, ok := result.(ast.Pi)
@@ -378,7 +378,7 @@ func TestBuildCaseType_List(t *testing.T) {
 	numRecursive := 1
 	pBaseIdx := 1
 
-	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "cons")
+	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "cons", 0)
 
 	// Expected: (x : Nat) -> (xs : List) -> (ih_xs : P xs) -> P (cons x xs)
 	// Structure: Pi x . Pi xs . Pi ih_xs . P (cons x xs)
@@ -428,7 +428,7 @@ func TestBuildCaseType_Tree(t *testing.T) {
 	numRecursive := 2
 	pBaseIdx := 1
 
-	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "branch")
+	result := buildCaseType(indName, args, numRecursive, pBaseIdx, "branch", 0)
 
 	// Expected: (l : Tree) -> (ih_l : P l) -> (r : Tree) -> (ih_r : P r) -> P (branch l r)
 	// Count the Pi levels: should be 4 binders + result

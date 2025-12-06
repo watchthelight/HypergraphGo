@@ -41,6 +41,21 @@ The HoTT kernel implements a cutting-edge type theory foundation:
 
 ## Highlights
 
+### Phase 5 In Progress: Inductives & Recursors
+
+**Parameterized Inductives (v1.5.8+):**
+- **Parameterized types**: `List : Type -> Type`, `Maybe : Type -> Type`
+- **Constructor validation**: Ensures constructors return applied inductive with correct params
+- **Eliminator generation**: `listElim : (A : Type) -> (P : List A -> Type) -> ... -> (xs : List A) -> P xs`
+- **NbE reduction**: Generic recursor reduction with parameter-aware spine handling
+- **Strict positivity**: Full positivity checking for parameterized constructors
+
+**Core Inductives (v1.5.3+):**
+- **User-defined inductives**: `DeclareInductive` with full validation pipeline
+- **Recursor generation**: Automatic eliminator type generation with IH binders
+- **Generic reduction**: Registry-based recursor reduction for arbitrary inductives
+- **Built-in primitives**: `Nat`, `Bool` with `natElim`, `boolElim`
+
 ### Phase 4 Complete: Identity Types + Cubical Path Types
 
 **Martin-Löf Identity Types (v1.5.0):**
@@ -180,15 +195,15 @@ See [`DIAGRAMS.md`](DIAGRAMS.md) for comprehensive Mermaid architecture diagrams
 | **Phase 2** | ✅ | Normalization and definitional equality |
 | **Phase 3** | ✅ | Bidirectional type checking |
 | **Phase 4** | ✅ | Identity types + Cubical path types |
-| **Phase 5** | ⏳ | Inductives, recursors, positivity |
+| **Phase 5** | 🔄 | Inductives, recursors, positivity (parameterized ✓) |
 | **Phase 6** | ⏳ | Univalence |
 | **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
 | **Phase 8** | ⏳ | Elaboration and tactics |
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current:** Phase 4 Complete
-**Next:** Phase 5 — Inductives, recursors, positivity
+**Current:** Phase 5 In Progress — Parameterized inductives complete
+**Next:** Indexed families, mutual inductives
 
 ---
 

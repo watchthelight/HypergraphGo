@@ -97,8 +97,10 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 	ctorIdx := -1
 	for i, ctor := range info.Ctors {
 		if neutral.N.Head.Glob == ctor.Name {
-			// Check arity matches
-			if len(neutral.N.Sp) == ctor.NumArgs {
+			// Constructor spine includes params + data args
+			// Check arity matches: spine length = NumParams + NumArgs
+			expectedSpineLen := info.NumParams + ctor.NumArgs
+			if len(neutral.N.Sp) == expectedSpineLen {
 				ctorIdx = i
 				break
 			}
@@ -111,7 +113,8 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 
 	ctor := info.Ctors[ctorIdx]
 	caseFunc := cases[ctorIdx]
-	ctorArgs := neutral.N.Sp
+	// Skip parameter args in constructor spine - only use data args for case application
+	ctorArgs := neutral.N.Sp[info.NumParams:]
 
 	// Build the result by applying the case function to args and IHs
 	// For each argument:
