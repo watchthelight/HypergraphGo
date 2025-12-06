@@ -115,7 +115,7 @@ func (ie *IEnv) ILen() int {
 // This is the main entry point for cubical evaluation.
 func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 	if t == nil {
-		return VGlobal{Name: "nil"}
+		return evalError("nil term (cubical)")
 	}
 	if env == nil {
 		env = &Env{Bindings: nil}
@@ -234,21 +234,53 @@ func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 		return EvalTransport(aClosure, e)
 
 	default:
-		return VGlobal{Name: "unknown_cubical"}
+		return evalError("unknown cubical term type")
 	}
 }
 
 // PathApply applies a path to an interval argument.
 // Implements the computation rules:
-//   (<i> t) @ i0  -->  t[i0/i]
-//   (<i> t) @ i1  -->  t[i1/i]
-//   (<i> t) @ j   -->  t[j/i]
+//
+//	(<i> t) @ i0  -->  t[i0/i]
+//	(<i> t) @ i1  -->  t[i1/i]
+//	(<i> t) @ j   -->  t[j/i]
+//
+// For PathP types (dependent path types), endpoint values are returned:
+//
+//	(PathP A x y) @ i0  -->  x
+//	(PathP A x y) @ i1  -->  y
 func PathApply(p Value, r Value) Value {
 	switch pv := p.(type) {
 	case VPathLam:
 		// Beta reduction: evaluate body with interval substituted
 		newIEnv := pv.Body.IEnv.Extend(r)
 		return EvalCubical(pv.Body.Env, newIEnv, pv.Body.Term)
+
+	case VPathP:
+		// PathP applied to endpoint returns the corresponding endpoint value
+		switch r.(type) {
+		case VI0:
+			return pv.X
+		case VI1:
+			return pv.Y
+		default:
+			// Neutral interval variable - stuck
+			head := Head{Glob: "@"}
+			return VNeutral{N: Neutral{Head: head, Sp: []Value{p, r}}}
+		}
+
+	case VPath:
+		// Non-dependent Path applied to endpoint returns the corresponding endpoint
+		switch r.(type) {
+		case VI0:
+			return pv.X
+		case VI1:
+			return pv.Y
+		default:
+			// Neutral interval variable - stuck
+			head := Head{Glob: "@"}
+			return VNeutral{N: Neutral{Head: head, Sp: []Value{p, r}}}
+		}
 
 	case VNeutral:
 		// Stuck path application
@@ -279,9 +311,13 @@ func EvalTransport(aClosure *IClosure, e Value) Value {
 func isConstantFamily(c *IClosure) bool {
 	v0 := EvalCubical(c.Env, c.IEnv.Extend(VI0{}), c.Term)
 	v1 := EvalCubical(c.Env, c.IEnv.Extend(VI1{}), c.Term)
-	// Use alpha equality on reified terms
-	t0 := ReifyCubicalAt(0, 0, v0)
-	t1 := ReifyCubicalAt(0, 0, v1)
+	// Use alpha equality on reified terms.
+	// Use proper ilevel to correctly distinguish interval variables.
+	// After extending IEnv by 1, the ilevel is c.IEnv.ILen() + 1.
+	level := 0 // term level (no term binders in this context)
+	ilevel := c.IEnv.ILen() + 1
+	t0 := ReifyCubicalAt(level, ilevel, v0)
+	t1 := ReifyCubicalAt(level, ilevel, v1)
 	return alphaEqCubical(t0, t1)
 }
 
@@ -388,7 +424,7 @@ func ReifyCubicalAt(level int, ilevel int, v Value) ast.Term {
 		return ast.Transport{A: a, E: e}
 
 	default:
-		return ast.Global{Name: "reify_cubical_error"}
+		return reifyError("unknown cubical value type")
 	}
 }
 

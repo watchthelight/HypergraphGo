@@ -27,9 +27,9 @@ func TestEvalNilTerm(t *testing.T) {
 	env := &Env{Bindings: nil}
 	result := Eval(env, nil)
 
-	// Should return VGlobal{"nil"}
-	if g, ok := result.(VGlobal); !ok || g.Name != "nil" {
-		t.Errorf("Eval(env, nil) should return VGlobal{nil}, got %v", result)
+	// Should return VGlobal{"error:nil term"} (diagnostic fallback)
+	if g, ok := result.(VGlobal); !ok || g.Name != "error:nil term" {
+		t.Errorf("Eval(env, nil) should return VGlobal{error:nil term}, got %v", result)
 	}
 }
 
@@ -124,10 +124,10 @@ func TestApplyNonFunction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := Apply(tt.val, arg)
 
-			// Should return a neutral term (bad_app)
+			// Should return a neutral term (error:bad_app)
 			if n, ok := result.(VNeutral); ok {
-				if n.N.Head.Glob != "bad_app" {
-					t.Errorf("expected bad_app neutral, got head %q", n.N.Head.Glob)
+				if n.N.Head.Glob != "error:bad_app" {
+					t.Errorf("expected error:bad_app neutral, got head %q", n.N.Head.Glob)
 				}
 			} else {
 				t.Errorf("expected VNeutral for non-function application, got %T", result)
@@ -194,9 +194,9 @@ func TestDeepNesting(t *testing.T) {
 func TestEvalBothNilEnvAndTerm(t *testing.T) {
 	result := Eval(nil, nil)
 
-	// Should return VGlobal{"nil"}
-	if g, ok := result.(VGlobal); !ok || g.Name != "nil" {
-		t.Errorf("Eval(nil, nil) should return VGlobal{nil}, got %v", result)
+	// Should return VGlobal{"error:nil term"} (diagnostic fallback)
+	if g, ok := result.(VGlobal); !ok || g.Name != "error:nil term" {
+		t.Errorf("Eval(nil, nil) should return VGlobal{error:nil term}, got %v", result)
 	}
 }
 

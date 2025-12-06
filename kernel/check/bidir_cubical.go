@@ -3,6 +3,8 @@
 package check
 
 import (
+	"fmt"
+
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 	"github.com/watchthelight/HypergraphGo/internal/eval"
 	tyctx "github.com/watchthelight/HypergraphGo/kernel/ctx"
@@ -47,7 +49,10 @@ func synthExtension(c *Checker, context *tyctx.Ctx, span Span, term ast.Term) (a
 
 	case ast.IVar:
 		// Interval variables have type I
-		// In a complete implementation, we'd check against ICtx
+		// Validate against interval context
+		if !c.CheckIVar(t.Ix) {
+			return nil, errUnboundIVar(span, t.Ix), true
+		}
 		return ast.Interval{}, nil, true
 
 	case ast.Path:
@@ -126,8 +131,11 @@ func synthPathP(c *Checker, context *tyctx.Ctx, span Span, pathp ast.PathP) (ast
 // synthPathLam synthesizes the type of a path abstraction.
 // <i> t : PathP (λi. A) t[i0/i] t[i1/i] where Γ, i:I ⊢ t : A
 func synthPathLam(c *Checker, context *tyctx.Ctx, span Span, plam ast.PathLam) (ast.Term, *TypeError, bool) {
-	// Synthesize type of body (treating interval as bound)
-	// For a full implementation, we'd extend an interval context here
+	// Extend interval context for the body
+	popIVar := c.PushIVar()
+	defer popIVar()
+
+	// Synthesize type of body with extended interval context
 	bodyTy, err := c.synth(context, span, plam.Body)
 	if err != nil {
 		return nil, err, true
@@ -221,6 +229,10 @@ func checkExtension(c *Checker, context *tyctx.Ctx, span Span, term ast.Term, ex
 
 // checkPathLam checks a path lambda against an expected PathP type.
 func checkPathLam(c *Checker, context *tyctx.Ctx, span Span, plam ast.PathLam, expected ast.Term) (*TypeError, bool) {
+	// Extend interval context for the body
+	popIVar := c.PushIVar()
+	defer popIVar()
+
 	// Normalize expected type
 	nf := c.whnf(expected)
 
@@ -287,5 +299,14 @@ func errPathEndpointMismatch(span Span, msg string) *TypeError {
 		Span:    span,
 		Kind:    ErrTypeMismatch, // reuse existing kind
 		Message: msg,
+	}
+}
+
+// errUnboundIVar creates an error for unbound interval variables.
+func errUnboundIVar(span Span, ix int) *TypeError {
+	return &TypeError{
+		Span:    span,
+		Kind:    ErrUnboundVariable, // reuse existing kind
+		Message: fmt.Sprintf("unbound interval variable %d", ix),
 	}
 }

@@ -11,6 +11,42 @@ import (
 type Checker struct {
 	globals  *GlobalEnv
 	convOpts core.ConvOptions
+	ictx     *iCtx // interval context for cubical (may be nil)
+}
+
+// iCtx tracks interval variable bindings for cubical type checking.
+// This is internal to the checker; cubical build uses it via accessor methods.
+type iCtx struct {
+	depth int // number of bound interval variables
+}
+
+// ICtxDepth returns the current interval context depth (0 if not tracking).
+func (c *Checker) ICtxDepth() int {
+	if c.ictx == nil {
+		return 0
+	}
+	return c.ictx.depth
+}
+
+// CheckIVar validates an interval variable index against the current context.
+// Returns true if valid (or if no interval context is being tracked).
+func (c *Checker) CheckIVar(ix int) bool {
+	if c.ictx == nil {
+		return true // no tracking, allow all
+	}
+	return ix >= 0 && ix < c.ictx.depth
+}
+
+// PushIVar extends the interval context by one and returns a cleanup function.
+// Call the returned function when leaving the scope (via defer).
+func (c *Checker) PushIVar() func() {
+	if c.ictx == nil {
+		c.ictx = &iCtx{depth: 1}
+		return func() { c.ictx = nil }
+	}
+	old := c.ictx.depth
+	c.ictx.depth++
+	return func() { c.ictx.depth = old }
 }
 
 // NewChecker creates a new type checker with the given global environment.

@@ -18,7 +18,34 @@
 //   - Coquand, T. "An Algorithm for Type-Checking Dependent Types"
 package eval
 
-import "github.com/watchthelight/HypergraphGo/internal/ast"
+import (
+	"os"
+
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+)
+
+// DebugMode enables strict error handling for NbE.
+// When true, internal errors panic instead of returning fallback values.
+// Set via HOTTGO_DEBUG=1 environment variable or programmatically.
+var DebugMode = os.Getenv("HOTTGO_DEBUG") == "1"
+
+// evalError handles internal errors in NbE.
+// In debug mode, it panics; otherwise returns a diagnostic fallback.
+func evalError(msg string) Value {
+	if DebugMode {
+		panic("nbe: " + msg)
+	}
+	return VGlobal{Name: "error:" + msg}
+}
+
+// reifyError handles internal errors during reification.
+// In debug mode, it panics; otherwise returns a diagnostic fallback.
+func reifyError(msg string) ast.Term {
+	if DebugMode {
+		panic("nbe: " + msg)
+	}
+	return ast.Global{Name: "error:" + msg}
+}
 
 // Value is the semantic domain for NbE.
 type Value interface {
@@ -145,10 +172,10 @@ func vGlobal(name string) Value {
 //   - Sort/Global: convert directly to corresponding Value
 //
 // If env is nil, an empty environment is used.
-// If t is nil, returns VGlobal{"nil"} as a fallback.
+// If t is nil, returns an error value (or panics in debug mode).
 func Eval(env *Env, t ast.Term) Value {
 	if t == nil {
-		return VGlobal{Name: "nil"} // fallback for nil terms
+		return evalError("nil term")
 	}
 	if env == nil {
 		env = &Env{Bindings: nil} // use empty environment if nil
@@ -223,8 +250,8 @@ func Eval(env *Env, t ast.Term) Value {
 		if val, ok := tryEvalCubical(env, t); ok {
 			return val
 		}
-		// Fallback for unknown terms
-		return VGlobal{Name: "unknown"}
+		// Unknown term type
+		return evalError("unknown term type")
 	}
 }
 
@@ -250,9 +277,12 @@ func Apply(fun Value, arg Value) Value {
 		return VNeutral{N: Neutral{Head: f.N.Head, Sp: newSp}}
 
 	default:
-		// Non-function applied to argument becomes neutral
-		// This shouldn't happen in well-typed terms, but we handle it gracefully
-		head := Head{Glob: "bad_app"}
+		// Non-function applied to argument
+		// This shouldn't happen in well-typed terms
+		if DebugMode {
+			panic("nbe: application to non-function")
+		}
+		head := Head{Glob: "error:bad_app"}
 		return VNeutral{N: Neutral{Head: head, Sp: []Value{fun, arg}}}
 	}
 }
@@ -387,7 +417,7 @@ func reifyAt(level int, v Value) ast.Term {
 		if term, ok := tryReifyCubical(level, v); ok {
 			return term
 		}
-		return ast.Global{Name: "reify_error"}
+		return reifyError("unknown value type")
 	}
 }
 

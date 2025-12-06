@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Identity type values now print correctly for debugging
 
 ### Security
+- **AUDIT: Full codebase audit completed** (`AUDIT_REPORT_FULL.md`)
+  - Comprehensive audit of HoTT kernel, NbE, typechecker, and hypergraph library
+  - All tests pass including race detector and cubical build tag
+  - Coverage: 59.8% overall, 81.8% for typechecker
+  - See detailed findings at `/AUDIT_REPORT_FULL.md`
 - **AUDIT: Critical bug found in AlphaEq** (now fixed - see above)
   - Lambda annotations not compared in definitional equality
   - Could allow type soundness violations with annotated lambdas
@@ -47,6 +52,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Missing J eliminator reification in both standard and cubical NbE
   - Missing VId/VRefl handling in pretty printing functions
   - See detailed audit report at `/nbe_audit_report.md`
+
+### Known Issues (from full audit - see `AUDIT_REPORT_FULL.md`)
+- **CRITICAL: synthVar shifting** - Re-analyzed: shift IS correct (audit finding incorrect)
+- **HIGH: IEnv.Lookup bounds** - Analyzed: round-trips correctly, no fix needed
+- ~~HIGH: IVar validation~~ - **FIXED in this release**
+- ~~MEDIUM: Silent fallbacks~~ - **FIXED in this release** (see below)
+
+### Audit Response (fixes from full codebase audit)
+- **HIGH: isConstantFamily false positives** (`internal/eval/nbe_cubical.go:277-290`)
+  - Fixed `isConstantFamily` to use proper ilevel for reification
+  - Changed from `ReifyCubicalAt(0, 0, ...)` to `ReifyCubicalAt(level, c.IEnv.ILen()+1, ...)`
+  - Prevents false positives when comparing type families at interval endpoints
+
+- **HIGH: IVar bounds validation** (`kernel/check/bidir_cubical.go`)
+  - Added `CheckIVar` method to `Checker` for interval variable validation
+  - Added `PushIVar` for scoped interval context management
+  - Invalid interval variables now rejected with `ErrUnboundVariable` error
+  - Added `errUnboundIVar` error constructor
+
+- **HIGH: PathLam interval context** (`kernel/check/bidir_cubical.go:131-148`)
+  - `synthPathLam` now extends interval context before synthesizing body
+  - `checkPathLam` also extends interval context for correct IVar validation
+  - Uses `PushIVar()/defer popIVar()` pattern for clean scope management
+
+- **MEDIUM: VPathP in PathApply** (`internal/eval/nbe_cubical.go:252-294`)
+  - PathApply now handles VPathP and VPath values for endpoint access
+  - `PathP @ i0` returns left endpoint X, `PathP @ i1` returns right endpoint Y
+  - Neutral interval variables remain stuck as before
+
+- **MEDIUM: Silent fallbacks** (`internal/eval/nbe.go`)
+  - Added `DebugMode` flag (set via `HOTTGO_DEBUG=1` env var)
+  - Added `evalError` and `reifyError` helpers for consistent error handling
+  - Error values now prefixed with `error:` for easier debugging
+  - In debug mode, internal errors panic instead of returning fallbacks
+  - Updated: nil term, unknown term type, bad_app, reify_error
 
 ### Added
 - **Cubical Path Types** (Phase 4 M6b - gated by `cubical` build tag)
