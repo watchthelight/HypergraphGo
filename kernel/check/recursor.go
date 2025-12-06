@@ -2,6 +2,7 @@ package check
 
 import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/kernel/subst"
 )
 
 // GenerateRecursorType generates the type of the eliminator for an inductive type.
@@ -155,7 +156,8 @@ func isRecursiveArgType(indName string, ty ast.Term) bool {
 //
 // where [ih_i : P x_i] is present only for recursive arguments (Ai = T or App of T).
 //
-// De Bruijn indices are computed relative to the depth at each position:
+// De Bruijn indices are computed using proper shifting:
+//   - Argument types from the constructor need to be shifted when IH binders are interleaved
 //   - pBaseIdx is P's index before any case binders are added
 //   - At depth d (under d binders), P is at index pBaseIdx + d
 //   - Argument x_i bound at depth d_i is at index (current_depth - d_i - 1) when referenced
@@ -166,25 +168,31 @@ func buildCaseType(indName string, args []PiArg, numRecursive int, pBaseIdx int,
 	// and if recursive, also an IH binder immediately after.
 	// Track which depth each original argument is bound at.
 	type binderInfo struct {
-		name        string
-		ty          ast.Term
-		isIH        bool
-		argIdx      int // which original arg this refers to (-1 for IH)
-		boundAtArg  int // for IH: which arg's IH this is
+		name string
+		ty   ast.Term
+		isIH bool
 	}
 
 	var binders []binderInfo
 	argDepths := make([]int, numArgs) // depth at which arg i is bound
 
+	// Track how many IH binders have been added before each position.
+	// This is used to shift the argument types correctly.
+	ihCount := 0
 	depth := 0
+
 	for i, arg := range args {
+		// The argument type comes from the constructor, where it's at depth i
+		// (under i binders for x1...xi-1). In our case type, we're at depth `depth`,
+		// but we've added `ihCount` extra IH binders. So we need to shift by `ihCount`.
+		shiftedType := subst.Shift(ihCount, 0, arg.Type)
+
 		// Add argument binder
 		argDepths[i] = depth
 		binders = append(binders, binderInfo{
-			name:   arg.Name,
-			ty:     arg.Type,
-			isIH:   false,
-			argIdx: i,
+			name: arg.Name,
+			ty:   shiftedType,
+			isIH: false,
 		})
 		depth++
 
@@ -196,12 +204,12 @@ func buildCaseType(indName string, args []PiArg, numRecursive int, pBaseIdx int,
 			pIdx := pBaseIdx + depth
 			ihType := ast.App{T: ast.Var{Ix: pIdx}, U: ast.Var{Ix: 0}}
 			binders = append(binders, binderInfo{
-				name:       "ih_" + arg.Name,
-				ty:         ihType,
-				isIH:       true,
-				boundAtArg: i,
+				name: "ih_" + arg.Name,
+				ty:   ihType,
+				isIH: true,
 			})
 			depth++
+			ihCount++
 		}
 	}
 

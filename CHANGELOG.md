@@ -32,7 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed (Phase 5 audit)
 - **DeclareInductive validation** (`kernel/check/env.go`)
   - Now validates inductive type is a Sort before accepting
+  - **Full constructor type validation** using Checker API (`CheckIsType`)
+  - Validates constructor argument types are well-formed types
   - Generates and registers eliminator in GlobalEnv automatically
+  - Registers recursor in eval registry for generic reduction
   - Added `InductiveError` and `ValidationError` types for clear diagnostics
 
 - **GenerateRecursorType universe handling** (`kernel/check/recursor.go`)
@@ -41,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **buildCaseType de Bruijn indices** (`kernel/check/recursor.go`)
   - Rewrote with clearer forward-pass algorithm
+  - Uses `subst.Shift` for proper index adjustment when IH binders are interleaved
   - Explicit tracking of binder depths for correct variable indices
   - Removed ad-hoc index arithmetic that could lead to off-by-one errors
 
@@ -48,6 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unknown AST node types now checked conservatively using `OccursIn`
   - Rejects if inductive occurs in unknown node at negative position
   - Prevents unsupported constructs from slipping through
+  - **Cubical extension** (`positivity_cubical.go`, `positivity_ext.go`)
+  - Proper positivity checking for Path, PathP, PathLam, PathApp, Transport
+  - Build-tag aware extension pattern for cubical types
+
+- **Generic recursor reduction** (`internal/eval/recursor.go`)
+  - New recursor registry for user-defined inductives
+  - `RegisterRecursor` called automatically by `DeclareInductive`
+  - `tryGenericRecursorReduction` handles arbitrary recursors
+  - Proper IH construction for recursive arguments
+  - Built-in natElim/boolElim preserved for backwards compatibility
 
 - **S-expression parser** (`internal/parser/`)
   - New package for parsing S-expression term syntax
@@ -77,6 +91,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CheckIVar` now rejects interval variables outside path context
   - Previously returned `true` when `ictx == nil`; now returns `false`
   - IVar is only valid inside PathLam scopes
+
+### Tests
+- **Comprehensive integration tests** (`kernel/check/integration_test.go`)
+  - `TestEndToEnd_DeclareAndEvaluate`: Full pipeline from declaration to NbE reduction
+  - `TestEndToEnd_CustomNatLike`: Custom recursive inductive with mzero/msucc
+  - `TestEndToEnd_PositivityRejection`: Negative occurrences properly rejected
+  - `TestEndToEnd_IllFormedConstructor`: Unknown types in constructors rejected
+  - `TestEndToEnd_RecursorTypeStructure`: Generated eliminator structure verified
+- **Generic recursor tests** (`internal/eval/nbe_test.go`)
+  - `TestNBE_GenericRecursor`: Unit-like inductive reduction
+  - `TestNBE_GenericRecursorWithRecursiveArg`: Nat-like recursive inductive
+  - `TestNBE_GenericRecursorNotRegistered`: Unregistered eliminator stays stuck
+- **Extended positivity tests** (`kernel/check/positivity_test.go`)
+  - `TestCheckPositivity_DoubleDomain`: Nested domain polarity handling
+  - `TestCheckPositivity_Sigma`: Sigma type component checking
+  - `TestCheckPositivity_Id`: Identity type component checking
+- **Constructor validation tests** (`kernel/check/env_test.go`)
+  - `TestDeclareInductive_IllFormedConstructor`: Unknown types detected
+  - `TestDeclareInductive_IllFormedConstructor`: Non-type domains detected
 
 ### CI/CD
 - **Added cubical tests to CI** (`.github/workflows/go.yml`)

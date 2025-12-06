@@ -2,6 +2,7 @@ package check
 
 import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
 
 // Transparency controls whether a definition can be unfolded during conversion.
@@ -236,7 +237,7 @@ func (g *GlobalEnv) AddInductive(name string, ty ast.Term, constrs []Constructor
 // DeclareInductive validates and adds an inductive type to the environment.
 // It checks:
 // - The inductive type is well-formed (a Sort)
-// - Each constructor type is well-formed
+// - Each constructor type is well-formed (uses Checker API)
 // - Each constructor returns the inductive type
 // - The definition satisfies strict positivity
 // It also generates and registers the eliminator.
@@ -249,27 +250,105 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 		}
 	}
 
-	// 2. Check strict positivity
+	// 2. Temporarily add the inductive type so constructor types can reference it.
+	// This allows constructor types like (n : Nat) -> Nat to type-check.
+	g.AddAxiom(name, ty)
+
+	// 3. Validate each constructor type is well-formed using the Checker API.
+	// Create a checker with our environment.
+	checker := NewChecker(g)
+	for _, c := range constrs {
+		if err := validateConstructorType(checker, name, c); err != nil {
+			// Remove the temporary axiom on failure
+			delete(g.axioms, name)
+			g.removeFromOrder(name)
+			return err
+		}
+	}
+
+	// Remove the temporary axiom - we'll add the real inductive
+	delete(g.axioms, name)
+	g.removeFromOrder(name)
+
+	// 4. Check strict positivity
 	if err := CheckPositivity(name, constrs); err != nil {
 		return err
 	}
 
-	// 3. Validate each constructor returns the inductive type
+	// 5. Validate each constructor returns the inductive type
 	for _, c := range constrs {
 		if err := validateConstructorResult(name, c); err != nil {
 			return err
 		}
 	}
 
-	// 4. Add the inductive to the environment
+	// 6. Add the inductive to the environment
 	g.AddInductive(name, ty, constrs, elim)
 
-	// 5. Generate and register the eliminator
+	// 7. Generate and register the eliminator
 	ind := g.inductives[name]
 	elimType := GenerateRecursorType(ind)
 	g.AddAxiom(elim, elimType)
 
+	// 8. Register the recursor for generic reduction
+	recursorInfo := buildRecursorInfo(name, elim, constrs)
+	eval.RegisterRecursor(recursorInfo)
+
 	return nil
+}
+
+// buildRecursorInfo builds RecursorInfo from an inductive's constructors.
+func buildRecursorInfo(indName, elimName string, constrs []Constructor) *eval.RecursorInfo {
+	info := &eval.RecursorInfo{
+		ElimName: elimName,
+		IndName:  indName,
+		NumCases: len(constrs),
+		Ctors:    make([]eval.ConstructorInfo, len(constrs)),
+	}
+
+	for i, c := range constrs {
+		args := extractPiArgs(c.Type)
+		recursiveIdx := []int{}
+		for j, arg := range args {
+			if isRecursiveArgType(indName, arg.Type) {
+				recursiveIdx = append(recursiveIdx, j)
+			}
+		}
+		info.Ctors[i] = eval.ConstructorInfo{
+			Name:         c.Name,
+			NumArgs:      len(args),
+			RecursiveIdx: recursiveIdx,
+		}
+	}
+
+	return info
+}
+
+// validateConstructorType checks that a constructor type is well-formed.
+// It validates that the type is a valid type using the Checker's CheckIsType,
+// which ensures all Pi domains are well-typed.
+func validateConstructorType(checker *Checker, indName string, c Constructor) error {
+	// Use CheckIsType to validate the constructor type is well-formed.
+	// This traverses the Pi chain and validates each domain is a type.
+	_, err := checker.CheckIsType(nil, Span{}, c.Type)
+	if err != nil {
+		return &ConstructorError{
+			IndName:     indName,
+			Constructor: c.Name,
+			Message:     "constructor type is not well-formed: " + err.Error(),
+		}
+	}
+	return nil
+}
+
+// removeFromOrder removes a name from the declaration order.
+func (g *GlobalEnv) removeFromOrder(name string) {
+	for i, n := range g.order {
+		if n == name {
+			g.order = append(g.order[:i], g.order[i+1:]...)
+			return
+		}
+	}
 }
 
 // InductiveError represents an error in inductive type validation.

@@ -478,7 +478,6 @@ func (p *SExprParser) parseJ() (ast.Term, error) {
 	return ast.J{A: a, C: c, D: d, X: x, Y: y, P: prf}, nil
 }
 
-
 // FormatTerm formats an AST term as an S-expression string.
 func FormatTerm(t ast.Term) string {
 	if t == nil {

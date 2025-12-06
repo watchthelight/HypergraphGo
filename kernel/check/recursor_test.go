@@ -76,8 +76,8 @@ func TestCountRecursiveArgs(t *testing.T) {
 			name:    "Mixed args",
 			indName: "List",
 			args: []PiArg{
-				{Name: "x", Type: ast.Var{Ix: 0}},                // A (non-recursive)
-				{Name: "xs", Type: ast.Global{Name: "List"}},     // List (recursive)
+				{Name: "x", Type: ast.Var{Ix: 0}},            // A (non-recursive)
+				{Name: "xs", Type: ast.Global{Name: "List"}}, // List (recursive)
 			},
 			expected: 1,
 		},

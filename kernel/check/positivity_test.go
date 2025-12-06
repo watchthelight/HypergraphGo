@@ -300,3 +300,158 @@ func TestPolarity(t *testing.T) {
 		t.Error("Negative.String() should be 'negative'")
 	}
 }
+
+// TestCheckPositivity_DoubleDomain tests positivity in nested domains.
+// The rule is: once in a domain (negative position), we stay negative.
+func TestCheckPositivity_DoubleDomain(t *testing.T) {
+	tests := []struct {
+		name         string
+		indName      string
+		constructors []Constructor
+		valid        bool
+	}{
+		{
+			// (A -> B) -> C: In A position, we're negative
+			// mkBad : ((Bad -> Nat) -> Nat) -> Bad
+			// Bad appears at depth 2 (domain of domain), which is NEGATIVE
+			name:    "Double domain - still negative",
+			indName: "Bad",
+			constructors: []Constructor{
+				{Name: "mk", Type: ast.Pi{
+					Binder: "f",
+					A: ast.Pi{
+						Binder: "_",
+						A: ast.Pi{
+							Binder: "_",
+							A:      ast.Global{Name: "Bad"}, // Negative!
+							B:      ast.Global{Name: "Nat"},
+						},
+						B: ast.Global{Name: "Nat"},
+					},
+					B: ast.Global{Name: "Bad"},
+				}},
+			},
+			valid: false,
+		},
+		{
+			// mk : (Nat -> Good) -> Good
+			// Good appears only in positive position (codomain)
+			name:    "Only in positive positions",
+			indName: "Good",
+			constructors: []Constructor{
+				{Name: "mk", Type: ast.Pi{
+					Binder: "f",
+					A: ast.Pi{
+						Binder: "_",
+						A:      ast.Global{Name: "Nat"},
+						B:      ast.Global{Name: "Good"}, // Positive (codomain)
+					},
+					B: ast.Global{Name: "Good"},
+				}},
+			},
+			valid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := CheckPositivity(tt.indName, tt.constructors)
+			if tt.valid && err != nil {
+				t.Errorf("CheckPositivity() unexpected error: %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Error("CheckPositivity() expected error, got nil")
+			}
+		})
+	}
+}
+
+// TestCheckPositivity_Sigma tests positivity in Sigma types.
+func TestCheckPositivity_Sigma(t *testing.T) {
+	// mk : (Σ(x : Nat) . Bad) -> Bad
+	// Bad appears in positive position (second component of Sigma)
+	validSigma := []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "p",
+			A: ast.Sigma{
+				Binder: "x",
+				A:      ast.Global{Name: "Nat"},
+				B:      ast.Global{Name: "Good"}, // Positive
+			},
+			B: ast.Global{Name: "Good"},
+		}},
+	}
+
+	err := CheckPositivity("Good", validSigma)
+	if err != nil {
+		t.Errorf("CheckPositivity(Sigma positive) unexpected error: %v", err)
+	}
+
+	// mk : ((Σ(x : Bad) . Nat) -> Nat) -> Bad
+	// Bad appears in negative position (inside domain, even within Sigma)
+	invalidSigma := []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "f",
+			A: ast.Pi{
+				Binder: "_",
+				A: ast.Sigma{
+					Binder: "x",
+					A:      ast.Global{Name: "Bad"}, // Negative (domain of outer domain)
+					B:      ast.Global{Name: "Nat"},
+				},
+				B: ast.Global{Name: "Nat"},
+			},
+			B: ast.Global{Name: "Bad"},
+		}},
+	}
+
+	err = CheckPositivity("Bad", invalidSigma)
+	if err == nil {
+		t.Error("CheckPositivity(Sigma negative) expected error, got nil")
+	}
+}
+
+// TestCheckPositivity_Id tests positivity with identity types.
+func TestCheckPositivity_Id(t *testing.T) {
+	// mk : Id Nat zero zero -> Good
+	// Good doesn't appear in Id type components, so this is valid
+	validId := []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "p",
+			A: ast.Id{
+				A: ast.Global{Name: "Nat"},
+				X: ast.Global{Name: "zero"},
+				Y: ast.Global{Name: "zero"},
+			},
+			B: ast.Global{Name: "Good"},
+		}},
+	}
+
+	err := CheckPositivity("Good", validId)
+	if err != nil {
+		t.Errorf("CheckPositivity(Id no occurrence) unexpected error: %v", err)
+	}
+
+	// mk : (Id Bad x y -> Nat) -> Bad
+	// Bad appears in negative position
+	invalidId := []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "f",
+			A: ast.Pi{
+				Binder: "_",
+				A: ast.Id{
+					A: ast.Global{Name: "Bad"}, // Negative (in domain)
+					X: ast.Var{Ix: 0},
+					Y: ast.Var{Ix: 0},
+				},
+				B: ast.Global{Name: "Nat"},
+			},
+			B: ast.Global{Name: "Bad"},
+		}},
+	}
+
+	err = CheckPositivity("Bad", invalidId)
+	if err == nil {
+		t.Error("CheckPositivity(Id negative) expected error, got nil")
+	}
+}

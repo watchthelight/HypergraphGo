@@ -108,10 +108,10 @@ func TestCompositionFunction(t *testing.T) {
 				Binder: "C", Ann: type0,
 				Body: ast.Lam{
 					Binder: "f",
-					Ann: ast.Pi{Binder: "_", A: ast.Var{Ix: 1}, B: ast.Var{Ix: 1}}, // B → C
+					Ann:    ast.Pi{Binder: "_", A: ast.Var{Ix: 1}, B: ast.Var{Ix: 1}}, // B → C
 					Body: ast.Lam{
 						Binder: "g",
-						Ann: ast.Pi{Binder: "_", A: ast.Var{Ix: 3}, B: ast.Var{Ix: 3}}, // A → B
+						Ann:    ast.Pi{Binder: "_", A: ast.Var{Ix: 3}, B: ast.Var{Ix: 3}}, // A → B
 						Body: ast.Lam{
 							Binder: "x",
 							Ann:    ast.Var{Ix: 4}, // A
@@ -507,7 +507,7 @@ func TestContextManagement(t *testing.T) {
 			Binder: "x", Ann: ast.Var{Ix: 0},
 			Body: ast.Lam{
 				Binder: "y", Ann: ast.Var{Ix: 1},
-				Body:   ast.Var{Ix: 1}, // x, not y
+				Body: ast.Var{Ix: 1}, // x, not y
 			},
 		},
 	}
@@ -537,7 +537,7 @@ func BenchmarkIdentityTypeCheck(b *testing.B) {
 		Binder: "A", Ann: ast.Sort{U: 0},
 		Body: ast.Lam{
 			Binder: "x", Ann: ast.Var{Ix: 0},
-			Body:   ast.Var{Ix: 0},
+			Body: ast.Var{Ix: 0},
 		},
 	}
 

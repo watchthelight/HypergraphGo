@@ -431,8 +431,8 @@ func TestNBE_NatElimZero(t *testing.T) {
 	// Result should be myZero
 
 	natElim := glob("natElim")
-	motive := lam("_", glob("Nat")) // P : Nat -> Type = \_ -> Nat
-	pz := glob("myZero")            // P zero case
+	motive := lam("_", glob("Nat"))             // P : Nat -> Type = \_ -> Nat
+	pz := glob("myZero")                        // P zero case
 	ps := lam("n", lam("ih", glob("myResult"))) // succ case (unused for zero)
 	zero := glob("zero")
 
@@ -560,5 +560,107 @@ func TestNBE_BoolElimStuck(t *testing.T) {
 	// Should be stuck
 	if got == "trueCase" || got == "falseCase" {
 		t.Errorf("boolElim should be stuck with neutral scrutinee, got %q", got)
+	}
+}
+
+// Test generic recursor reduction using the registry
+func TestNBE_GenericRecursor(t *testing.T) {
+	// Clear registry before tests
+	ClearRecursorRegistry()
+
+	// Register a custom inductive: Unit with one constructor tt
+	// unitElim : (P : Unit -> Type) -> P tt -> (u : Unit) -> P u
+	// unitElim P ptt tt --> ptt
+	RegisterRecursor(&RecursorInfo{
+		ElimName: "unitElim",
+		IndName:  "Unit",
+		NumCases: 1,
+		Ctors: []ConstructorInfo{
+			{Name: "tt", NumArgs: 0, RecursiveIdx: nil},
+		},
+	})
+
+	unitElim := glob("unitElim")
+	motive := lam("_", sort(0)) // P : Unit -> Type
+	ptt := glob("unitResult")   // P tt
+	tt := glob("tt")            // tt : Unit
+
+	term := ast.MkApps(unitElim, motive, ptt, tt)
+	got := nf(term)
+	want := "unitResult"
+
+	if got != want {
+		t.Errorf("unitElim tt failed: got %q, want %q", got, want)
+	}
+
+	// Clean up
+	ClearRecursorRegistry()
+}
+
+func TestNBE_GenericRecursorWithRecursiveArg(t *testing.T) {
+	// Clear registry before tests
+	ClearRecursorRegistry()
+
+	// Register a custom Nat-like inductive: MyNat
+	// myNatElim : (P : MyNat -> Type) -> P mzero -> ((n : MyNat) -> P n -> P (msucc n)) -> (n : MyNat) -> P n
+	RegisterRecursor(&RecursorInfo{
+		ElimName: "myNatElim",
+		IndName:  "MyNat",
+		NumCases: 2,
+		Ctors: []ConstructorInfo{
+			{Name: "mzero", NumArgs: 0, RecursiveIdx: nil},
+			{Name: "msucc", NumArgs: 1, RecursiveIdx: []int{0}}, // First arg is recursive
+		},
+	})
+
+	myNatElim := glob("myNatElim")
+	motive := lam("_", sort(0))
+	pz := glob("myZeroCase")
+	// ps takes n and ih, just returns something for simplicity
+	ps := lam("n", lam("ih", glob("mySuccCase")))
+	mzero := glob("mzero")
+
+	// Test mzero case
+	t.Run("mzero", func(t *testing.T) {
+		term := ast.MkApps(myNatElim, motive, pz, ps, mzero)
+		got := nf(term)
+		want := "myZeroCase"
+		if got != want {
+			t.Errorf("myNatElim mzero failed: got %q, want %q", got, want)
+		}
+	})
+
+	// Test msucc mzero case: myNatElim P pz ps (msucc mzero)
+	// Should reduce to: ps mzero (myNatElim P pz ps mzero) = ps mzero myZeroCase = mySuccCase
+	t.Run("msucc_mzero", func(t *testing.T) {
+		one := ast.App{T: glob("msucc"), U: mzero}
+		term := ast.MkApps(myNatElim, motive, pz, ps, one)
+		got := nf(term)
+		want := "mySuccCase"
+		if got != want {
+			t.Errorf("myNatElim (msucc mzero) failed: got %q, want %q", got, want)
+		}
+	})
+
+	// Clean up
+	ClearRecursorRegistry()
+}
+
+func TestNBE_GenericRecursorNotRegistered(t *testing.T) {
+	// Clear registry
+	ClearRecursorRegistry()
+
+	// Try to use an unregistered eliminator
+	fakeElim := glob("fakeElim")
+	motive := lam("_", sort(0))
+	pz := glob("case")
+	scrutinee := glob("fakeZero")
+
+	term := ast.MkApps(fakeElim, motive, pz, scrutinee)
+	got := nf(term)
+
+	// Should be stuck (not reduced)
+	if got == "case" {
+		t.Errorf("unregistered eliminator should not reduce")
 	}
 }

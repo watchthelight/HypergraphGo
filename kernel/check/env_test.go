@@ -83,12 +83,13 @@ func TestDeclareInductive_Valid(t *testing.T) {
 
 func TestDeclareInductive_Invalid(t *testing.T) {
 	tests := []struct {
-		name    string
-		indName string
-		indType ast.Term
-		constrs []Constructor
-		elim    string
-		errType string // "positivity" or "result"
+		name          string
+		indName       string
+		indType       ast.Term
+		constrs       []Constructor
+		elim          string
+		errType       string // "positivity" or "result"
+		usePrimitives bool   // whether to use environment with primitives
 	}{
 		{
 			name:    "Negative occurrence",
@@ -105,8 +106,9 @@ func TestDeclareInductive_Invalid(t *testing.T) {
 					B: ast.Global{Name: "Bad"},
 				}},
 			},
-			elim:    "badElim",
-			errType: "positivity",
+			elim:          "badElim",
+			errType:       "positivity",
+			usePrimitives: true, // Need Nat in environment
 		},
 		{
 			name:    "Wrong result type",
@@ -115,8 +117,9 @@ func TestDeclareInductive_Invalid(t *testing.T) {
 			constrs: []Constructor{
 				{Name: "mk", Type: ast.Global{Name: "Bar"}}, // Returns Bar, not Foo
 			},
-			elim:    "fooElim",
-			errType: "result",
+			elim:          "fooElim",
+			errType:       "result",
+			usePrimitives: false,
 		},
 		{
 			name:    "Constructor returns different type",
@@ -129,14 +132,20 @@ func TestDeclareInductive_Invalid(t *testing.T) {
 					B:      ast.Global{Name: "Y"}, // Wrong result type
 				}},
 			},
-			elim:    "xElim",
-			errType: "result",
+			elim:          "xElim",
+			errType:       "result",
+			usePrimitives: true, // Need Nat in environment
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := NewGlobalEnv()
+			var env *GlobalEnv
+			if tt.usePrimitives {
+				env = NewGlobalEnvWithPrimitives()
+			} else {
+				env = NewGlobalEnv()
+			}
 			err := env.DeclareInductive(tt.indName, tt.indType, tt.constrs, tt.elim)
 			if err == nil {
 				t.Error("DeclareInductive() expected error, got nil")
@@ -337,6 +346,58 @@ func TestIsAppOfGlobal(t *testing.T) {
 			result := isAppOfGlobal(tt.term, tt.global)
 			if result != tt.expected {
 				t.Errorf("isAppOfGlobal() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDeclareInductive_IllFormedConstructor(t *testing.T) {
+	// DeclareInductive should reject ill-formed constructor types
+	tests := []struct {
+		name    string
+		indName string
+		indType ast.Term
+		constrs []Constructor
+		elim    string
+	}{
+		{
+			name:    "Constructor type references unknown global",
+			indName: "Bad",
+			indType: ast.Sort{U: 0},
+			constrs: []Constructor{
+				{Name: "mk", Type: ast.Pi{
+					Binder: "_",
+					A:      ast.Global{Name: "UnknownType"},
+					B:      ast.Global{Name: "Bad"},
+				}},
+			},
+			elim: "badElim",
+		},
+		{
+			name:    "Constructor domain is not a type",
+			indName: "Bad2",
+			indType: ast.Sort{U: 0},
+			constrs: []Constructor{
+				// Pi with domain that isn't a type (zero is a value, not a type)
+				{Name: "mk", Type: ast.Pi{
+					Binder: "_",
+					A:      ast.Global{Name: "zero"}, // zero : Nat, not a type
+					B:      ast.Global{Name: "Bad2"},
+				}},
+			},
+			elim: "bad2Elim",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := NewGlobalEnvWithPrimitives()
+			err := env.DeclareInductive(tt.indName, tt.indType, tt.constrs, tt.elim)
+			if err == nil {
+				t.Error("DeclareInductive() expected error for ill-formed constructor, got nil")
+			}
+			if _, ok := err.(*ConstructorError); !ok {
+				t.Errorf("DeclareInductive() expected ConstructorError, got %T: %v", err, err)
 			}
 		})
 	}

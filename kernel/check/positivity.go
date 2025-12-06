@@ -214,6 +214,11 @@ func checkArgTypePositivity(indName, ctorName string, ty ast.Term, pol Polarity,
 		return checkArgTypePositivity(indName, ctorName, t.P, pol, depth)
 
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if err, handled := checkArgTypePositivityExtension(indName, ctorName, ty, pol, depth); handled {
+			return err
+		}
+
 		// Unknown term type - be conservative
 		// If the inductive occurs in this unknown term and we're in negative position, reject
 		if OccursIn(indName, ty) && pol == Negative {
@@ -258,6 +263,12 @@ func OccursIn(name string, ty ast.Term) bool {
 		return OccursIn(name, t.A) || OccursIn(name, t.C) || OccursIn(name, t.D) ||
 			OccursIn(name, t.X) || OccursIn(name, t.Y) || OccursIn(name, t.P)
 	default:
+		// Try extension handlers (e.g., cubical terms when built with -tags cubical)
+		if occurs, handled := occursInExtension(name, ty); handled {
+			return occurs
+		}
+		// Unknown term types default to false (conservative for OccursIn means assuming no occurrence)
+		// This is safe because checkArgTypePositivity will catch unknown types separately
 		return false
 	}
 }

@@ -297,18 +297,22 @@ func Apply(fun Value, arg Value) Value {
 // tryRecursorReduction attempts to reduce a recursor application if the scrutinee
 // is a constructor. Returns nil if no reduction is possible.
 //
-// Supported recursors:
+// Built-in recursors (for backwards compatibility):
 //   - natElim P pz ps n: reduces when n is zero or (succ m)
 //   - boolElim P pt pf b: reduces when b is true or false
+//
+// User-defined recursors use the generic registry-based reduction.
 func tryRecursorReduction(head Head, sp []Value) Value {
+	// Try built-in recursors first for backwards compatibility
 	switch head.Glob {
 	case "natElim":
 		return tryNatElimReduction(sp)
 	case "boolElim":
 		return tryBoolElimReduction(sp)
-	default:
-		return nil
 	}
+
+	// Try generic recursor reduction for user-defined inductives
+	return tryGenericRecursorReduction(head.Glob, sp)
 }
 
 // tryNatElimReduction handles computation rules for natElim.
@@ -324,10 +328,10 @@ func tryNatElimReduction(sp []Value) Value {
 		return nil // Not fully applied yet
 	}
 
-	p := sp[0]   // motive
-	pz := sp[1]  // zero case
-	ps := sp[2]  // succ case
-	n := sp[3]   // scrutinee
+	p := sp[0]  // motive
+	pz := sp[1] // zero case
+	ps := sp[2] // succ case
+	n := sp[3]  // scrutinee
 
 	// Check if scrutinee is a constructor
 	switch scrutinee := n.(type) {
