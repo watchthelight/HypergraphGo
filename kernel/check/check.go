@@ -29,10 +29,10 @@ func (c *Checker) ICtxDepth() int {
 }
 
 // CheckIVar validates an interval variable index against the current context.
-// Returns true if valid (or if no interval context is being tracked).
+// Returns true if valid, false if invalid or outside a path context.
 func (c *Checker) CheckIVar(ix int) bool {
 	if c.ictx == nil {
-		return true // no tracking, allow all
+		return false // reject IVar outside path context
 	}
 	return ix >= 0 && ix < c.ictx.depth
 }

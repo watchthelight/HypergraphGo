@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **IVar validation strictness** (`kernel/check/check.go`)
+  - `CheckIVar` now rejects interval variables outside path context
+  - Previously returned `true` when `ictx == nil`; now returns `false`
+  - IVar is only valid inside PathLam scopes
+
+### CI/CD
+- **Added cubical tests to CI** (`.github/workflows/go.yml`)
+  - New step runs `go test -tags cubical -race ./...`
+  - Catches regressions in conditionally-compiled cubical type theory code
+- **Added golangci-lint to CI** (`.github/workflows/go.yml`)
+  - Uses `golangci/golangci-lint-action@v4`
+  - Runs linters configured in `.golangci.yml`
+
 ### Fixed
 - **CRITICAL: AlphaEq lambda annotations** (`internal/core/conv.go`)
   - Fixed bug where lambda annotations were not compared in alpha-equality
