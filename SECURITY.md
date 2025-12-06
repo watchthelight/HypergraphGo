@@ -5,7 +5,7 @@ Only the latest commit on `main` is actively supported with security updates.
 
 ## Reporting a Vulnerability
 - Do **not** open a public issue.
-- Email **[YOUR SECURITY/CONTACT EMAIL HERE]** with:
+- Email **security@watchthelight.org** with:
   - Steps to reproduce
   - Impact assessment
   - Any PoC or logs (privately)
