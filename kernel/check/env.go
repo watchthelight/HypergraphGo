@@ -239,22 +239,66 @@ func (g *GlobalEnv) AddInductive(name string, ty ast.Term, constrs []Constructor
 // - Each constructor type is well-formed
 // - Each constructor returns the inductive type
 // - The definition satisfies strict positivity
+// It also generates and registers the eliminator.
 func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constructor, elim string) error {
-	// Check strict positivity
+	// 1. Validate the inductive type is a Sort
+	if err := validateIsSort(ty); err != nil {
+		return &InductiveError{
+			IndName: name,
+			Message: "inductive type must be a Sort: " + err.Error(),
+		}
+	}
+
+	// 2. Check strict positivity
 	if err := CheckPositivity(name, constrs); err != nil {
 		return err
 	}
 
-	// Validate each constructor returns the inductive type
+	// 3. Validate each constructor returns the inductive type
 	for _, c := range constrs {
 		if err := validateConstructorResult(name, c); err != nil {
 			return err
 		}
 	}
 
-	// All checks passed, add to environment
+	// 4. Add the inductive to the environment
 	g.AddInductive(name, ty, constrs, elim)
+
+	// 5. Generate and register the eliminator
+	ind := g.inductives[name]
+	elimType := GenerateRecursorType(ind)
+	g.AddAxiom(elim, elimType)
+
 	return nil
+}
+
+// InductiveError represents an error in inductive type validation.
+type InductiveError struct {
+	IndName string
+	Message string
+}
+
+func (e *InductiveError) Error() string {
+	return "inductive " + e.IndName + ": " + e.Message
+}
+
+// validateIsSort checks that ty is a Sort.
+func validateIsSort(ty ast.Term) error {
+	switch ty.(type) {
+	case ast.Sort:
+		return nil
+	default:
+		return &ValidationError{Msg: "expected Sort, got " + ast.Sprint(ty)}
+	}
+}
+
+// ValidationError represents a validation error during inductive declaration.
+type ValidationError struct {
+	Msg string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Msg
 }
 
 // validateConstructorResult checks that a constructor's result type is the inductive.

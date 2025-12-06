@@ -214,7 +214,17 @@ func checkArgTypePositivity(indName, ctorName string, ty ast.Term, pol Polarity,
 		return checkArgTypePositivity(indName, ctorName, t.P, pol, depth)
 
 	default:
-		// Unknown term type - be conservative and allow
+		// Unknown term type - be conservative
+		// If the inductive occurs in this unknown term and we're in negative position, reject
+		if OccursIn(indName, ty) && pol == Negative {
+			return &PositivityError{
+				IndName:     indName,
+				Constructor: ctorName,
+				Position:    fmt.Sprintf("argument %d (unknown node type %T)", depth, ty),
+				Polarity:    pol,
+			}
+		}
+		// If inductive doesn't occur, or we're in positive position, allow
 		return nil
 	}
 }

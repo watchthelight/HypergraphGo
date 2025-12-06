@@ -13,7 +13,12 @@ import (
 // where case(ci) provides the elimination principle for constructor ci:
 //   - Non-recursive args pass through as-is
 //   - Recursive args (of type T) get an induction hypothesis (ih : P arg)
+//
+// The universe j for the motive is derived from the inductive's type.
 func GenerateRecursorType(ind *Inductive) ast.Term {
+	// Extract the universe level from the inductive's type
+	motiveUniverse := extractUniverseLevel(ind.Type)
+
 	// Build from inside out: (t : T) -> P t
 	// P is at some de Bruijn index depending on how many cases we have
 
@@ -41,17 +46,30 @@ func GenerateRecursorType(ind *Inductive) ast.Term {
 		}
 	}
 
-	// Finally wrap with motive P : T -> Type
+	// Finally wrap with motive P : T -> Type_j
+	// The motive universe is at least the inductive's universe
 	motive := ast.Pi{
 		Binder: "_",
 		A:      indType,
-		B:      ast.Sort{U: 0}, // Type_0 for simplicity
+		B:      ast.Sort{U: motiveUniverse},
 	}
 
 	return ast.Pi{
 		Binder: "P",
 		A:      motive,
 		B:      result,
+	}
+}
+
+// extractUniverseLevel extracts the universe level from a type.
+// For Sort{U: n}, returns n. For other types, returns 0 as a fallback.
+func extractUniverseLevel(ty ast.Term) ast.Level {
+	switch t := ty.(type) {
+	case ast.Sort:
+		return t.U
+	default:
+		// Fallback for non-Sort types (shouldn't happen for validated inductives)
+		return 0
 	}
 }
 
@@ -128,65 +146,86 @@ func isRecursiveArgType(indName string, ty ast.Term) bool {
 }
 
 // buildCaseType constructs the full case type for a constructor.
+//
+// For constructor c : (x1 : A1) -> ... -> (xn : An) -> T where some Ai = T (recursive):
+//
+// Case type structure (built outside-in for clarity):
+//
+//	(x1 : A1) -> [ih1 : P x1] -> ... -> (xn : An) -> [ihn : P xn] -> P (c x1 ... xn)
+//
+// where [ih_i : P x_i] is present only for recursive arguments (Ai = T or App of T).
+//
+// De Bruijn indices are computed relative to the depth at each position:
+//   - pBaseIdx is P's index before any case binders are added
+//   - At depth d (under d binders), P is at index pBaseIdx + d
+//   - Argument x_i bound at depth d_i is at index (current_depth - d_i - 1) when referenced
 func buildCaseType(indName string, args []PiArg, numRecursive int, pBaseIdx int, ctorName string) ast.Term {
-	// Total binders: args + induction hypotheses
-	// pIdx at result = pBaseIdx + numArgs + numRecursive
-
 	numArgs := len(args)
-	totalBinders := numArgs + numRecursive
 
-	// Build result type: P (c x1 ... xn)
-	// c is a global, x1...xn are variables at indices (totalBinders-1)...(numRecursive)
-	// Note: innermost (last) arg is at index numRecursive (after all IHs)
-	ctorApp := ast.Term(ast.Global{Name: ctorName})
-	for i := 0; i < numArgs; i++ {
-		// Arg i is at index totalBinders - 1 - i
-		argIdx := totalBinders - 1 - i
-		ctorApp = ast.App{T: ctorApp, U: ast.Var{Ix: argIdx}}
+	// Build the binder structure: for each arg, we add the arg binder,
+	// and if recursive, also an IH binder immediately after.
+	// Track which depth each original argument is bound at.
+	type binderInfo struct {
+		name        string
+		ty          ast.Term
+		isIH        bool
+		argIdx      int // which original arg this refers to (-1 for IH)
+		boundAtArg  int // for IH: which arg's IH this is
 	}
 
-	// P (c x1 ... xn) where P is at index pBaseIdx + totalBinders
-	pIdx := pBaseIdx + totalBinders
-	resultTy := ast.App{T: ast.Var{Ix: pIdx}, U: ctorApp}
+	var binders []binderInfo
+	argDepths := make([]int, numArgs) // depth at which arg i is bound
 
-	// Build from inside out: first IHs, then args
-	result := ast.Term(resultTy)
+	depth := 0
+	for i, arg := range args {
+		// Add argument binder
+		argDepths[i] = depth
+		binders = append(binders, binderInfo{
+			name:   arg.Name,
+			ty:     arg.Type,
+			isIH:   false,
+			argIdx: i,
+		})
+		depth++
 
-	// Add IH binders for recursive args (in reverse order)
-	ihCount := 0
-	for i := numArgs - 1; i >= 0; i-- {
-		if isRecursiveArgType(indName, args[i].Type) {
-			// ih_i : P x_i
-			// x_i is at index: ihCount (we're adding IH binders from inner to outer)
-			// P is at index: pBaseIdx + (args remaining) + (ihs remaining including this)
-			// Actually, let's recompute...
-
-			// When adding this IH binder, we have:
-			// - ihCount IH binders already added (inner)
-			// - args[i+1:] args still to add (but they come after in outer position)
-			// x_i will be at index ihCount when we're at this IH binder
-			argOffset := ihCount
-			// P is at pBaseIdx + total binders = pBaseIdx + numArgs + numRecursive
-			// But we're building from inside, so we need to shift
-			ihType := ast.App{T: ast.Var{Ix: pIdx - (numRecursive - ihCount)}, U: ast.Var{Ix: argOffset}}
-
-			result = ast.Pi{
-				Binder: "ih_" + args[i].Name,
-				A:      ihType,
-				B:      result,
-			}
-			ihCount++
+		// If recursive, add IH binder immediately after
+		if isRecursiveArgType(indName, arg.Type) {
+			// IH type: P x_i
+			// At this point, x_i was just bound (at depth-1), so it's at index 0
+			// P is at pBaseIdx + depth (we're about to add the IH binder)
+			pIdx := pBaseIdx + depth
+			ihType := ast.App{T: ast.Var{Ix: pIdx}, U: ast.Var{Ix: 0}}
+			binders = append(binders, binderInfo{
+				name:       "ih_" + arg.Name,
+				ty:         ihType,
+				isIH:       true,
+				boundAtArg: i,
+			})
+			depth++
 		}
 	}
 
-	// Add arg binders (in reverse order, so outer first)
-	for i := numArgs - 1; i >= 0; i-- {
-		// Shift the arg type to account for binders added so far
-		// The type needs to be shifted by the number of binders between original context and here
-		argTy := args[i].Type // TODO: may need shifting in complex cases
+	totalBinders := depth
+
+	// Build result type: P (c x1 ... xn)
+	// P is at index pBaseIdx + totalBinders
+	// Each x_i is at index (totalBinders - argDepths[i] - 1)
+	pIdxAtResult := pBaseIdx + totalBinders
+
+	ctorApp := ast.Term(ast.Global{Name: ctorName})
+	for i := 0; i < numArgs; i++ {
+		argVarIdx := totalBinders - argDepths[i] - 1
+		ctorApp = ast.App{T: ctorApp, U: ast.Var{Ix: argVarIdx}}
+	}
+
+	var result ast.Term = ast.App{T: ast.Var{Ix: pIdxAtResult}, U: ctorApp}
+
+	// Now wrap with binders from inside out (reverse order)
+	for i := len(binders) - 1; i >= 0; i-- {
+		b := binders[i]
 		result = ast.Pi{
-			Binder: args[i].Name,
-			A:      argTy,
+			Binder: b.name,
+			A:      b.ty,
 			B:      result,
 		}
 	}

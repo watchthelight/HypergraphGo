@@ -214,6 +214,76 @@ func TestConstructorResultType(t *testing.T) {
 	}
 }
 
+func TestDeclareInductive_InvalidType(t *testing.T) {
+	// DeclareInductive should reject non-Sort inductive types
+	tests := []struct {
+		name    string
+		indName string
+		indType ast.Term
+		constrs []Constructor
+		elim    string
+	}{
+		{
+			name:    "Pi type instead of Sort",
+			indName: "Bad",
+			indType: ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}},
+			constrs: []Constructor{
+				{Name: "mk", Type: ast.Global{Name: "Bad"}},
+			},
+			elim: "badElim",
+		},
+		{
+			name:    "Global instead of Sort",
+			indName: "Bad2",
+			indType: ast.Global{Name: "Nat"},
+			constrs: []Constructor{
+				{Name: "mk", Type: ast.Global{Name: "Bad2"}},
+			},
+			elim: "bad2Elim",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := NewGlobalEnv()
+			err := env.DeclareInductive(tt.indName, tt.indType, tt.constrs, tt.elim)
+			if err == nil {
+				t.Error("DeclareInductive() expected error for non-Sort type, got nil")
+			}
+			if _, ok := err.(*InductiveError); !ok {
+				t.Errorf("DeclareInductive() expected InductiveError, got %T: %v", err, err)
+			}
+		})
+	}
+}
+
+func TestDeclareInductive_RegistersEliminator(t *testing.T) {
+	// Verify that DeclareInductive registers the eliminator in GlobalEnv
+	env := NewGlobalEnv()
+	err := env.DeclareInductive("Nat", ast.Sort{U: 0}, []Constructor{
+		{Name: "zero", Type: ast.Global{Name: "Nat"}},
+		{Name: "succ", Type: ast.Pi{
+			Binder: "_",
+			A:      ast.Global{Name: "Nat"},
+			B:      ast.Global{Name: "Nat"},
+		}},
+	}, "natElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive() unexpected error: %v", err)
+	}
+
+	// Check that natElim is registered
+	elimType := env.LookupType("natElim")
+	if elimType == nil {
+		t.Error("DeclareInductive() should register the eliminator, but natElim not found")
+	}
+
+	// Verify it's a Pi type (eliminator starts with motive)
+	if _, ok := elimType.(ast.Pi); !ok {
+		t.Errorf("natElim should be a Pi type, got %T", elimType)
+	}
+}
+
 func TestIsAppOfGlobal(t *testing.T) {
 	tests := []struct {
 		name     string

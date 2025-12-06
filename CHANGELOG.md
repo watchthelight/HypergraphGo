@@ -29,6 +29,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Recursive reduction for nested constructors (e.g., `succ (succ zero)`)
     - Stuck terms remain neutral for open/variable scrutinees
 
+### Fixed (Phase 5 audit)
+- **DeclareInductive validation** (`kernel/check/env.go`)
+  - Now validates inductive type is a Sort before accepting
+  - Generates and registers eliminator in GlobalEnv automatically
+  - Added `InductiveError` and `ValidationError` types for clear diagnostics
+
+- **GenerateRecursorType universe handling** (`kernel/check/recursor.go`)
+  - Now extracts universe level from inductive's type instead of hardcoding Type0
+  - Motive `P : T -> Type_j` uses correct universe j
+
+- **buildCaseType de Bruijn indices** (`kernel/check/recursor.go`)
+  - Rewrote with clearer forward-pass algorithm
+  - Explicit tracking of binder depths for correct variable indices
+  - Removed ad-hoc index arithmetic that could lead to off-by-one errors
+
+- **CheckPositivity conservative handling** (`kernel/check/positivity.go`)
+  - Unknown AST node types now checked conservatively using `OccursIn`
+  - Rejects if inductive occurs in unknown node at negative position
+  - Prevents unsupported constructs from slipping through
+
 - **S-expression parser** (`internal/parser/`)
   - New package for parsing S-expression term syntax
   - Supports all core AST types (Pi, Lam, App, Sigma, Pair, Id, Refl, J, etc.)
