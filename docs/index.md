@@ -1,7 +1,7 @@
 # HoTTGo
 
 <p align="center">
-  <img src="../assets/hottgo-banner.png" alt="HoTTGo Banner" width="100%">
+  <img src="assets/hottgo-banner.png" alt="HoTTGo Banner" width="100%">
 </p>
 
 <p align="center">

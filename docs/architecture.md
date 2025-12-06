@@ -6,7 +6,7 @@ The HoTTGo kernel follows strict design principles to maintain soundness and cla
 
 ## Overview
 
-![Architecture Diagram](../assets/diagrams/architecture.png)
+![Architecture Diagram](assets/diagrams/architecture.png)
 
 *For detailed Mermaid diagrams, see [DIAGRAMS.md](https://github.com/watchthelight/HypergraphGo/blob/main/DIAGRAMS.md).*
 
