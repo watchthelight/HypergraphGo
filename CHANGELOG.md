@@ -62,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tryGenericRecursorReduction` handles arbitrary recursors
   - Proper IH construction for recursive arguments
   - Built-in natElim/boolElim preserved for backwards compatibility
+  - **Extended RecursorInfo** with `NumParams` and `NumIndices` for parameterized/indexed inductives
+  - Updated reduction logic to skip type parameters and indices when locating scrutinee
+
+- **Higher-order recursive detection** (`kernel/check/recursor.go`)
+  - Extended `isRecursiveArgType` to detect Pi types with inductive in codomain
+  - Correctly identifies `(A -> T)` as recursive when T is the inductive type
+  - Uses `OccursIn` for robust detection in nested codomains
 
 - **S-expression parser** (`internal/parser/`)
   - New package for parsing S-expression term syntax

@@ -298,12 +298,17 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 }
 
 // buildRecursorInfo builds RecursorInfo from an inductive's constructors.
+// NumParams and NumIndices are set to 0 for non-parameterized inductives.
+// When parameterized inductive support is added, these should be extracted
+// from the inductive type (e.g., List : Type -> Type has NumParams=1).
 func buildRecursorInfo(indName, elimName string, constrs []Constructor) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
-		ElimName: elimName,
-		IndName:  indName,
-		NumCases: len(constrs),
-		Ctors:    make([]eval.ConstructorInfo, len(constrs)),
+		ElimName:   elimName,
+		IndName:    indName,
+		NumParams:  0, // TODO: extract from inductive type when parameterized support is added
+		NumIndices: 0, // TODO: extract from inductive type when indexed support is added
+		NumCases:   len(constrs),
+		Ctors:      make([]eval.ConstructorInfo, len(constrs)),
 	}
 
 	for i, c := range constrs {

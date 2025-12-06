@@ -664,3 +664,83 @@ func TestNBE_GenericRecursorNotRegistered(t *testing.T) {
 		t.Errorf("unregistered eliminator should not reduce")
 	}
 }
+
+// TestRecursorRegistry_Concurrent verifies thread-safe access to the recursor registry.
+func TestRecursorRegistry_Concurrent(t *testing.T) {
+	ClearRecursorRegistry()
+
+	// Use goroutines to concurrently register and lookup recursors
+	done := make(chan bool)
+
+	// Writer goroutine
+	go func() {
+		for i := 0; i < 100; i++ {
+			RegisterRecursor(&RecursorInfo{
+				ElimName:   "testElim",
+				IndName:    "TestType",
+				NumParams:  0,
+				NumIndices: 0,
+				NumCases:   1,
+				Ctors: []ConstructorInfo{
+					{Name: "testCtor", NumArgs: 0, RecursiveIdx: nil},
+				},
+			})
+		}
+		done <- true
+	}()
+
+	// Reader goroutine
+	go func() {
+		for i := 0; i < 100; i++ {
+			_ = LookupRecursor("testElim")
+			_ = LookupRecursor("nonexistent")
+		}
+		done <- true
+	}()
+
+	// Wait for both goroutines
+	<-done
+	<-done
+
+	// Verify final state
+	info := LookupRecursor("testElim")
+	if info == nil {
+		t.Error("testElim should be registered after concurrent writes")
+	}
+	if info != nil && info.IndName != "TestType" {
+		t.Errorf("testElim IndName = %q, want 'TestType'", info.IndName)
+	}
+
+	ClearRecursorRegistry()
+}
+
+// TestRecursorInfo_NumParams verifies NumParams field is correctly used.
+func TestRecursorInfo_NumParams(t *testing.T) {
+	ClearRecursorRegistry()
+
+	// Register a parameterized inductive (simulating List A)
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "listElim",
+		IndName:    "List",
+		NumParams:  1, // One type parameter A
+		NumIndices: 0,
+		NumCases:   2,
+		Ctors: []ConstructorInfo{
+			{Name: "nil", NumArgs: 0, RecursiveIdx: nil},
+			{Name: "cons", NumArgs: 2, RecursiveIdx: []int{1}}, // second arg is recursive
+		},
+	})
+
+	info := LookupRecursor("listElim")
+	if info == nil {
+		t.Fatal("listElim should be registered")
+	}
+	if info.NumParams != 1 {
+		t.Errorf("listElim NumParams = %d, want 1", info.NumParams)
+	}
+	if info.NumIndices != 0 {
+		t.Errorf("listElim NumIndices = %d, want 0", info.NumIndices)
+	}
+
+	ClearRecursorRegistry()
+}

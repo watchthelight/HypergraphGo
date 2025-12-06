@@ -134,6 +134,7 @@ func countRecursiveArgs(indName string, args []PiArg) int {
 }
 
 // isRecursiveArgType checks if an argument type is the inductive type (or applied to it).
+// Also detects higher-order recursive arguments like (A -> T) where T is the inductive.
 func isRecursiveArgType(indName string, ty ast.Term) bool {
 	switch t := ty.(type) {
 	case ast.Global:
@@ -141,6 +142,11 @@ func isRecursiveArgType(indName string, ty ast.Term) bool {
 	case ast.App:
 		// Check if head is the inductive (e.g., List A where List is our inductive)
 		return isAppOfGlobal(t, indName)
+	case ast.Pi:
+		// Higher-order recursive: check if the codomain contains the inductive.
+		// For example, (A -> T) where T is our inductive type.
+		// We use OccursIn to check if indName appears in the codomain.
+		return OccursIn(indName, t.B)
 	default:
 		return false
 	}

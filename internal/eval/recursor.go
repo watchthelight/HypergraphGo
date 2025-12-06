@@ -6,10 +6,12 @@ import (
 
 // RecursorInfo contains the information needed to reduce a recursor application.
 type RecursorInfo struct {
-	ElimName string            // Name of the eliminator (e.g., "natElim")
-	IndName  string            // Name of the inductive type (e.g., "Nat")
-	NumCases int               // Number of constructor cases
-	Ctors    []ConstructorInfo // Info about each constructor
+	ElimName   string            // Name of the eliminator (e.g., "natElim")
+	IndName    string            // Name of the inductive type (e.g., "Nat")
+	NumParams  int               // Number of type parameters (e.g., 1 for List A)
+	NumIndices int               // Number of indices (e.g., 1 for Vec A n)
+	NumCases   int               // Number of constructor cases
+	Ctors      []ConstructorInfo // Info about each constructor
 }
 
 // ConstructorInfo contains information about a single constructor.
@@ -65,18 +67,25 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 		return nil
 	}
 
-	// Arguments to eliminator: P, case_c1, ..., case_cn, scrutinee
-	// Need at least: 1 (motive) + numCases + 1 (scrutinee)
-	minArgs := 1 + info.NumCases + 1
+	// Arguments to eliminator for parameterized/indexed inductives:
+	//   params..., P (motive), case_c1, ..., case_cn, indices..., scrutinee
+	// For non-parameterized, non-indexed: P, case_c1, ..., case_cn, scrutinee
+	//
+	// Need at least: NumParams + 1 (motive) + NumCases + NumIndices + 1 (scrutinee)
+	minArgs := info.NumParams + 1 + info.NumCases + info.NumIndices + 1
 	if len(sp) < minArgs {
 		return nil // Not fully applied yet
 	}
 
-	// Extract arguments
-	// p := sp[0]                            // motive (unused directly)
-	cases := sp[1 : 1+info.NumCases]    // case for each constructor
-	scrutinee := sp[1+info.NumCases]    // the value being eliminated
-	extraArgs := sp[1+info.NumCases+1:] // additional arguments after scrutinee
+	// Extract arguments accounting for parameters
+	// params := sp[:info.NumParams]                                      // type parameters (unused directly)
+	// p := sp[info.NumParams]                                            // motive (unused directly)
+	casesStart := info.NumParams + 1
+	casesEnd := casesStart + info.NumCases
+	cases := sp[casesStart:casesEnd]           // case for each constructor
+	scrutineeIdx := casesEnd + info.NumIndices // skip indices
+	scrutinee := sp[scrutineeIdx]              // the value being eliminated
+	extraArgs := sp[scrutineeIdx+1:]           // additional arguments after scrutinee
 
 	// Check if scrutinee is a constructor
 	neutral, ok := scrutinee.(VNeutral)
@@ -121,8 +130,10 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 
 		// If recursive, also apply the IH
 		if isRecursive[i] {
-			// IH = elim P cases... arg
-			ih := buildRecursorCall(elimName, sp[:1+info.NumCases], arg)
+			// IH = elim params... P cases... arg
+			// We need all args up to (but not including) scrutinee, plus the arg
+			prefixEnd := info.NumParams + 1 + info.NumCases + info.NumIndices
+			ih := buildRecursorCall(elimName, sp[:prefixEnd], arg)
 			result = Apply(result, ih)
 		}
 	}
