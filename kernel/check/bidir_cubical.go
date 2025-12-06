@@ -137,12 +137,21 @@ func synthPathLam(c *Checker, context *tyctx.Ctx, span Span, plam ast.PathLam) (
 	leftEnd := subst.ISubst(0, ast.I0{}, plam.Body)
 	rightEnd := subst.ISubst(0, ast.I1{}, plam.Body)
 
-	// Evaluate endpoints to values for the path type
-	leftVal := eval.EvalNBE(leftEnd)
-	rightVal := eval.EvalNBE(rightEnd)
+	// Normalize endpoints using cubical evaluation and reification
+	// This ensures we return AST terms, not values
+	leftNorm := normalizeCubical(leftEnd)
+	rightNorm := normalizeCubical(rightEnd)
 
 	// Result is PathP (λi. bodyTy) leftEnd rightEnd
-	return ast.PathP{A: bodyTy, X: leftVal, Y: rightVal}, nil, true
+	// X and Y must be AST terms (normalized)
+	return ast.PathP{A: bodyTy, X: leftNorm, Y: rightNorm}, nil, true
+}
+
+// normalizeCubical normalizes a term using cubical NbE.
+// Returns a normalized AST term.
+func normalizeCubical(t ast.Term) ast.Term {
+	val := eval.EvalCubical(nil, eval.EmptyIEnv(), t)
+	return eval.ReifyCubicalAt(0, 0, val)
 }
 
 // synthPathApp synthesizes the type of a path application.

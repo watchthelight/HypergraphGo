@@ -292,6 +292,41 @@ func TestConv_TableTests(t *testing.T) {
 	}
 }
 
+// Test AlphaEq lambda annotations - regression test for type soundness bug
+func TestAlphaEq_LamAnnotations(t *testing.T) {
+	// λ(x:Nat).x should NOT equal λ(x:Bool).x
+	lam1 := ast.Lam{Binder: "x", Ann: ast.Global{Name: "Nat"}, Body: ast.Var{Ix: 0}}
+	lam2 := ast.Lam{Binder: "x", Ann: ast.Global{Name: "Bool"}, Body: ast.Var{Ix: 0}}
+	if AlphaEq(lam1, lam2) {
+		t.Error("Lambdas with different annotations should not be alpha-equal")
+	}
+
+	// λ(x:Nat).x should equal λ(y:Nat).y (alpha equivalent)
+	lam3 := ast.Lam{Binder: "y", Ann: ast.Global{Name: "Nat"}, Body: ast.Var{Ix: 0}}
+	if !AlphaEq(lam1, lam3) {
+		t.Error("Alpha-equivalent lambdas with same annotations should be equal")
+	}
+
+	// Unannotated lambdas should still work
+	lam4 := ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}}
+	lam5 := ast.Lam{Binder: "y", Body: ast.Var{Ix: 0}}
+	if !AlphaEq(lam4, lam5) {
+		t.Error("Unannotated alpha-equivalent lambdas should be equal")
+	}
+
+	// Annotated vs unannotated should NOT be equal
+	if AlphaEq(lam1, lam4) {
+		t.Error("Annotated lambda should not equal unannotated lambda")
+	}
+
+	// Complex annotations should be compared structurally
+	lam6 := ast.Lam{Binder: "x", Ann: ast.Pi{Binder: "a", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}, Body: ast.Var{Ix: 0}}
+	lam7 := ast.Lam{Binder: "y", Ann: ast.Pi{Binder: "b", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}, Body: ast.Var{Ix: 0}}
+	if !AlphaEq(lam6, lam7) {
+		t.Error("Lambdas with alpha-equivalent complex annotations should be equal")
+	}
+}
+
 // Legacy API compatibility tests
 func TestConv_LegacyAPI(t *testing.T) {
 	// Test that the legacy API still works

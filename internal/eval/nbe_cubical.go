@@ -443,6 +443,25 @@ func reifyNeutralCubicalAt(level int, ilevel int, n Neutral) ast.Term {
 				return result
 			}
 			head = ast.Global{Name: n.Head.Glob}
+		case "J":
+			// Stuck J: spine is [a, c, d, x, y, p]
+			if len(n.Sp) >= 6 {
+				a := ReifyCubicalAt(level, ilevel, n.Sp[0])
+				c := ReifyCubicalAt(level, ilevel, n.Sp[1])
+				d := ReifyCubicalAt(level, ilevel, n.Sp[2])
+				x := ReifyCubicalAt(level, ilevel, n.Sp[3])
+				y := ReifyCubicalAt(level, ilevel, n.Sp[4])
+				p := ReifyCubicalAt(level, ilevel, n.Sp[5])
+				base := ast.J{A: a, C: c, D: d, X: x, Y: y, P: p}
+				// Handle any additional spine arguments (if J result is applied)
+				var result ast.Term = base
+				for _, spArg := range n.Sp[6:] {
+					argTerm := ReifyCubicalAt(level, ilevel, spArg)
+					result = ast.App{T: result, U: argTerm}
+				}
+				return result
+			}
+			head = ast.Global{Name: n.Head.Glob}
 		default:
 			head = ast.Global{Name: n.Head.Glob}
 		}
@@ -505,12 +524,10 @@ func tryReifyCubical(level int, v Value) (ast.Term, bool) {
 	case VI1:
 		return ast.I1{}, true
 	case VIVar:
-		// In non-cubical reify context, convert with ilevel=0
-		ix := -val.Level - 1
-		if ix < 0 {
-			ix = val.Level
-		}
-		return ast.IVar{Ix: ix}, true
+		// In non-cubical reify context, we don't have proper ilevel tracking.
+		// Use the level directly as the index (best effort for simple cases).
+		// For correct handling, callers should use ReifyCubicalAt directly.
+		return ast.IVar{Ix: val.Level}, true
 	case VPath:
 		a := reifyAt(level, val.A)
 		x := reifyAt(level, val.X)

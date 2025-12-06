@@ -58,6 +58,22 @@ func writeValue(b *bytes.Buffer, v Value) {
 		writeValue(b, val.A)
 		b.WriteString(" . <closure>)")
 
+	case VId:
+		b.WriteString("(Id ")
+		writeValue(b, val.A)
+		b.WriteString(" ")
+		writeValue(b, val.X)
+		b.WriteString(" ")
+		writeValue(b, val.Y)
+		b.WriteString(")")
+
+	case VRefl:
+		b.WriteString("(refl ")
+		writeValue(b, val.A)
+		b.WriteString(" ")
+		writeValue(b, val.X)
+		b.WriteString(")")
+
 	default:
 		b.WriteString("<?value?>")
 	}
@@ -164,6 +180,18 @@ func ValueEqual(v1, v2 Value) bool {
 		}
 		return false
 
+	case VId:
+		if val2, ok := v2.(VId); ok {
+			return ValueEqual(val1.A, val2.A) && ValueEqual(val1.X, val2.X) && ValueEqual(val1.Y, val2.Y)
+		}
+		return false
+
+	case VRefl:
+		if val2, ok := v2.(VRefl); ok {
+			return ValueEqual(val1.A, val2.A) && ValueEqual(val1.X, val2.X)
+		}
+		return false
+
 	default:
 		return false
 	}
@@ -249,6 +277,10 @@ func valueTypeName(v Value) string {
 		return "VPi"
 	case VSigma:
 		return "VSigma"
+	case VId:
+		return "VId"
+	case VRefl:
+		return "VRefl"
 	default:
 		return "Unknown"
 	}

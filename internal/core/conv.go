@@ -243,7 +243,10 @@ func AlphaEq(a, b ast.Term) bool {
 		}
 	case ast.Lam:
 		if bb, ok := b.(ast.Lam); ok {
-			return AlphaEq(a.Body, bb.Body)
+			// Compare annotations: both nil, or both non-nil and equal
+			annEq := (a.Ann == nil && bb.Ann == nil) ||
+				(a.Ann != nil && bb.Ann != nil && AlphaEq(a.Ann, bb.Ann))
+			return annEq && AlphaEq(a.Body, bb.Body)
 		}
 	case ast.App:
 		if bb, ok := b.(ast.App); ok {

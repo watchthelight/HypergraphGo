@@ -341,6 +341,61 @@ func BenchmarkNBE_ComplexTerm(b *testing.B) {
 	}
 }
 
+// Test stuck J reification - regression test for J reification bug
+func TestNBE_StuckJReification(t *testing.T) {
+	// Create a stuck J: J A C d x y p where p is a neutral variable
+	// This should reify to ast.J, not nested App nodes
+	jTerm := ast.J{
+		A: ast.Sort{U: 0},
+		C: ast.Global{Name: "C"},
+		D: ast.Global{Name: "d"},
+		X: ast.Global{Name: "x"},
+		Y: ast.Global{Name: "y"},
+		P: ast.Var{Ix: 0}, // neutral proof variable (not refl)
+	}
+
+	// The proof variable is neutral (not refl), so J is stuck
+	env := &Env{Bindings: []Value{vVar(0)}}
+	val := Eval(env, jTerm)
+	reified := Reify(val)
+
+	// Should be ast.J, not nested App nodes
+	if _, ok := reified.(ast.J); !ok {
+		t.Errorf("Stuck J should reify to ast.J, got %T: %v", reified, ast.Sprint(reified))
+	}
+
+	// Also verify the structure is correct
+	j := reified.(ast.J)
+	if _, ok := j.A.(ast.Sort); !ok {
+		t.Error("J.A should be Sort")
+	}
+	if g, ok := j.C.(ast.Global); !ok || g.Name != "C" {
+		t.Error("J.C should be Global{C}")
+	}
+}
+
+// Test J computation rule: J A C d x x (refl A x) --> d
+func TestNBE_JComputation(t *testing.T) {
+	// J A C d x x (refl A x) should reduce to d
+	jTerm := ast.J{
+		A: ast.Sort{U: 0},
+		C: ast.Global{Name: "C"},
+		D: ast.Global{Name: "d"},
+		X: ast.Global{Name: "x"},
+		Y: ast.Global{Name: "x"}, // same as X
+		P: ast.Refl{A: ast.Sort{U: 0}, X: ast.Global{Name: "x"}},
+	}
+
+	env := &Env{Bindings: nil}
+	val := Eval(env, jTerm)
+	reified := Reify(val)
+
+	// Should reduce to just "d"
+	if g, ok := reified.(ast.Global); !ok || g.Name != "d" {
+		t.Errorf("J with refl should reduce to d, got %T: %v", reified, ast.Sprint(reified))
+	}
+}
+
 // Test error handling - ensure no panics
 func TestNBE_ErrorHandling(t *testing.T) {
 	defer func() {

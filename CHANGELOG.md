@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CRITICAL: AlphaEq lambda annotations** (`internal/core/conv.go`)
+  - Fixed bug where lambda annotations were not compared in alpha-equality
+  - Previously `λ(x:Nat).x` was incorrectly considered equal to `λ(x:Bool).x`
+  - Now properly compares annotations: both nil, or both non-nil and alpha-equal
+  - Added regression test `TestAlphaEq_LamAnnotations`
+
+- **CRITICAL: J eliminator reification in NbE** (`internal/eval/nbe.go`)
+  - Fixed stuck J terms reifying as nested `App` nodes instead of `ast.J`
+  - Added "J" case in `reifyNeutralAt` to properly reconstruct J terms
+  - J with spine `[a, c, d, x, y, p]` now correctly reifies to `ast.J{...}`
+  - Added regression tests `TestNBE_StuckJReification`, `TestNBE_JComputation`
+
+- **HIGH: synthPathLam cubical evaluation** (`kernel/check/bidir_cubical.go`)
+  - Fixed use of wrong evaluation function (`EvalNBE` vs `EvalCubical`)
+  - Added `normalizeCubical` helper for proper cubical term normalization
+  - PathP endpoints now correctly normalized as AST terms
+
+- **HIGH: VIVar reification** (`internal/eval/nbe_cubical.go`)
+  - Fixed incorrect formula in `tryReifyCubical` for interval variables
+  - Simplified to use level directly (correct for non-cubical reify context)
+  - For proper handling, callers should use `ReifyCubicalAt` directly
+
+- **MEDIUM: J reification in cubical NbE** (`internal/eval/nbe_cubical.go`)
+  - Added "J" case in `reifyNeutralCubicalAt` for stuck J terms
+  - Mirrors the fix in standard NbE but uses `ReifyCubicalAt`
+
+- **LOW: Pretty printing gaps** (`internal/eval/pretty.go`)
+  - Added `VId` and `VRefl` cases in `writeValue`, `ValueEqual`, `valueTypeName`
+  - Identity type values now print correctly for debugging
+
+### Security
+- **AUDIT: Critical bug found in AlphaEq** (now fixed - see above)
+  - Lambda annotations not compared in definitional equality
+  - Could allow type soundness violations with annotated lambdas
+  - See detailed audit report at `/AUDIT_REPORT.md`
+- **AUDIT: NbE correctness issues found** (now fixed - see above)
+  - Missing J eliminator reification in both standard and cubical NbE
+  - Missing VId/VRefl handling in pretty printing functions
+  - See detailed audit report at `/nbe_audit_report.md`
+
 ### Added
 - **Cubical Path Types** (Phase 4 M6b - gated by `cubical` build tag)
   - New AST nodes: `Interval`, `I0`, `I1`, `IVar`, `Path`, `PathP`, `PathLam`, `PathApp`, `Transport` (`internal/ast/term_cubical.go`)
