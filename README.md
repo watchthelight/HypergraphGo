@@ -236,4 +236,4 @@ If your PR is a hot take, open an issue first. It saves everyone grief.
 
 MIT License © 2025 [watchthelight](https://github.com/watchthelight)
 
-See [`LICENSE`](LICENSE) for full text.
+See [`LICENSE.md`](LICENSE.md) for full text.

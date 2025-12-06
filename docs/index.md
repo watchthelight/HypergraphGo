@@ -13,7 +13,7 @@
   <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-linux.yml?branch=main&label=linux&style=flat-square" alt="CI Linux"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-windows.yml?branch=main&label=windows&style=flat-square" alt="CI Windows"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/stargazers"><img src="https://img.shields.io/github/stars/watchthelight/HypergraphGo?style=flat-square&color=d4a847" alt="Stars"></a>
-  <a href="https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE"><img src="https://img.shields.io/github/license/watchthelight/HypergraphGo?style=flat-square" alt="License"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/blob/main/LICENSE.md"><img src="https://img.shields.io/github/license/watchthelight/HypergraphGo?style=flat-square" alt="License"></a>
 </p>
 
 ---
