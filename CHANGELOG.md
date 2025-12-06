@@ -7,6 +7,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.7] - 2025-12-06
+
+### Added
+- **Higher-order recursive detection** (`kernel/check/recursor.go`)
+  - Extended `isRecursiveArgType` to detect Pi types with inductive in codomain
+  - Correctly identifies `(A -> T)` as recursive when T is the inductive type
+  - Uses `OccursIn` for robust detection in nested codomains (e.g., `A -> List T`)
+
+- **Parameterized/indexed inductive infrastructure** (`internal/eval/recursor.go`)
+  - Extended `RecursorInfo` with `NumParams` and `NumIndices` fields
+  - Updated `tryGenericRecursorReduction` to correctly locate scrutinee when parameters/indices present
+  - Updated `buildRecursorInfo` to initialize new fields (currently 0 for non-parameterized)
+
+### Tests
+- **Higher-order recursive detection tests** (`kernel/check/recursor_test.go`)
+  - `TestIsRecursiveArgType/Higher-order:_A_->_T`: Pi with inductive in codomain
+  - `TestIsRecursiveArgType/Higher-order:_A_->_B_->_T`: Nested Pi with inductive
+  - `TestIsRecursiveArgType/Higher-order:_A_->_List_T_(applied)`: Applied type in codomain
+  - `TestIsRecursiveArgType/Not_higher-order:_A_->_B_(no_T_in_codomain)`: Negative case
+  - `TestIsRecursiveArgType/Not_recursive_even_with_T_in_domain`: Domain-only occurrence
+- **buildCaseType verification tests** (`kernel/check/recursor_test.go`)
+  - `TestBuildCaseType_Nat`: succ case type with IH
+  - `TestBuildCaseType_List`: cons case with mixed recursive/non-recursive args
+  - `TestBuildCaseType_Tree`: branch case with two recursive args
+- **Concurrent registry tests** (`internal/eval/nbe_test.go`)
+  - `TestRecursorRegistry_Concurrent`: Thread safety with race detector
+  - `TestRecursorInfo_NumParams`: NumParams field verification
+
+## [1.5.6] - 2025-12-06
+
+### Tests
+- **Extended integration tests** (`kernel/check/integration_test.go`)
+  - `TestEndToEnd_List`: listElim reduces on nil and cons (demonstrates generic recursor)
+  - `TestEndToEnd_Tree`: treeElim with multiple recursive args (branch case)
+  - `TestEndToEnd_NestedRecursion`: Deep nested recursive calls (msucc (msucc (msucc mzero)))
+
+## [1.5.5] - 2025-12-06
+
+### Added
+- **Full constructor type validation** (`kernel/check/env.go`)
+  - Uses Checker API (`CheckIsType`) to validate constructor argument types
+  - Temporary axiom pattern for self-referential validation
+
+- **Generic recursor reduction** (`internal/eval/recursor.go`)
+  - New recursor registry for user-defined inductives
+  - `RegisterRecursor` called automatically by `DeclareInductive`
+  - `tryGenericRecursorReduction` handles arbitrary recursors
+  - Proper IH construction for recursive arguments
+  - Built-in natElim/boolElim preserved for backwards compatibility
+
+- **Positivity checker cubical extension** (`kernel/check/positivity_cubical.go`, `positivity_ext.go`)
+  - Proper positivity checking for Path, PathP, PathLam, PathApp, Transport
+  - Build-tag aware extension pattern for cubical types
+
+### Fixed
+- **buildCaseType de Bruijn indices** (`kernel/check/recursor.go`)
+  - Uses `subst.Shift` for proper index adjustment when IH binders are interleaved
+  - Track IH count for correct shifting
+
+### Tests
+- **Integration tests** (`kernel/check/integration_test.go`)
+  - `TestEndToEnd_DeclareAndEvaluate`: Full pipeline from declaration to NbE reduction
+  - `TestEndToEnd_CustomNatLike`: Custom recursive inductive with mzero/msucc
+  - `TestEndToEnd_PositivityRejection`: Negative occurrences properly rejected
+  - `TestEndToEnd_IllFormedConstructor`: Unknown types in constructors rejected
+  - `TestEndToEnd_RecursorTypeStructure`: Generated eliminator structure verified
+- **Generic recursor tests** (`internal/eval/nbe_test.go`)
+  - `TestNBE_GenericRecursor`: Unit-like inductive reduction
+  - `TestNBE_GenericRecursorWithRecursiveArg`: Nat-like recursive inductive
+  - `TestNBE_GenericRecursorNotRegistered`: Unregistered eliminator stays stuck
+- **Extended positivity tests** (`kernel/check/positivity_test.go`)
+  - `TestCheckPositivity_DoubleDomain`: Nested domain polarity handling
+  - `TestCheckPositivity_Sigma`: Sigma type component checking
+  - `TestCheckPositivity_Id`: Identity type component checking
+- **Constructor validation tests** (`kernel/check/env_test.go`)
+  - `TestDeclareInductive_IllFormedConstructor`: Unknown types detected
+
+## [1.5.4] - 2025-12-06
+
+### Fixed
+- **DeclareInductive validation** (`kernel/check/env.go`)
+  - Now validates inductive type is a Sort before accepting
+  - Generates and registers eliminator in GlobalEnv automatically
+  - Added `InductiveError` and `ValidationError` types for clear diagnostics
+
+- **GenerateRecursorType universe handling** (`kernel/check/recursor.go`)
+  - Now extracts universe level from inductive's type via `extractUniverseLevel()`
+  - Motive `P : T -> Type_j` uses correct universe j instead of hardcoded Type0
+
+- **buildCaseType de Bruijn indices** (`kernel/check/recursor.go`)
+  - Rewrote with clearer forward-pass algorithm
+  - Explicit depth tracking for correct variable indices
+  - Removed ad-hoc index arithmetic that could lead to off-by-one errors
+
+- **CheckPositivity conservative handling** (`kernel/check/positivity.go`)
+  - Unknown AST node types now checked conservatively using `OccursIn`
+  - Rejects if inductive occurs in unknown node at negative position
+
+### Tests
+- **Validation and eliminator registration tests** (`kernel/check/env_test.go`)
+
+## [1.5.3] - 2025-12-06
+
 ### Added
 - **Phase 5: Inductives infrastructure** (`kernel/check/`, `internal/eval/`)
   - **Positivity checker** (`positivity.go`)
@@ -28,47 +131,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `boolElim` computation rules: reduces on `true` and `false`
     - Recursive reduction for nested constructors (e.g., `succ (succ zero)`)
     - Stuck terms remain neutral for open/variable scrutinees
-
-### Fixed (Phase 5 audit)
-- **DeclareInductive validation** (`kernel/check/env.go`)
-  - Now validates inductive type is a Sort before accepting
-  - **Full constructor type validation** using Checker API (`CheckIsType`)
-  - Validates constructor argument types are well-formed types
-  - Generates and registers eliminator in GlobalEnv automatically
-  - Registers recursor in eval registry for generic reduction
-  - Added `InductiveError` and `ValidationError` types for clear diagnostics
-
-- **GenerateRecursorType universe handling** (`kernel/check/recursor.go`)
-  - Now extracts universe level from inductive's type instead of hardcoding Type0
-  - Motive `P : T -> Type_j` uses correct universe j
-
-- **buildCaseType de Bruijn indices** (`kernel/check/recursor.go`)
-  - Rewrote with clearer forward-pass algorithm
-  - Uses `subst.Shift` for proper index adjustment when IH binders are interleaved
-  - Explicit tracking of binder depths for correct variable indices
-  - Removed ad-hoc index arithmetic that could lead to off-by-one errors
-
-- **CheckPositivity conservative handling** (`kernel/check/positivity.go`)
-  - Unknown AST node types now checked conservatively using `OccursIn`
-  - Rejects if inductive occurs in unknown node at negative position
-  - Prevents unsupported constructs from slipping through
-  - **Cubical extension** (`positivity_cubical.go`, `positivity_ext.go`)
-  - Proper positivity checking for Path, PathP, PathLam, PathApp, Transport
-  - Build-tag aware extension pattern for cubical types
-
-- **Generic recursor reduction** (`internal/eval/recursor.go`)
-  - New recursor registry for user-defined inductives
-  - `RegisterRecursor` called automatically by `DeclareInductive`
-  - `tryGenericRecursorReduction` handles arbitrary recursors
-  - Proper IH construction for recursive arguments
-  - Built-in natElim/boolElim preserved for backwards compatibility
-  - **Extended RecursorInfo** with `NumParams` and `NumIndices` for parameterized/indexed inductives
-  - Updated reduction logic to skip type parameters and indices when locating scrutinee
-
-- **Higher-order recursive detection** (`kernel/check/recursor.go`)
-  - Extended `isRecursiveArgType` to detect Pi types with inductive in codomain
-  - Correctly identifies `(A -> T)` as recursive when T is the inductive type
-  - Uses `OccursIn` for robust detection in nested codomains
 
 - **S-expression parser** (`internal/parser/`)
   - New package for parsing S-expression term syntax
@@ -100,26 +162,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - IVar is only valid inside PathLam scopes
 
 ### Tests
-- **Comprehensive integration tests** (`kernel/check/integration_test.go`)
-  - `TestEndToEnd_DeclareAndEvaluate`: Full pipeline from declaration to NbE reduction
-  - `TestEndToEnd_CustomNatLike`: Custom recursive inductive with mzero/msucc
-  - `TestEndToEnd_PositivityRejection`: Negative occurrences properly rejected
-  - `TestEndToEnd_IllFormedConstructor`: Unknown types in constructors rejected
-  - `TestEndToEnd_RecursorTypeStructure`: Generated eliminator structure verified
-  - `TestEndToEnd_List`: listElim reduces on nil and cons (demonstrates generic recursor)
-  - `TestEndToEnd_Tree`: treeElim with multiple recursive args (branch case)
-  - `TestEndToEnd_NestedRecursion`: Deep nested recursive calls (msucc (msucc (msucc mzero)))
-- **Generic recursor tests** (`internal/eval/nbe_test.go`)
-  - `TestNBE_GenericRecursor`: Unit-like inductive reduction
-  - `TestNBE_GenericRecursorWithRecursiveArg`: Nat-like recursive inductive
-  - `TestNBE_GenericRecursorNotRegistered`: Unregistered eliminator stays stuck
-- **Extended positivity tests** (`kernel/check/positivity_test.go`)
-  - `TestCheckPositivity_DoubleDomain`: Nested domain polarity handling
-  - `TestCheckPositivity_Sigma`: Sigma type component checking
-  - `TestCheckPositivity_Id`: Identity type component checking
-- **Constructor validation tests** (`kernel/check/env_test.go`)
-  - `TestDeclareInductive_IllFormedConstructor`: Unknown types detected
-  - `TestDeclareInductive_IllFormedConstructor`: Non-type domains detected
+- **Positivity checker tests** (`kernel/check/positivity_test.go`)
+- **Recursor generation tests** (`kernel/check/recursor_test.go`)
+- **NbE recursor reduction tests** (`internal/eval/nbe_test.go`)
+- **S-expression parser tests** (`internal/parser/sexpr_test.go`)
 
 ### CI/CD
 - **Added cubical tests to CI** (`.github/workflows/go.yml`)
