@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `buildRecursorInfo` extracts `NumParams` and `NumIndices` from `Inductive`
   - `buildRecursorCallWithIndices` extracts IH indices from constructor args (fixes indexed IH construction)
 
+- **IndexArgPositions metadata for robust IH construction** (`internal/eval/recursor.go`, `kernel/check/env.go`)
+  - `ConstructorInfo.IndexArgPositions` maps each recursive arg to its index arg positions in the constructor
+  - `computeIndexArgPositions` analyzes recursive arg types at declaration time to extract index positions
+  - Uses De Bruijn analysis: for data arg at position j, a Var{V} in its type refers to position j-1-V
+  - Eliminates runtime heuristics in `buildRecursorCallWithIndices` - now uses precomputed metadata
+  - Fallback heuristic retained for backwards compatibility with older inductives
+
 ### Tests
 - **Parameterized List tests** (`kernel/check/integration_test.go`)
   - `TestEndToEnd_ParameterizedList`: List declaration, NumParams extraction, eliminator structure
@@ -44,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Indexed Vec tests** (`kernel/check/integration_test.go`)
   - `TestEndToEnd_IndexedVec`: Vec declaration, NumParams/NumIndices extraction, eliminator structure
   - `TestEndToEnd_IndexedVecReduction`: vecElim reduction on `vnil Nat` and `vcons Nat`
+  - `TestEndToEnd_IndexArgPositionsMetadata`: verifies IndexArgPositions[2]=[0] for vcons (xs uses n)
+  - `TestEndToEnd_NestedVecReduction`: length-2 vector reduction exercising recursive IH construction
 
 ## [1.5.7] - 2025-12-06
 

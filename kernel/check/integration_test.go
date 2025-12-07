@@ -767,6 +767,208 @@ func TestEndToEnd_IndexedVecReduction(t *testing.T) {
 	eval.ClearRecursorRegistry()
 }
 
+// TestEndToEnd_IndexArgPositionsMetadata verifies that IndexArgPositions is computed correctly.
+func TestEndToEnd_IndexArgPositionsMetadata(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Vec : Type -> Nat -> Type
+	vecType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B:      ast.Sort{U: 0},
+		},
+	}
+
+	// vnil : (A : Type) -> Vec A zero
+	vnilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.App{
+			T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 0}},
+			U: ast.Global{Name: "zero"},
+		},
+	}
+
+	// vcons : (A : Type) -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
+	// Data args after param A: [n, x, xs] at positions [0, 1, 2]
+	// xs (at position 2) has type Vec A n, where n is at position 0
+	// So IndexArgPositions[2] should be [0]
+	vconsType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B: ast.Pi{
+				Binder: "x",
+				A:      ast.Var{Ix: 1},
+				B: ast.Pi{
+					Binder: "xs",
+					A: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 2}},
+						U: ast.Var{Ix: 1}, // n
+					},
+					B: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 3}},
+						U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 2}},
+					},
+				},
+			},
+		},
+	}
+
+	err := env.DeclareInductive("Vec", vecType, []Constructor{
+		{Name: "vnil", Type: vnilType},
+		{Name: "vcons", Type: vconsType},
+	}, "vecElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Vec) failed: %v", err)
+	}
+
+	// Verify IndexArgPositions metadata
+	info := eval.LookupRecursor("vecElim")
+	if info == nil {
+		t.Fatal("vecElim not registered")
+	}
+
+	// vnil has no recursive args, so IndexArgPositions should be empty/nil
+	vnilCtor := info.Ctors[0]
+	if len(vnilCtor.IndexArgPositions) != 0 {
+		t.Errorf("vnil.IndexArgPositions = %v, want empty", vnilCtor.IndexArgPositions)
+	}
+
+	// vcons has recursive arg xs at position 2, with index n at position 0
+	vconsCtor := info.Ctors[1]
+	if vconsCtor.IndexArgPositions == nil {
+		t.Fatal("vcons.IndexArgPositions should not be nil")
+	}
+	idxPos, ok := vconsCtor.IndexArgPositions[2]
+	if !ok {
+		t.Fatal("vcons.IndexArgPositions[2] not found")
+	}
+	if len(idxPos) != 1 || idxPos[0] != 0 {
+		t.Errorf("vcons.IndexArgPositions[2] = %v, want [0]", idxPos)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestEndToEnd_NestedVecReduction tests Vec reduction with nested vcons (length 2 vector).
+// This exercises the IH construction to ensure indices are extracted correctly.
+func TestEndToEnd_NestedVecReduction(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Vec : Type -> Nat -> Type
+	vecType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B:      ast.Sort{U: 0},
+		},
+	}
+
+	// vnil : (A : Type) -> Vec A zero
+	vnilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.App{
+			T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 0}},
+			U: ast.Global{Name: "zero"},
+		},
+	}
+
+	// vcons : (A : Type) -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
+	vconsType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B: ast.Pi{
+				Binder: "x",
+				A:      ast.Var{Ix: 1},
+				B: ast.Pi{
+					Binder: "xs",
+					A: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 2}},
+						U: ast.Var{Ix: 1},
+					},
+					B: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 3}},
+						U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 2}},
+					},
+				},
+			},
+		},
+	}
+
+	err := env.DeclareInductive("Vec", vecType, []Constructor{
+		{Name: "vnil", Type: vnilType},
+		{Name: "vcons", Type: vconsType},
+	}, "vecElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Vec) failed: %v", err)
+	}
+
+	// Build a Vec Nat 2 = vcons Nat 1 x (vcons Nat 0 y (vnil Nat))
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+	one := ast.App{T: ast.Global{Name: "succ"}, U: zero}
+	two := ast.App{T: ast.Global{Name: "succ"}, U: one}
+	x := ast.Global{Name: "elem1"}
+	y := ast.Global{Name: "elem2"}
+	vnil := ast.App{T: ast.Global{Name: "vnil"}, U: nat}
+	vcons1 := ast.MkApps(ast.Global{Name: "vcons"}, nat, zero, y, vnil)
+	vcons2 := ast.MkApps(ast.Global{Name: "vcons"}, nat, one, x, vcons1)
+
+	// Create a motive that ignores the index and vector
+	// P : (n : Nat) -> Vec Nat n -> Type
+	// P n v = Nat
+	motive := ast.Lam{Binder: "n", Body: ast.Lam{Binder: "_", Body: nat}}
+
+	// pvnil : P zero (vnil Nat) = Nat, we'll return zero
+	pvnil := zero
+
+	// pvcons : (n : Nat) -> (x : Nat) -> (xs : Vec Nat n) -> P n xs -> P (succ n) (vcons Nat n x xs)
+	// Return: succ ih (count elements)
+	pvcons := ast.Lam{
+		Binder: "n",
+		Body: ast.Lam{
+			Binder: "x",
+			Body: ast.Lam{
+				Binder: "xs",
+				Body: ast.Lam{
+					Binder: "ih",
+					Body:   ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 0}}, // succ ih
+				},
+			},
+		},
+	}
+
+	// vecElim Nat P pvnil pvcons 2 (vcons Nat 1 x (vcons Nat 0 y (vnil Nat)))
+	// Should compute: succ (succ zero) = 2
+	vecElim := ast.Global{Name: "vecElim"}
+	term := ast.MkApps(vecElim, nat, motive, pvnil, pvcons, two, vcons2)
+
+	// Normalize and check the result
+	normalized := eval.NormalizeNBE(term)
+
+	// The result should be (succ (succ zero)) which normalizes to that form
+	expected := "(succ (succ zero))"
+	if normalized != expected {
+		t.Errorf("vecElim counting length 2 vec = %q, want %q", normalized, expected)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
 // TestEndToEnd_ParameterizedListReduction tests that listElim reduces correctly.
 func TestEndToEnd_ParameterizedListReduction(t *testing.T) {
 	eval.ClearRecursorRegistry()

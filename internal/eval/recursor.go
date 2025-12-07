@@ -19,6 +19,11 @@ type ConstructorInfo struct {
 	Name         string // Constructor name (e.g., "zero", "succ")
 	NumArgs      int    // Total number of arguments
 	RecursiveIdx []int  // Indices of recursive arguments (need IH)
+	// IndexArgPositions maps each recursive arg to the positions of its index args.
+	// For Vec's vcons with data args [n, x, xs] where xs : Vec A n:
+	//   IndexArgPositions[2] = []int{0}  (xs at position 2 uses n at position 0)
+	// For non-indexed inductives or non-recursive args, entries are nil.
+	IndexArgPositions map[int][]int
 }
 
 // recursorRegistry maps eliminator names to their RecursorInfo.
@@ -141,8 +146,9 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 			// data args that appear in its type.
 			//
 			// For non-indexed inductives (NumIndices == 0), we just use params + P + cases.
-			// For indexed inductives, we extract indices from constructor args.
-			ih := buildRecursorCallWithIndices(elimName, sp, ctorArgs, i, info)
+			// For indexed inductives, we extract indices from constructor args using
+			// precomputed IndexArgPositions metadata.
+			ih := buildRecursorCallWithIndices(elimName, sp, ctorArgs, i, info, &ctor)
 			result = Apply(result, ih)
 		}
 	}
@@ -164,7 +170,7 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 //   - xs : Vec A n, so its index is n (ctorArgs[0])
 //
 // The IH for xs should be: vecElim A P pvnil pvcons n xs
-func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value, recArgIdx int, info *RecursorInfo) Value {
+func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value, recArgIdx int, info *RecursorInfo, ctor *ConstructorInfo) Value {
 	result := vGlobal(elimName)
 
 	// Apply params
@@ -181,31 +187,31 @@ func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value,
 		result = Apply(result, sp[casesStart+i])
 	}
 
-	// Apply indices from constructor args
-	// For indexed inductives, the indices for a recursive arg at position i
-	// come from earlier constructor args. Specifically, for standard indexed
-	// inductives like Vec, the index args precede the recursive arg.
-	//
-	// This is a heuristic that works for Vec-like inductives where:
-	//   vcons : A -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
-	// The recursive arg xs has type Vec A n where n is ctorArgs[0].
-	//
-	// For more complex indexed inductives, this would need refinement.
+	// Apply indices from constructor args using precomputed metadata
 	if info.NumIndices > 0 {
-		// Extract indices from constructor args preceding the recursive arg
-		// For Vec, recArgIdx for xs is 2, and its index n is at ctorArgs[0]
-		// The indices are the first NumIndices non-element args
-		indicesExtracted := 0
-		for j := 0; j < recArgIdx && indicesExtracted < info.NumIndices; j++ {
-			// Check if this arg position could be an index (heuristic: not the recursive arg itself)
-			// This works for Vec where indices come first
-			result = Apply(result, ctorArgs[j])
-			indicesExtracted++
+		// Use precomputed IndexArgPositions if available
+		if ctor.IndexArgPositions != nil {
+			if indexPositions, ok := ctor.IndexArgPositions[recArgIdx]; ok && len(indexPositions) > 0 {
+				// Use the exact positions computed at declaration time
+				for _, pos := range indexPositions {
+					if pos >= 0 && pos < len(ctorArgs) {
+						result = Apply(result, ctorArgs[pos])
+					}
+				}
+			}
 		}
-		// If we didn't find enough indices, fall back to first args
-		for indicesExtracted < info.NumIndices && indicesExtracted < len(ctorArgs) {
-			result = Apply(result, ctorArgs[indicesExtracted])
-			indicesExtracted++
+		// If no metadata available, fall back to heuristic for backwards compatibility
+		// (e.g., for inductives declared before this feature)
+		if ctor.IndexArgPositions == nil || len(ctor.IndexArgPositions[recArgIdx]) == 0 {
+			indicesExtracted := 0
+			for j := 0; j < recArgIdx && indicesExtracted < info.NumIndices; j++ {
+				result = Apply(result, ctorArgs[j])
+				indicesExtracted++
+			}
+			for indicesExtracted < info.NumIndices && indicesExtracted < len(ctorArgs) {
+				result = Apply(result, ctorArgs[indicesExtracted])
+				indicesExtracted++
+			}
 		}
 	}
 

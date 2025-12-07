@@ -323,7 +323,7 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 // buildRecursorInfo builds RecursorInfo from an inductive definition.
 // For parameterized inductives, NumParams is extracted from the inductive type,
 // and constructor arg counts exclude parameters.
-// For indexed inductives, NumIndices is also extracted.
+// For indexed inductives, NumIndices is also extracted and IndexArgPositions is computed.
 func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
 		ElimName:   ind.Eliminator,
@@ -344,22 +344,81 @@ func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 			dataArgs = allArgs[ind.NumParams:]
 		}
 
-		// Find recursive arguments among data args
+		// Find recursive arguments among data args and compute their index positions
 		recursiveIdx := []int{}
+		indexArgPositions := make(map[int][]int)
+
 		for j, arg := range dataArgs {
 			if isRecursiveArgType(ind.Name, arg.Type) {
 				recursiveIdx = append(recursiveIdx, j)
+				// Compute index positions for this recursive arg
+				if ind.NumIndices > 0 {
+					idxPositions := computeIndexArgPositions(arg.Type, j, ind.NumParams, ind.NumIndices)
+					if len(idxPositions) > 0 {
+						indexArgPositions[j] = idxPositions
+					}
+				}
 			}
 		}
 
 		info.Ctors[i] = eval.ConstructorInfo{
-			Name:         c.Name,
-			NumArgs:      len(dataArgs), // Only count non-param args
-			RecursiveIdx: recursiveIdx,
+			Name:              c.Name,
+			NumArgs:           len(dataArgs), // Only count non-param args
+			RecursiveIdx:      recursiveIdx,
+			IndexArgPositions: indexArgPositions,
 		}
 	}
 
 	return info
+}
+
+// computeIndexArgPositions computes the data-arg positions that serve as indices
+// for a recursive argument's type.
+//
+// For a recursive arg at data position j with type (Ind params... indices...):
+//   - Extract the index args from the type's application chain
+//   - For each index that is a Var{V}, compute its data-arg position
+//   - Return the list of data-arg positions
+//
+// Example: vcons has data args [n, x, xs] where xs : Vec A n
+//   - xs is at data position 2
+//   - Its type Vec A n has index n = Var{1} (under binders A, n, x)
+//   - data-arg position of n = 2 - 1 - 1 = 0
+//   - Returns [0]
+func computeIndexArgPositions(argType ast.Term, dataArgPos int, numParams int, numIndices int) []int {
+	// Extract the application args from the recursive arg's type
+	typeArgs := extractAppArgs(argType)
+
+	// Skip parameters, get index args
+	if len(typeArgs) <= numParams {
+		return nil // No indices
+	}
+	indexArgs := typeArgs[numParams:]
+
+	// Limit to expected number of indices
+	if len(indexArgs) > numIndices {
+		indexArgs = indexArgs[:numIndices]
+	}
+
+	// Map each index Var to its data-arg position
+	var positions []int
+	for _, idxArg := range indexArgs {
+		if v, ok := idxArg.(ast.Var); ok {
+			// Under the context where this type is checked:
+			// - We're at data-arg position dataArgPos
+			// - All-arg position is dataArgPos + numParams
+			// - Var{V} refers to all-arg position (dataArgPos + numParams - 1 - V)
+			// - Data-arg position = dataArgPos - 1 - V
+			dataPos := dataArgPos - 1 - v.Ix
+			if dataPos >= 0 && dataPos < dataArgPos {
+				positions = append(positions, dataPos)
+			}
+		}
+		// Non-variable indices (like computed expressions) are handled
+		// by evaluating at runtime; we just won't have a position for them.
+	}
+
+	return positions
 }
 
 // validateConstructorType checks that a constructor type is well-formed.
