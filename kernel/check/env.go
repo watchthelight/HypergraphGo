@@ -298,10 +298,10 @@ func (g *GlobalEnv) DeclareMutual(specs []MutualInductiveSpec) error {
 
 	// Validate and collect metadata for each type
 	type indMetadata struct {
-		totalArgs  int
+		totalArgs   int
 		allArgTypes []ast.Term
-		numParams  int
-		numIndices int
+		numParams   int
+		numIndices  int
 	}
 	metadata := make([]indMetadata, len(specs))
 

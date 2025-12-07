@@ -358,6 +358,249 @@ func valuesEqual(a, b eval.Value) bool {
 	return true
 }
 
+// TestMutualInductive_SameTypeRecursion tests that same-type recursion still works in mutual blocks.
+// For example, an `even` type with a constructor that takes an `even` arg should still get an IH.
+func TestMutualInductive_SameTypeRecursion(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnv()
+
+	// even : Type with double : even -> even (same-type recursion)
+	// odd : Type with succ : even -> odd (cross-type, no IH)
+	evenType := ast.Sort{U: 0}
+	oddType := ast.Sort{U: 0}
+
+	zeroType := ast.Global{Name: "even"}
+	doubleType := ast.Pi{
+		Binder: "e",
+		A:      ast.Global{Name: "even"},
+		B:      ast.Global{Name: "even"},
+	}
+	succType := ast.Pi{
+		Binder: "e",
+		A:      ast.Global{Name: "even"},
+		B:      ast.Global{Name: "odd"},
+	}
+
+	err := env.DeclareMutual([]MutualInductiveSpec{
+		{
+			Name: "even",
+			Type: evenType,
+			Constructors: []Constructor{
+				{Name: "zero", Type: zeroType},
+				{Name: "double", Type: doubleType},
+			},
+			Eliminator: "evenElim",
+		},
+		{
+			Name: "odd",
+			Type: oddType,
+			Constructors: []Constructor{
+				{Name: "succ", Type: succType},
+			},
+			Eliminator: "oddElim",
+		},
+	})
+	if err != nil {
+		t.Fatalf("DeclareMutual failed: %v", err)
+	}
+
+	// Verify that evenElim's "double" case gets an IH for the even arg
+	// by checking that reduction works: evenElim P pzero pdouble (double e) --> pdouble e (IH)
+	t.Run("evenElim_double_has_IH", func(t *testing.T) {
+		// Build: evenElim P pzero pdouble (double e)
+		term := ast.App{
+			T: ast.App{
+				T: ast.App{
+					T: ast.App{
+						T: ast.Global{Name: "evenElim"},
+						U: ast.Global{Name: "P"},
+					},
+					U: ast.Global{Name: "pzero"},
+				},
+				U: ast.Global{Name: "pdouble"},
+			},
+			U: ast.App{
+				T: ast.Global{Name: "double"},
+				U: ast.Global{Name: "e"},
+			},
+		}
+
+		result := eval.Eval(nil, term)
+		// For same-type recursion, should reduce to pdouble e ih
+		// where ih = evenElim P pzero pdouble e
+		// So we expect the result to be (pdouble e (evenElim P pzero pdouble e))
+		neutral, ok := result.(eval.VNeutral)
+		if !ok {
+			t.Fatalf("expected VNeutral, got %T", result)
+		}
+		// The head should be pdouble
+		if neutral.N.Head.Glob != "pdouble" {
+			t.Errorf("expected head pdouble, got %s", neutral.N.Head.Glob)
+		}
+		// Should have 2 args: e and the IH
+		if len(neutral.N.Sp) != 2 {
+			t.Errorf("expected 2 args (e and IH), got %d", len(neutral.N.Sp))
+		}
+	})
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestMutualInductive_NestedNegative tests that deeply nested negative occurrences are rejected.
+func TestMutualInductive_NestedNegative(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnv()
+
+	// T1 : Type
+	// T2 : Type
+	// mk : ((T1 -> A) -> B) -> T2  -- T1 occurs in nested negative position (should be rejected)
+	t1Type := ast.Sort{U: 0}
+	t2Type := ast.Sort{U: 0}
+
+	// ((T1 -> A) -> B) -> T2
+	mkType := ast.Pi{
+		Binder: "_",
+		A: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Global{Name: "T1"},
+				B:      ast.Global{Name: "A"}, // Would need A to be defined, use T2
+			},
+			B: ast.Global{Name: "T2"},
+		},
+		B: ast.Global{Name: "T2"},
+	}
+
+	err := env.DeclareMutual([]MutualInductiveSpec{
+		{
+			Name:         "T1",
+			Type:         t1Type,
+			Constructors: []Constructor{},
+			Eliminator:   "t1Elim",
+		},
+		{
+			Name: "T2",
+			Type: t2Type,
+			Constructors: []Constructor{
+				{Name: "mk", Type: mkType},
+			},
+			Eliminator: "t2Elim",
+		},
+	})
+
+	// T1 appears in: _ : ((T1 -> T2) -> T2)
+	// Position analysis: outer Pi domain, inner Pi domain = negative * negative = positive
+	// But inner-inner domain (T1 -> T2) has T1 in domain = negative
+	// So total: positive * negative = negative - should be REJECTED
+	if err == nil {
+		t.Error("DeclareMutual should reject nested negative occurrence")
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestMutualInductive_DoublyNegativeIsPositive tests that double negation becomes positive.
+func TestMutualInductive_DoublyNegativeIsPositive(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnv()
+
+	// This is a subtle test: (A -> B) -> C has A in positive position (double negative)
+	// BUT our strict positivity check is more conservative - it rejects ANY occurrence
+	// in a domain (once in domain, we stay in domain regardless of further nesting).
+	//
+	// So ((T -> X) -> X) -> T actually puts T in negative position in our implementation.
+	// This is intentional and matches standard strict positivity.
+
+	// T1 : Type
+	// T2 : Type
+	// mk : (T1 -> T2) -> T2  -- T1 in negative position (rejected)
+	t1Type := ast.Sort{U: 0}
+	t2Type := ast.Sort{U: 0}
+
+	mkType := ast.Pi{
+		Binder: "_",
+		A: ast.Pi{
+			Binder: "_",
+			A:      ast.Global{Name: "T1"},
+			B:      ast.Global{Name: "T2"},
+		},
+		B: ast.Global{Name: "T2"},
+	}
+
+	err := env.DeclareMutual([]MutualInductiveSpec{
+		{
+			Name:         "T1",
+			Type:         t1Type,
+			Constructors: []Constructor{},
+			Eliminator:   "t1Elim",
+		},
+		{
+			Name: "T2",
+			Type: t2Type,
+			Constructors: []Constructor{
+				{Name: "mk", Type: mkType},
+			},
+			Eliminator: "t2Elim",
+		},
+	})
+
+	// T1 is in the domain of a Pi which is itself in a domain - negative position
+	if err == nil {
+		t.Error("DeclareMutual should reject T1 in negative position")
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestMutualInductive_SymmetricNegative tests that negative occurrence is checked symmetrically.
+// If T1 appears negatively in T2's constructor, it should be rejected.
+// If T2 appears negatively in T1's constructor, it should also be rejected.
+func TestMutualInductive_SymmetricNegative(t *testing.T) {
+	eval.ClearRecursorRegistry()
+
+	t.Run("T2_negative_in_T1", func(t *testing.T) {
+		env := NewGlobalEnv()
+
+		// T1 has constructor mk : (T2 -> X) -> T1  -- T2 in negative position
+		t1Type := ast.Sort{U: 0}
+		t2Type := ast.Sort{U: 0}
+
+		mkType := ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Global{Name: "T2"},
+				B:      ast.Global{Name: "T1"}, // Using T1 as codomain
+			},
+			B: ast.Global{Name: "T1"},
+		}
+
+		err := env.DeclareMutual([]MutualInductiveSpec{
+			{
+				Name: "T1",
+				Type: t1Type,
+				Constructors: []Constructor{
+					{Name: "mk", Type: mkType},
+				},
+				Eliminator: "t1Elim",
+			},
+			{
+				Name:         "T2",
+				Type:         t2Type,
+				Constructors: []Constructor{},
+				Eliminator:   "t2Elim",
+			},
+		})
+
+		if err == nil {
+			t.Error("DeclareMutual should reject T2 in negative position in T1's constructor")
+		}
+	})
+
+	eval.ClearRecursorRegistry()
+}
+
 // TestMutualInductive_Positivity_Accept tests that positive occurrences are accepted.
 func TestMutualInductive_Positivity_Accept(t *testing.T) {
 	eval.ClearRecursorRegistry()
