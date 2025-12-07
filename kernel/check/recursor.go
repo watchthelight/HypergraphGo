@@ -300,20 +300,68 @@ func countRecursiveArgs(indName string, args []PiArg) int {
 // isRecursiveArgType checks if an argument type is the inductive type (or applied to it).
 // Also detects higher-order recursive arguments like (A -> T) where T is the inductive.
 func isRecursiveArgType(indName string, ty ast.Term) bool {
+	return isRecursiveArgTypeMulti([]string{indName}, ty)
+}
+
+// isRecursiveArgTypeMulti checks if an argument type refers to any of the given
+// inductive type names. This is used for mutual inductives where a constructor
+// may have recursive arguments of a different type in the mutual group.
+func isRecursiveArgTypeMulti(indNames []string, ty ast.Term) bool {
 	switch t := ty.(type) {
 	case ast.Global:
-		return t.Name == indName
+		for _, name := range indNames {
+			if t.Name == name {
+				return true
+			}
+		}
+		return false
 	case ast.App:
-		// Check if head is the inductive (e.g., List A where List is our inductive)
-		return isAppOfGlobal(t, indName)
+		// Check if head is one of the inductives (e.g., List A where List is our inductive)
+		for _, name := range indNames {
+			if isAppOfGlobal(t, name) {
+				return true
+			}
+		}
+		return false
 	case ast.Pi:
-		// Higher-order recursive: check if the codomain contains the inductive.
-		// For example, (A -> T) where T is our inductive type.
-		// We use OccursIn to check if indName appears in the codomain.
-		return OccursIn(indName, t.B)
+		// Higher-order recursive: check if the codomain contains any inductive.
+		// For example, (A -> T) where T is one of our inductive types.
+		for _, name := range indNames {
+			if OccursIn(name, t.B) {
+				return true
+			}
+		}
+		return false
 	default:
 		return false
 	}
+}
+
+// getRecursiveArgIndName returns the name of the inductive type that the arg
+// refers to, or empty string if not recursive. Used for mutual types to determine
+// which eliminator to use for IH construction.
+func getRecursiveArgIndName(indNames []string, ty ast.Term) string {
+	switch t := ty.(type) {
+	case ast.Global:
+		for _, name := range indNames {
+			if t.Name == name {
+				return name
+			}
+		}
+	case ast.App:
+		for _, name := range indNames {
+			if isAppOfGlobal(t, name) {
+				return name
+			}
+		}
+	case ast.Pi:
+		for _, name := range indNames {
+			if OccursIn(name, t.B) {
+				return name
+			}
+		}
+	}
+	return ""
 }
 
 // buildCaseTypeFull constructs the full case type for a constructor with index support.

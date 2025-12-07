@@ -24,6 +24,11 @@ type ConstructorInfo struct {
 	//   IndexArgPositions[2] = []int{0}  (xs at position 2 uses n at position 0)
 	// For non-indexed inductives or non-recursive args, entries are nil.
 	IndexArgPositions map[int][]int
+	// RecursiveArgElims maps each recursive arg position to the eliminator name
+	// for that arg's type. For mutual inductives, this may differ from the current
+	// eliminator. For example, succOdd : odd -> even has RecursiveArgElims[0] = "oddElim".
+	// For non-mutual inductives, all entries will be the same as RecursorInfo.ElimName.
+	RecursiveArgElims map[int]string
 }
 
 // recursorRegistry maps eliminator names to their RecursorInfo.

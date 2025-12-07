@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Mutual inductive types** (`kernel/check/env.go`, `kernel/check/positivity.go`)
+  - `MutualInductiveSpec` struct for specifying types in a mutual block
+  - `DeclareMutual` API for declaring mutually recursive types (e.g., Even/Odd)
+  - `Inductive.MutualGroup` field tracks other types in the mutual block
+  - `DeclareInductive` refactored to call `DeclareMutual` for backward compatibility
+  - `CheckMutualPositivity` validates strict positivity across all types in the block
+  - Separate eliminators generated per type (simpler than joint eliminators)
+  - Cross-type recursion must be handled explicitly in case functions
+
+### Design Notes
+- **Separate eliminators**: Each type in a mutual block gets its own eliminator
+  - `evenElim : (P : even -> Type) -> P zero -> ((o : odd) -> P (succOdd o)) -> even -> P e`
+  - `oddElim : (Q : odd -> Type) -> ((e : even) -> Q (succ e)) -> odd -> Q o`
+  - Cross-type args (e.g., `o : odd` in `succOdd`) pass through without IH
+  - For full mutual induction, compose eliminators in case functions
+
+### Tests
+- `TestMutualInductive_EvenOdd` - basic mutual declaration
+- `TestMutualInductive_SingleIsSameAsDeclareInductive` - backward compatibility
+- `TestMutualInductive_Positivity_Reject` - rejects negative occurrences
+- `TestMutualInductive_Positivity_Accept` - accepts positive occurrences
+- `TestMutualInductive_Reduction` - verifies separate eliminator reduction
+
 ## [1.5.8] - 2025-12-06
 
 ### Added
