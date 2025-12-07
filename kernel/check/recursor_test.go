@@ -372,7 +372,7 @@ func TestBuildCaseType_Nat(t *testing.T) {
 func TestBuildCaseType_List(t *testing.T) {
 	indName := "List"
 	args := []PiArg{
-		{Name: "x", Type: ast.Global{Name: "Nat"}},  // non-recursive
+		{Name: "x", Type: ast.Global{Name: "Nat"}},   // non-recursive
 		{Name: "xs", Type: ast.Global{Name: "List"}}, // recursive
 	}
 	numRecursive := 1

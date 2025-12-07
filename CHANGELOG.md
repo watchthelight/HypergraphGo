@@ -10,27 +10,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Parameterized inductive types** (`kernel/check/`)
   - `Inductive` struct extended with `NumParams` and `ParamTypes` fields
-  - `extractParams` extracts parameters from inductive type (e.g., `Type -> Type` has 1 param)
+  - `extractPiChain` extracts all Pi arguments from inductive type
   - `validateInductiveType` validates Pi chains ending in Sort
-  - `validateConstructorResult` validates constructor returns applied inductive with correct params
+  - `validateConstructorResult` validates constructor returns applied inductive with correct args
   - `extractAppArgs` collects arguments from application chains
 
-- **Parameterized recursor generation** (`kernel/check/recursor.go`)
-  - `GenerateRecursorType` now generates correct eliminator types for parameterized inductives
-  - `buildAppliedInductive` builds `T A B ...` with correct de Bruijn indices
-  - `buildMotiveType` builds `P : T params -> Type_j` for motive
-  - `buildCaseType` now applies parameters to constructor in result type
-  - Proper de Bruijn index management for params, motive, cases, and target
+- **Indexed inductive types** (`kernel/check/`)
+  - `Inductive` struct extended with `NumIndices` and `IndexTypes` fields
+  - `analyzeParamsAndIndices` determines which type args are parameters vs indices by analyzing constructor result types
+  - Parameters are uniform (always variables), indices can vary (arbitrary expressions)
+  - Example: `Vec : Type -> Nat -> Type` has 1 param (A), 1 index (n)
 
-- **Parameterized recursor reduction** (`internal/eval/recursor.go`)
-  - `tryGenericRecursorReduction` correctly skips parameter args in constructor spine
-  - Constructor arity check accounts for `NumParams + NumArgs`
-  - `buildRecursorInfo` extracts `NumParams` from `Inductive` and skips param args in constructors
+- **Parameterized/indexed recursor generation** (`kernel/check/recursor.go`)
+  - `GenerateRecursorType` generates eliminators for parameterized and indexed inductives
+  - `buildAppliedInductiveFull` builds `T params... indices...` with correct de Bruijn indices
+  - `buildMotiveTypeFull` builds `P : (indices...) -> T params indices -> Type_j` for indexed motives
+  - `buildCaseTypeFull` handles index values in case result types and IH types
+  - `extractConstructorIndices` extracts index expressions from constructor results
+  - `buildIHType` builds IH types with correct index arguments
+  - `indexName` generates names for index binders (n, m, k, ...)
+
+- **Parameterized/indexed recursor reduction** (`internal/eval/recursor.go`)
+  - `tryGenericRecursorReduction` correctly handles params and indices in argument layout
+  - Constructor spine validation accounts for `NumParams + NumArgs`
+  - `buildRecursorInfo` extracts `NumParams` and `NumIndices` from `Inductive`
 
 ### Tests
 - **Parameterized List tests** (`kernel/check/integration_test.go`)
   - `TestEndToEnd_ParameterizedList`: List declaration, NumParams extraction, eliminator structure
   - `TestEndToEnd_ParameterizedListReduction`: listElim reduction on `nil Nat` and `cons Nat`
+
+- **Indexed Vec tests** (`kernel/check/integration_test.go`)
+  - `TestEndToEnd_IndexedVec`: Vec declaration, NumParams/NumIndices extraction, eliminator structure
+  - `TestEndToEnd_IndexedVecReduction`: vecElim reduction on `vnil Nat`
 
 ## [1.5.7] - 2025-12-06
 

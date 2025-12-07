@@ -525,6 +525,232 @@ func TestEndToEnd_ParameterizedList(t *testing.T) {
 	eval.ClearRecursorRegistry()
 }
 
+// TestEndToEnd_IndexedVec tests indexed inductive types.
+// Vec : Type -> Nat -> Type with vnil and vcons constructors.
+func TestEndToEnd_IndexedVec(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Vec : Type -> Nat -> Type
+	// (A : Type) -> (n : Nat) -> Type
+	vecType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B:      ast.Sort{U: 0},
+		},
+	}
+
+	// vnil : (A : Type) -> Vec A zero
+	vnilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.App{
+			T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 0}},
+			U: ast.Global{Name: "zero"},
+		},
+	}
+
+	// vcons : (A : Type) -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
+	vconsType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B: ast.Pi{
+				Binder: "x",
+				A:      ast.Var{Ix: 1}, // A
+				B: ast.Pi{
+					Binder: "xs",
+					A: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 2}}, // Vec A
+						U: ast.Var{Ix: 1},                                         // n
+					},
+					B: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 3}},  // Vec A
+						U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 2}}, // succ n
+					},
+				},
+			},
+		},
+	}
+
+	err := env.DeclareInductive("Vec", vecType, []Constructor{
+		{Name: "vnil", Type: vnilType},
+		{Name: "vcons", Type: vconsType},
+	}, "vecElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Vec) failed: %v", err)
+	}
+
+	// Verify NumParams and NumIndices were correctly extracted
+	ind := env.inductives["Vec"]
+	if ind.NumParams != 1 {
+		t.Errorf("Vec.NumParams = %d, want 1", ind.NumParams)
+	}
+	if ind.NumIndices != 1 {
+		t.Errorf("Vec.NumIndices = %d, want 1", ind.NumIndices)
+	}
+
+	// Verify RecursorInfo
+	info := eval.LookupRecursor("vecElim")
+	if info == nil {
+		t.Fatal("vecElim not registered")
+	}
+	if info.NumParams != 1 {
+		t.Errorf("RecursorInfo.NumParams = %d, want 1", info.NumParams)
+	}
+	if info.NumIndices != 1 {
+		t.Errorf("RecursorInfo.NumIndices = %d, want 1", info.NumIndices)
+	}
+	if info.NumCases != 2 {
+		t.Errorf("RecursorInfo.NumCases = %d, want 2", info.NumCases)
+	}
+
+	// vnil has 0 data args (1 param skipped)
+	if info.Ctors[0].NumArgs != 0 {
+		t.Errorf("vnil.NumArgs = %d, want 0", info.Ctors[0].NumArgs)
+	}
+
+	// vcons has 3 data args: n, x, xs (1 param skipped)
+	if info.Ctors[1].NumArgs != 3 {
+		t.Errorf("vcons.NumArgs = %d, want 3", info.Ctors[1].NumArgs)
+	}
+
+	// Verify eliminator type structure
+	// vecElim : (A : Type) -> (P : (n : Nat) -> Vec A n -> Type) -> ...
+	elimType := env.LookupType("vecElim")
+	if elimType == nil {
+		t.Fatal("vecElim type not found")
+	}
+
+	// First binder should be parameter A
+	pi1, ok := elimType.(ast.Pi)
+	if !ok {
+		t.Fatalf("vecElim level 1: expected Pi, got %T", elimType)
+	}
+	if pi1.Binder != "A" {
+		t.Errorf("vecElim binder 1 = %q, want 'A'", pi1.Binder)
+	}
+
+	// Second binder should be motive P
+	pi2, ok := pi1.B.(ast.Pi)
+	if !ok {
+		t.Fatalf("vecElim level 2: expected Pi, got %T", pi1.B)
+	}
+	if pi2.Binder != "P" {
+		t.Errorf("vecElim binder 2 = %q, want 'P'", pi2.Binder)
+	}
+
+	// The motive should be: (n : Nat) -> Vec A n -> Type
+	// which is a Pi type
+	motiveType := pi2.A
+	pi_m1, ok := motiveType.(ast.Pi)
+	if !ok {
+		t.Fatalf("vecElim motive: expected Pi (for index), got %T", motiveType)
+	}
+	if pi_m1.Binder != "n" {
+		t.Errorf("vecElim motive index binder = %q, want 'n'", pi_m1.Binder)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
+// TestEndToEnd_IndexedVecReduction tests that vecElim reduces correctly.
+func TestEndToEnd_IndexedVecReduction(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Vec : Type -> Nat -> Type
+	vecType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B:      ast.Sort{U: 0},
+		},
+	}
+
+	// vnil : (A : Type) -> Vec A zero
+	vnilType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.App{
+			T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 0}},
+			U: ast.Global{Name: "zero"},
+		},
+	}
+
+	// vcons : (A : Type) -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
+	vconsType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "n",
+			A:      ast.Global{Name: "Nat"},
+			B: ast.Pi{
+				Binder: "x",
+				A:      ast.Var{Ix: 1},
+				B: ast.Pi{
+					Binder: "xs",
+					A: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 2}},
+						U: ast.Var{Ix: 1},
+					},
+					B: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 3}},
+						U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 2}},
+					},
+				},
+			},
+		},
+	}
+
+	err := env.DeclareInductive("Vec", vecType, []Constructor{
+		{Name: "vnil", Type: vnilType},
+		{Name: "vcons", Type: vconsType},
+	}, "vecElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Vec) failed: %v", err)
+	}
+
+	// Build: vecElim Nat P pvnil pvcons zero (vnil Nat)
+	// Should reduce to pvnil
+	nat := ast.Global{Name: "Nat"}
+	vecElim := ast.Global{Name: "vecElim"}
+	motive := ast.Lam{Binder: "n", Body: ast.Lam{Binder: "_", Body: ast.Sort{U: 0}}}
+	pvnil := ast.Global{Name: "vnilResult"}
+	pvcons := ast.Lam{
+		Binder: "n",
+		Body: ast.Lam{
+			Binder: "x",
+			Body: ast.Lam{
+				Binder: "xs",
+				Body: ast.Lam{
+					Binder: "ih",
+					Body:   ast.Global{Name: "vconsResult"},
+				},
+			},
+		},
+	}
+	zero := ast.Global{Name: "zero"}
+	vnilNat := ast.App{T: ast.Global{Name: "vnil"}, U: nat}
+
+	// vecElim Nat P pvnil pvcons zero (vnil Nat)
+	term := ast.MkApps(vecElim, nat, motive, pvnil, pvcons, zero, vnilNat)
+	normalized := eval.NormalizeNBE(term)
+
+	if normalized != "vnilResult" {
+		t.Errorf("vecElim Nat _ vnilResult _ zero (vnil Nat) = %q, want 'vnilResult'", normalized)
+	}
+
+	eval.ClearRecursorRegistry()
+}
+
 // TestEndToEnd_ParameterizedListReduction tests that listElim reduces correctly.
 func TestEndToEnd_ParameterizedListReduction(t *testing.T) {
 	eval.ClearRecursorRegistry()

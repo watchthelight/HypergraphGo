@@ -39,8 +39,10 @@ type Constructor struct {
 type Inductive struct {
 	Name         string
 	Type         ast.Term
-	NumParams    int        // Number of parameters extracted from Type
+	NumParams    int        // Number of parameters (uniform across constructors)
 	ParamTypes   []ast.Term // Types of each parameter
+	NumIndices   int        // Number of indices (vary per constructor)
+	IndexTypes   []ast.Term // Types of each index (under param binders)
 	Constructors []Constructor
 	Eliminator   string // Name of the elimination principle
 }
@@ -233,12 +235,14 @@ func (g *GlobalEnv) AddDefinition(name string, ty, body ast.Term, trans Transpar
 
 // AddInductive adds an inductive type to the environment without validation.
 // For validated addition, use DeclareInductive.
-func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramTypes []ast.Term, constrs []Constructor, elim string) {
+func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramTypes []ast.Term, numIndices int, indexTypes []ast.Term, constrs []Constructor, elim string) {
 	g.inductives[name] = &Inductive{
 		Name:         name,
 		Type:         ty,
 		NumParams:    numParams,
 		ParamTypes:   paramTypes,
+		NumIndices:   numIndices,
+		IndexTypes:   indexTypes,
 		Constructors: constrs,
 		Eliminator:   elim,
 	}
@@ -249,12 +253,12 @@ func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramT
 // It checks:
 // - The inductive type is well-formed (Sort or Pi chain ending in Sort)
 // - Each constructor type is well-formed (uses Checker API)
-// - Each constructor returns the inductive type applied to parameters
+// - Each constructor returns the inductive type applied to params/indices
 // - The definition satisfies strict positivity
 // It also generates and registers the eliminator.
 func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constructor, elim string) error {
-	// 1. Validate and extract parameters from inductive type
-	numParams, paramTypes, _, err := validateInductiveType(ty)
+	// 1. Validate and extract all args from inductive type
+	totalArgs, allArgTypes, _, err := validateInductiveType(ty)
 	if err != nil {
 		return &InductiveError{
 			IndName: name,
@@ -287,22 +291,29 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 		return err
 	}
 
-	// 5. Validate each constructor returns the inductive type with correct params
+	// 5. Analyze constructors to determine params vs indices
+	numParams := analyzeParamsAndIndices(totalArgs, constrs)
+	numIndices := totalArgs - numParams
+
+	paramTypes := allArgTypes[:numParams]
+	indexTypes := allArgTypes[numParams:]
+
+	// 6. Validate each constructor returns the inductive type with correct total args
 	for _, c := range constrs {
-		if err := validateConstructorResult(name, numParams, c); err != nil {
+		if err := validateConstructorResult(name, totalArgs, c); err != nil {
 			return err
 		}
 	}
 
-	// 6. Add the inductive to the environment
-	g.AddInductive(name, ty, numParams, paramTypes, constrs, elim)
+	// 7. Add the inductive to the environment
+	g.AddInductive(name, ty, numParams, paramTypes, numIndices, indexTypes, constrs, elim)
 
-	// 7. Generate and register the eliminator
+	// 8. Generate and register the eliminator
 	ind := g.inductives[name]
 	elimType := GenerateRecursorType(ind)
 	g.AddAxiom(elim, elimType)
 
-	// 8. Register the recursor for generic reduction
+	// 9. Register the recursor for generic reduction
 	recursorInfo := buildRecursorInfo(ind)
 	eval.RegisterRecursor(recursorInfo)
 
@@ -312,12 +323,13 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 // buildRecursorInfo builds RecursorInfo from an inductive definition.
 // For parameterized inductives, NumParams is extracted from the inductive type,
 // and constructor arg counts exclude parameters.
+// For indexed inductives, NumIndices is also extracted.
 func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
 		ElimName:   ind.Eliminator,
 		IndName:    ind.Name,
 		NumParams:  ind.NumParams,
-		NumIndices: 0, // TODO: extract from inductive type when indexed support is added
+		NumIndices: ind.NumIndices,
 		NumCases:   len(ind.Constructors),
 		Ctors:      make([]eval.ConstructorInfo, len(ind.Constructors)),
 	}
@@ -397,15 +409,14 @@ func validateIsSort(ty ast.Term) error {
 	}
 }
 
-// extractParams extracts parameters from an inductive type.
-// For Type -> Type -> Type, returns (2, [Type, Type], Type)
-// For Type, returns (0, [], Type)
-func extractParams(ty ast.Term) (numParams int, paramTypes []ast.Term, resultSort ast.Term) {
+// extractPiChain extracts all Pi arguments from a type.
+// For Type -> Nat -> Type, returns ([Type, Nat], Type)
+// For Type, returns ([], Type)
+func extractPiChain(ty ast.Term) (argTypes []ast.Term, resultSort ast.Term) {
 	current := ty
 	for {
 		if pi, ok := current.(ast.Pi); ok {
-			paramTypes = append(paramTypes, pi.A)
-			numParams++
+			argTypes = append(argTypes, pi.A)
 			current = pi.B
 		} else {
 			resultSort = current
@@ -417,16 +428,74 @@ func extractParams(ty ast.Term) (numParams int, paramTypes []ast.Term, resultSor
 
 // validateInductiveType validates that ty is a valid inductive type.
 // For non-parameterized: must be a Sort
-// For parameterized: must be Pi chain ending in Sort
-// Returns the number of parameters, their types, and the result sort.
-func validateInductiveType(ty ast.Term) (numParams int, paramTypes []ast.Term, resultSort ast.Sort, err error) {
-	numParams, paramTypes, result := extractParams(ty)
+// For parameterized/indexed: must be Pi chain ending in Sort
+//
+// Note: This extracts ALL Pi args. The caller must determine which are
+// parameters vs indices by analyzing constructor result types.
+// Returns the total number of args, their types, and the result sort.
+func validateInductiveType(ty ast.Term) (numArgs int, argTypes []ast.Term, resultSort ast.Sort, err error) {
+	argTypes, result := extractPiChain(ty)
+	numArgs = len(argTypes)
 	if sort, ok := result.(ast.Sort); ok {
-		return numParams, paramTypes, sort, nil
+		return numArgs, argTypes, sort, nil
 	}
 	return 0, nil, ast.Sort{}, &ValidationError{
 		Msg: "inductive type must end in a Sort, got " + ast.Sprint(result),
 	}
+}
+
+// analyzeParamsAndIndices determines how many of the inductive type's arguments
+// are parameters (uniform across constructors) vs indices (can vary).
+//
+// For Vec : Type -> Nat -> Type with constructors:
+//
+//	vnil  : (A : Type) -> Vec A zero
+//	vcons : (A : Type) -> A -> (n : Nat) -> Vec A n -> Vec A (succ n)
+//
+// The first arg (Type) is a parameter (always Var referring to the bound A).
+// The second arg (Nat) is an index (varies: zero, succ n).
+//
+// Algorithm: For each position in the result type's application chain,
+// check if ALL constructors use the same variable reference. If so, it's a param.
+func analyzeParamsAndIndices(totalArgs int, constrs []Constructor) (numParams int) {
+	if len(constrs) == 0 || totalArgs == 0 {
+		return 0
+	}
+
+	// For each position, check if all constructors agree on using a variable
+	for pos := 0; pos < totalArgs; pos++ {
+		isParam := true
+		for _, c := range constrs {
+			resultTy := constructorResultType(c.Type)
+			args := extractAppArgs(resultTy)
+			if pos >= len(args) {
+				isParam = false
+				break
+			}
+			// Check if this arg is a variable (parameter reference)
+			// For a param at position pos, under the constructor's binders,
+			// it should reference one of the parameter variables
+			if !isParamReference(args[pos]) {
+				isParam = false
+				break
+			}
+		}
+		if isParam {
+			numParams++
+		} else {
+			// Once we hit a non-param, all remaining are indices
+			break
+		}
+	}
+	return numParams
+}
+
+// isParamReference checks if a term is a simple variable reference (parameter).
+// Parameters are always passed through as variables, while indices can be
+// arbitrary expressions.
+func isParamReference(t ast.Term) bool {
+	_, ok := t.(ast.Var)
+	return ok
 }
 
 // ValidationError represents a validation error during inductive declaration.
