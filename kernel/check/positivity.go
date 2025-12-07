@@ -42,7 +42,7 @@ func (e *PositivityError) Error() string {
 		e.IndName, e.Polarity, e.Constructor, e.Position)
 }
 
-// CheckPositivity verifies that an inductive type definition satisfies
+// CheckPositivity verifies that a single inductive type definition satisfies
 // the strict positivity condition. This ensures the inductive is well-founded
 // and prevents logical inconsistencies.
 //
@@ -57,6 +57,190 @@ func CheckPositivity(indName string, constructors []Constructor) error {
 		}
 	}
 	return nil
+}
+
+// CheckMutualPositivity verifies that mutually recursive inductive types
+// satisfy the strict positivity condition across all types in the mutual block.
+//
+// For mutual inductives, each type must occur strictly positively in the
+// constructors of ALL types in the mutual block. That is:
+// - For each type T in the mutual block
+// - For each constructor C of any type in the block
+// - T must occur only in strictly positive positions in C
+func CheckMutualPositivity(indNames []string, constructors map[string][]Constructor) error {
+	// Check positivity across ALL constructors of ALL types
+	// Each constructor must have all mutual types occurring only strictly positively
+	for _, constrs := range constructors {
+		for _, c := range constrs {
+			if err := checkConstructorPositivityMulti(indNames, c.Name, c.Type); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// checkConstructorPositivityMulti checks a constructor for strict positivity
+// of all types in a mutual block.
+func checkConstructorPositivityMulti(indNames []string, ctorName string, ty ast.Term) error {
+	return checkConstructorArgsMulti(indNames, ctorName, ty, 0)
+}
+
+// checkConstructorArgsMulti traverses the constructor type's argument structure
+// for mutual inductives.
+func checkConstructorArgsMulti(indNames []string, ctorName string, ty ast.Term, depth int) error {
+	switch t := ty.(type) {
+	case ast.Pi:
+		// Check that the argument type has all mutual types occurring strictly positively
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, Positive, depth); err != nil {
+			return err
+		}
+		// Continue to next argument or result
+		return checkConstructorArgsMulti(indNames, ctorName, t.B, depth+1)
+	case ast.Global:
+		// Result type - any mutual type itself is fine
+		return nil
+	case ast.App:
+		// Result type like (T A) - check arguments don't have mutual types in bad positions
+		return checkArgTypePositivityMulti(indNames, ctorName, ty, Positive, depth)
+	default:
+		// Other result types
+		return nil
+	}
+}
+
+// checkArgTypePositivityMulti checks that within an argument type, all
+// mutual inductive types occur only in strictly positive positions.
+func checkArgTypePositivityMulti(indNames []string, ctorName string, ty ast.Term, pol Polarity, depth int) error {
+	switch t := ty.(type) {
+	case ast.Pi:
+		// In a function type A -> B:
+		// - A is in negative position (no occurrences allowed)
+		// - B stays at current polarity
+		newPol := Negative
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, newPol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.B, pol, depth)
+
+	case ast.Global:
+		// Check if this global is one of our mutual inductives
+		for _, indName := range indNames {
+			if t.Name == indName {
+				if pol == Negative {
+					return &PositivityError{
+						IndName:     indName,
+						Constructor: ctorName,
+						Position:    fmt.Sprintf("argument %d", depth),
+						Polarity:    pol,
+					}
+				}
+			}
+		}
+		return nil
+
+	case ast.App:
+		// Check both parts of an application
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.T, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.U, pol, depth)
+
+	case ast.Var:
+		return nil
+
+	case ast.Sort:
+		return nil
+
+	case ast.Sigma:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.B, pol, depth)
+
+	case ast.Lam:
+		if t.Ann != nil {
+			if err := checkArgTypePositivityMulti(indNames, ctorName, t.Ann, pol, depth); err != nil {
+				return err
+			}
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.Body, pol, depth)
+
+	case ast.Pair:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.Fst, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.Snd, pol, depth)
+
+	case ast.Fst:
+		return checkArgTypePositivityMulti(indNames, ctorName, t.P, pol, depth)
+
+	case ast.Snd:
+		return checkArgTypePositivityMulti(indNames, ctorName, t.P, pol, depth)
+
+	case ast.Let:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.Ann, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.Val, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.Body, pol, depth)
+
+	case ast.Id:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.X, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.Y, pol, depth)
+
+	case ast.Refl:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.X, pol, depth)
+
+	case ast.J:
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.A, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.C, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.D, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.X, pol, depth); err != nil {
+			return err
+		}
+		if err := checkArgTypePositivityMulti(indNames, ctorName, t.Y, pol, depth); err != nil {
+			return err
+		}
+		return checkArgTypePositivityMulti(indNames, ctorName, t.P, pol, depth)
+
+	default:
+		// Try extension handlers
+		if err, handled := checkArgTypePositivityExtension(indNames[0], ctorName, ty, pol, depth); handled {
+			return err
+		}
+
+		// Unknown term type - check if any mutual type occurs in negative position
+		if pol == Negative {
+			for _, indName := range indNames {
+				if OccursIn(indName, ty) {
+					return &PositivityError{
+						IndName:     indName,
+						Constructor: ctorName,
+						Position:    fmt.Sprintf("argument %d (unknown node type %T)", depth, ty),
+						Polarity:    pol,
+					}
+				}
+			}
+		}
+		return nil
+	}
 }
 
 // checkConstructorPositivity checks a single constructor type for strict positivity.

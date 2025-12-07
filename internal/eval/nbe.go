@@ -159,6 +159,12 @@ func vGlobal(name string) Value {
 	return VNeutral{N: Neutral{Head: Head{Glob: name}}}
 }
 
+// MakeNeutralGlobal creates a neutral value from a global name.
+// Exported for testing purposes.
+func MakeNeutralGlobal(name string) Value {
+	return vGlobal(name)
+}
+
 // Eval evaluates a term in an environment to weak head normal form (WHNF).
 //
 // Evaluation proceeds recursively, handling each term constructor:

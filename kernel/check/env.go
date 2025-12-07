@@ -44,7 +44,16 @@ type Inductive struct {
 	NumIndices   int        // Number of indices (vary per constructor)
 	IndexTypes   []ast.Term // Types of each index (under param binders)
 	Constructors []Constructor
-	Eliminator   string // Name of the elimination principle
+	Eliminator   string   // Name of the elimination principle
+	MutualGroup  []string // Names of other types in mutual block (nil for single inductives)
+}
+
+// MutualInductiveSpec specifies one inductive type in a mutual block.
+type MutualInductiveSpec struct {
+	Name         string
+	Type         ast.Term
+	Constructors []Constructor
+	Eliminator   string
 }
 
 // Primitive represents a built-in type with special evaluation rules.
@@ -234,8 +243,8 @@ func (g *GlobalEnv) AddDefinition(name string, ty, body ast.Term, trans Transpar
 }
 
 // AddInductive adds an inductive type to the environment without validation.
-// For validated addition, use DeclareInductive.
-func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramTypes []ast.Term, numIndices int, indexTypes []ast.Term, constrs []Constructor, elim string) {
+// For validated addition, use DeclareInductive or DeclareMutual.
+func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramTypes []ast.Term, numIndices int, indexTypes []ast.Term, constrs []Constructor, elim string, mutualGroup []string) {
 	g.inductives[name] = &Inductive{
 		Name:         name,
 		Type:         ty,
@@ -245,77 +254,137 @@ func (g *GlobalEnv) AddInductive(name string, ty ast.Term, numParams int, paramT
 		IndexTypes:   indexTypes,
 		Constructors: constrs,
 		Eliminator:   elim,
+		MutualGroup:  mutualGroup,
 	}
 	g.order = append(g.order, name)
 }
 
-// DeclareInductive validates and adds an inductive type to the environment.
-// It checks:
-// - The inductive type is well-formed (Sort or Pi chain ending in Sort)
-// - Each constructor type is well-formed (uses Checker API)
-// - Each constructor returns the inductive type applied to params/indices
-// - The definition satisfies strict positivity
-// It also generates and registers the eliminator.
+// DeclareInductive validates and adds a single inductive type to the environment.
+// This is a convenience wrapper around DeclareMutual for non-mutual inductives.
 func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constructor, elim string) error {
-	// 1. Validate and extract all args from inductive type
-	totalArgs, allArgTypes, _, err := validateInductiveType(ty)
-	if err != nil {
-		return &InductiveError{
-			IndName: name,
-			Message: err.Error(),
-		}
+	return g.DeclareMutual([]MutualInductiveSpec{{
+		Name:         name,
+		Type:         ty,
+		Constructors: constrs,
+		Eliminator:   elim,
+	}})
+}
+
+// DeclareMutual validates and adds mutually recursive inductive types.
+// For a single inductive, use DeclareInductive for convenience.
+//
+// It checks:
+// - Each inductive type is well-formed (Sort or Pi chain ending in Sort)
+// - Each constructor type is well-formed (can reference any type in the mutual block)
+// - Each constructor returns its inductive type applied to params/indices
+// - The definition satisfies strict positivity across all mutual types
+// It also generates and registers eliminators for each type.
+func (g *GlobalEnv) DeclareMutual(specs []MutualInductiveSpec) error {
+	if len(specs) == 0 {
+		return nil
 	}
 
-	// 2. Temporarily add the inductive type so constructor types can reference it.
-	// This allows constructor types like (n : Nat) -> Nat to type-check.
-	g.AddAxiom(name, ty)
+	// Collect all type names for mutual reference
+	indNames := make([]string, len(specs))
+	for i, spec := range specs {
+		indNames[i] = spec.Name
+	}
 
-	// 3. Validate each constructor type is well-formed using the Checker API.
-	// Create a checker with our environment.
+	// Build mutual group (for non-single inductives)
+	var mutualGroup []string
+	if len(specs) > 1 {
+		mutualGroup = indNames
+	}
+
+	// Validate and collect metadata for each type
+	type indMetadata struct {
+		totalArgs   int
+		allArgTypes []ast.Term
+		numParams   int
+		numIndices  int
+	}
+	metadata := make([]indMetadata, len(specs))
+
+	// 1. Validate each inductive type signature
+	for i, spec := range specs {
+		totalArgs, allArgTypes, _, err := validateInductiveType(spec.Type)
+		if err != nil {
+			return &InductiveError{
+				IndName: spec.Name,
+				Message: err.Error(),
+			}
+		}
+		metadata[i].totalArgs = totalArgs
+		metadata[i].allArgTypes = allArgTypes
+	}
+
+	// 2. Temporarily add ALL types as axioms so constructors can reference each other
+	for _, spec := range specs {
+		g.AddAxiom(spec.Name, spec.Type)
+	}
+
+	// 3. Validate each constructor type is well-formed
 	checker := NewChecker(g)
-	for _, c := range constrs {
-		if err := validateConstructorType(checker, name, c); err != nil {
-			// Remove the temporary axiom on failure
-			delete(g.axioms, name)
-			g.removeFromOrder(name)
-			return err
+	for _, spec := range specs {
+		for _, c := range spec.Constructors {
+			if err := validateConstructorType(checker, spec.Name, c); err != nil {
+				// Remove all temporary axioms on failure
+				for _, s := range specs {
+					delete(g.axioms, s.Name)
+					g.removeFromOrder(s.Name)
+				}
+				return err
+			}
 		}
 	}
 
-	// Remove the temporary axiom - we'll add the real inductive
-	delete(g.axioms, name)
-	g.removeFromOrder(name)
+	// Remove all temporary axioms - we'll add the real inductives
+	for _, spec := range specs {
+		delete(g.axioms, spec.Name)
+		g.removeFromOrder(spec.Name)
+	}
 
-	// 4. Check strict positivity
-	if err := CheckPositivity(name, constrs); err != nil {
+	// 4. Check strict positivity across all mutual types
+	allConstrs := make(map[string][]Constructor)
+	for _, spec := range specs {
+		allConstrs[spec.Name] = spec.Constructors
+	}
+	if err := CheckMutualPositivity(indNames, allConstrs); err != nil {
 		return err
 	}
 
-	// 5. Analyze constructors to determine params vs indices
-	numParams := analyzeParamsAndIndices(totalArgs, constrs)
-	numIndices := totalArgs - numParams
+	// 5. Analyze params/indices and validate constructor results for each type
+	for i, spec := range specs {
+		numParams := analyzeParamsAndIndices(metadata[i].totalArgs, spec.Constructors)
+		numIndices := metadata[i].totalArgs - numParams
+		metadata[i].numParams = numParams
+		metadata[i].numIndices = numIndices
 
-	paramTypes := allArgTypes[:numParams]
-	indexTypes := allArgTypes[numParams:]
-
-	// 6. Validate each constructor returns the inductive type with correct total args
-	for _, c := range constrs {
-		if err := validateConstructorResult(name, totalArgs, c); err != nil {
-			return err
+		for _, c := range spec.Constructors {
+			if err := validateConstructorResult(spec.Name, metadata[i].totalArgs, c); err != nil {
+				return err
+			}
 		}
 	}
 
-	// 7. Add the inductive to the environment
-	g.AddInductive(name, ty, numParams, paramTypes, numIndices, indexTypes, constrs, elim)
+	// 6. Add all inductives to the environment
+	for i, spec := range specs {
+		m := metadata[i]
+		paramTypes := m.allArgTypes[:m.numParams]
+		indexTypes := m.allArgTypes[m.numParams:]
+		g.AddInductive(spec.Name, spec.Type, m.numParams, paramTypes, m.numIndices, indexTypes, spec.Constructors, spec.Eliminator, mutualGroup)
+	}
 
-	// 8. Generate and register the eliminator
-	ind := g.inductives[name]
-	elimType := GenerateRecursorType(ind)
-	g.AddAxiom(elim, elimType)
+	// 7. Generate and register eliminators for each type
+	for _, spec := range specs {
+		ind := g.inductives[spec.Name]
+		elimType := GenerateRecursorType(ind)
+		g.AddAxiom(spec.Eliminator, elimType)
 
-	// 9. Register the recursor for generic reduction
-	recursorInfo := buildRecursorInfo(ind)
-	eval.RegisterRecursor(recursorInfo)
+		// Register the recursor for generic reduction
+		recursorInfo := buildRecursorInfo(ind)
+		eval.RegisterRecursor(recursorInfo)
+	}
 
 	return nil
 }
@@ -324,6 +393,10 @@ func (g *GlobalEnv) DeclareInductive(name string, ty ast.Term, constrs []Constru
 // For parameterized inductives, NumParams is extracted from the inductive type,
 // and constructor arg counts exclude parameters.
 // For indexed inductives, NumIndices is also extracted and IndexArgPositions is computed.
+//
+// For mutual inductives with SEPARATE eliminators, only same-type recursive args
+// generate IHs. Cross-type recursion must be handled explicitly in case functions.
+// This matches the generated eliminator types where IHs are only for the current type.
 func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
 		ElimName:   ind.Eliminator,
@@ -345,12 +418,17 @@ func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 		}
 
 		// Find recursive arguments among data args and compute their index positions
+		// For separate eliminators, only same-type args are considered recursive.
 		recursiveIdx := []int{}
 		indexArgPositions := make(map[int][]int)
+		recursiveArgElims := make(map[int]string)
 
 		for j, arg := range dataArgs {
+			// Only check for same-type recursion (not cross-type for mutual inductives)
 			if isRecursiveArgType(ind.Name, arg.Type) {
 				recursiveIdx = append(recursiveIdx, j)
+				recursiveArgElims[j] = ind.Eliminator
+
 				// Compute index positions for this recursive arg
 				if ind.NumIndices > 0 {
 					idxPositions := computeIndexArgPositions(arg.Type, j, ind.NumParams, ind.NumIndices)
@@ -366,6 +444,7 @@ func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 			NumArgs:           len(dataArgs), // Only count non-param args
 			RecursiveIdx:      recursiveIdx,
 			IndexArgPositions: indexArgPositions,
+			RecursiveArgElims: recursiveArgElims,
 		}
 	}
 

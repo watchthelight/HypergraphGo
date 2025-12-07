@@ -620,7 +620,7 @@ func TestGlobalEnvAPI(t *testing.T) {
 	// Test AddInductive
 	env.AddInductive("MyType", ast.Sort{U: 0}, 0, nil, 0, nil, []Constructor{
 		{Name: "MkMyType", Type: ast.Global{Name: "MyType"}},
-	}, "myTypeElim")
+	}, "myTypeElim", nil)
 	ty := env.LookupType("MyType")
 	if ty == nil {
 		t.Error("LookupType should find inductive type")
