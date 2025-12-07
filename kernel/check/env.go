@@ -380,11 +380,22 @@ func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 //   - For each index that is a Var{V}, compute its data-arg position
 //   - Return the list of data-arg positions
 //
+// DE BRUIJN INVARIANT:
+// When checking arg at data position j, Var{V} refers to the (j-1-V)th data arg.
+// This follows from the binder structure: params come first, then data args in order.
+// Under binders [param1, ..., paramK, data0, ..., data(j-1)], at position j we have
+// total binder count K+j. A Var{V} refers to binder at index (K+j-1-V), and after
+// subtracting K params, we get data position (j-1-V).
+//
 // Example: vcons has data args [n, x, xs] where xs : Vec A n
 //   - xs is at data position 2
 //   - Its type Vec A n has index n = Var{1} (under binders A, n, x)
 //   - data-arg position of n = 2 - 1 - 1 = 0
 //   - Returns [0]
+//
+// COMPLETENESS: If any index is a computed expression (not a Var), it won't have
+// a position entry. The evaluator checks len(positions) == NumIndices before using
+// metadata and falls back to heuristics if incomplete.
 func computeIndexArgPositions(argType ast.Term, dataArgPos int, numParams int, numIndices int) []int {
 	// Extract the application args from the recursive arg's type
 	typeArgs := extractAppArgs(argType)

@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TestEndToEnd_IndexedVecReduction`: vecElim reduction on `vnil Nat` and `vcons Nat`
   - `TestEndToEnd_IndexArgPositionsMetadata`: verifies IndexArgPositions[2]=[0] for vcons (xs uses n)
   - `TestEndToEnd_NestedVecReduction`: length-2 vector reduction exercising recursive IH construction
+  - `TestEndToEnd_ComputedIndexFallback`: verifies metadata is incomplete for `Stepped` inductive with computed index `succ n`
+
+- **Property tests** (`kernel/check/env_test.go`)
+  - `TestProperty_IndexArgPositionsCompleteness`: verifies invariant that IndexArgPositions entries are either complete (len == NumIndices) or absent, never partially filled
 
 ## [1.5.7] - 2025-12-06
 

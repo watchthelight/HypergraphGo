@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/eval"
 )
 
 func TestDeclareInductive_Valid(t *testing.T) {
@@ -395,4 +396,139 @@ func TestDeclareInductive_IllFormedConstructor(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestProperty_IndexArgPositionsCompleteness verifies the invariant that
+// IndexArgPositions entries are either complete (length == NumIndices) or absent.
+// This ensures the evaluator can safely use metadata without partial application.
+func TestProperty_IndexArgPositionsCompleteness(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Test a variety of inductives with different index structures
+	testCases := []struct {
+		name     string
+		indName  string
+		indType  ast.Term
+		constrs  []Constructor
+		elim     string
+		numIdx   int
+		expectOK bool // whether metadata should be complete
+	}{
+		{
+			name:    "Vec (variable index)",
+			indName: "Vec",
+			indType: ast.Pi{
+				Binder: "A",
+				A:      ast.Sort{U: 0},
+				B: ast.Pi{
+					Binder: "n",
+					A:      ast.Global{Name: "Nat"},
+					B:      ast.Sort{U: 0},
+				},
+			},
+			constrs: []Constructor{
+				{Name: "vnil", Type: ast.Pi{
+					Binder: "A",
+					A:      ast.Sort{U: 0},
+					B: ast.App{
+						T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 0}},
+						U: ast.Global{Name: "zero"},
+					},
+				}},
+				{Name: "vcons", Type: ast.Pi{
+					Binder: "A",
+					A:      ast.Sort{U: 0},
+					B: ast.Pi{
+						Binder: "n",
+						A:      ast.Global{Name: "Nat"},
+						B: ast.Pi{
+							Binder: "x",
+							A:      ast.Var{Ix: 1},
+							B: ast.Pi{
+								Binder: "xs",
+								A: ast.App{
+									T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 2}},
+									U: ast.Var{Ix: 1}, // n (variable index)
+								},
+								B: ast.App{
+									T: ast.App{T: ast.Global{Name: "Vec"}, U: ast.Var{Ix: 3}},
+									U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 2}},
+								},
+							},
+						},
+					},
+				}},
+			},
+			elim:     "vecElim",
+			numIdx:   1,
+			expectOK: true, // xs has type Vec A n, n is a variable
+		},
+		{
+			name:    "Stepped (computed index)",
+			indName: "Stepped",
+			indType: ast.Pi{
+				Binder: "n",
+				A:      ast.Global{Name: "Nat"},
+				B:      ast.Sort{U: 0},
+			},
+			constrs: []Constructor{
+				{Name: "base", Type: ast.App{
+					T: ast.Global{Name: "Stepped"},
+					U: ast.Global{Name: "zero"},
+				}},
+				{Name: "step", Type: ast.Pi{
+					Binder: "n",
+					A:      ast.Global{Name: "Nat"},
+					B: ast.Pi{
+						Binder: "s",
+						A: ast.App{
+							T: ast.Global{Name: "Stepped"},
+							U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 0}}, // succ n (computed)
+						},
+						B: ast.App{
+							T: ast.Global{Name: "Stepped"},
+							U: ast.App{T: ast.Global{Name: "succ"}, U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 1}}},
+						},
+					},
+				}},
+			},
+			elim:     "steppedElim",
+			numIdx:   1,
+			expectOK: false, // s has type Stepped (succ n), succ n is computed
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := env.DeclareInductive(tc.indName, tc.indType, tc.constrs, tc.elim)
+			if err != nil {
+				t.Fatalf("DeclareInductive(%s) failed: %v", tc.indName, err)
+			}
+
+			info := eval.LookupRecursor(tc.elim)
+			if info == nil {
+				t.Fatalf("%s not registered", tc.elim)
+			}
+
+			if info.NumIndices != tc.numIdx {
+				t.Errorf("NumIndices = %d, want %d", info.NumIndices, tc.numIdx)
+			}
+
+			// Verify property: every IndexArgPositions entry must be complete or absent
+			for ctorIdx, ctor := range info.Ctors {
+				for recIdx, positions := range ctor.IndexArgPositions {
+					// If present, must have length == NumIndices (complete)
+					// or length 0 (effectively empty, will fall back)
+					if len(positions) > 0 && len(positions) < info.NumIndices {
+						t.Errorf("ctor[%d].IndexArgPositions[%d] = %v (len %d) is partially filled, "+
+							"expected complete (len %d) or empty",
+							ctorIdx, recIdx, positions, len(positions), info.NumIndices)
+					}
+				}
+			}
+		})
+	}
+
+	eval.ClearRecursorRegistry()
 }

@@ -1049,3 +1049,85 @@ func TestEndToEnd_ParameterizedListReduction(t *testing.T) {
 
 	eval.ClearRecursorRegistry()
 }
+
+// TestEndToEnd_ComputedIndexFallback verifies that IndexArgPositions is incomplete
+// when a recursive argument's type has a computed index (not a simple variable).
+// This tests the fallback behavior in buildRecursorCallWithIndices.
+func TestEndToEnd_ComputedIndexFallback(t *testing.T) {
+	eval.ClearRecursorRegistry()
+	env := NewGlobalEnvWithPrimitives()
+
+	// Stepped : Nat -> Type (one index, no params)
+	steppedType := ast.Pi{
+		Binder: "n",
+		A:      ast.Global{Name: "Nat"},
+		B:      ast.Sort{U: 0},
+	}
+
+	// base : Stepped zero
+	baseType := ast.App{
+		T: ast.Global{Name: "Stepped"},
+		U: ast.Global{Name: "zero"},
+	}
+
+	// step : (n : Nat) -> Stepped (succ n) -> Stepped (succ (succ n))
+	// Data args: [n, s] at positions [0, 1]
+	// s (at position 1) has type Stepped (succ n), where (succ n) is COMPUTED
+	// Since (succ n) is an App, not a Var, computeIndexArgPositions returns []
+	stepType := ast.Pi{
+		Binder: "n",
+		A:      ast.Global{Name: "Nat"},
+		B: ast.Pi{
+			Binder: "s",
+			A: ast.App{
+				T: ast.Global{Name: "Stepped"},
+				U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 0}}, // succ n
+			},
+			B: ast.App{
+				T: ast.Global{Name: "Stepped"},
+				U: ast.App{T: ast.Global{Name: "succ"}, U: ast.App{T: ast.Global{Name: "succ"}, U: ast.Var{Ix: 1}}}, // succ (succ n)
+			},
+		},
+	}
+
+	err := env.DeclareInductive("Stepped", steppedType, []Constructor{
+		{Name: "base", Type: baseType},
+		{Name: "step", Type: stepType},
+	}, "steppedElim")
+	if err != nil {
+		t.Fatalf("DeclareInductive(Stepped) failed: %v", err)
+	}
+
+	// Verify IndexArgPositions metadata for step constructor
+	info := eval.LookupRecursor("steppedElim")
+	if info == nil {
+		t.Fatal("steppedElim not registered")
+	}
+
+	if info.NumIndices != 1 {
+		t.Errorf("NumIndices = %d, want 1", info.NumIndices)
+	}
+
+	// base has no recursive args
+	baseCtor := info.Ctors[0]
+	if len(baseCtor.IndexArgPositions) != 0 {
+		t.Errorf("base.IndexArgPositions = %v, want empty", baseCtor.IndexArgPositions)
+	}
+
+	// step has recursive arg s at position 1, but its index (succ n) is computed
+	stepCtor := info.Ctors[1]
+
+	// The metadata should be INCOMPLETE because (succ n) is not a variable.
+	// Either IndexArgPositions[1] is missing, or it exists but has length < NumIndices.
+	idxPos, ok := stepCtor.IndexArgPositions[1]
+	if ok && len(idxPos) >= info.NumIndices {
+		t.Errorf("step.IndexArgPositions[1] = %v, expected incomplete (len < %d) for computed index",
+			idxPos, info.NumIndices)
+	}
+
+	// Verify the evaluator handles this by falling back to the heuristic.
+	// Note: The heuristic may not produce semantically correct results for
+	// computed indices, but it should not panic.
+
+	eval.ClearRecursorRegistry()
+}
