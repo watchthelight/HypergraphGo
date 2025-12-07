@@ -748,6 +748,22 @@ func TestEndToEnd_IndexedVecReduction(t *testing.T) {
 		t.Errorf("vecElim Nat _ vnilResult _ zero (vnil Nat) = %q, want 'vnilResult'", normalized)
 	}
 
+	// Test vcons reduction:
+	// vecElim Nat P pvnil pvcons (succ zero) (vcons Nat zero x (vnil Nat))
+	// Should reduce to: pvcons zero x (vnil Nat) (vecElim Nat P pvnil pvcons zero (vnil Nat))
+	// With our pvcons = λn.λx.λxs.λih. vconsResult, this becomes vconsResult
+	succZero := ast.App{T: ast.Global{Name: "succ"}, U: zero}
+	x := ast.Global{Name: "someElement"}
+	// vcons Nat zero x (vnil Nat)
+	vconsApp := ast.MkApps(ast.Global{Name: "vcons"}, nat, zero, x, vnilNat)
+
+	term2 := ast.MkApps(vecElim, nat, motive, pvnil, pvcons, succZero, vconsApp)
+	normalized2 := eval.NormalizeNBE(term2)
+
+	if normalized2 != "vconsResult" {
+		t.Errorf("vecElim Nat _ _ _ (succ zero) (vcons Nat zero x (vnil Nat)) = %q, want 'vconsResult'", normalized2)
+	}
+
 	eval.ClearRecursorRegistry()
 }
 

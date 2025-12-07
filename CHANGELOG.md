@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tryGenericRecursorReduction` correctly handles params and indices in argument layout
   - Constructor spine validation accounts for `NumParams + NumArgs`
   - `buildRecursorInfo` extracts `NumParams` and `NumIndices` from `Inductive`
+  - `buildRecursorCallWithIndices` extracts IH indices from constructor args (fixes indexed IH construction)
 
 ### Tests
 - **Parameterized List tests** (`kernel/check/integration_test.go`)
@@ -42,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Indexed Vec tests** (`kernel/check/integration_test.go`)
   - `TestEndToEnd_IndexedVec`: Vec declaration, NumParams/NumIndices extraction, eliminator structure
-  - `TestEndToEnd_IndexedVecReduction`: vecElim reduction on `vnil Nat`
+  - `TestEndToEnd_IndexedVecReduction`: vecElim reduction on `vnil Nat` and `vcons Nat`
 
 ## [1.5.7] - 2025-12-06
 

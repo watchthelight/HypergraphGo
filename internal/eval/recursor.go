@@ -119,7 +119,7 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 	// Build the result by applying the case function to args and IHs
 	// For each argument:
 	//   - Apply the argument
-	//   - If recursive, also apply the IH (elim P cases... arg)
+	//   - If recursive, also apply the IH (elim P cases... indices_from_ctor arg)
 	result := caseFunc
 
 	isRecursive := make(map[int]bool)
@@ -133,10 +133,16 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 
 		// If recursive, also apply the IH
 		if isRecursive[i] {
-			// IH = elim params... P cases... arg
-			// We need all args up to (but not including) scrutinee, plus the arg
-			prefixEnd := info.NumParams + 1 + info.NumCases + info.NumIndices
-			ih := buildRecursorCall(elimName, sp[:prefixEnd], arg)
+			// IH = elim params... P cases... indices_from_recursive_arg... arg
+			//
+			// For indexed inductives, the indices for the IH come from the recursive
+			// argument's type, which is encoded in the constructor's data args.
+			// For a recursive arg at position i, its indices are the preceding
+			// data args that appear in its type.
+			//
+			// For non-indexed inductives (NumIndices == 0), we just use params + P + cases.
+			// For indexed inductives, we extract indices from constructor args.
+			ih := buildRecursorCallWithIndices(elimName, sp, ctorArgs, i, info)
 			result = Apply(result, ih)
 		}
 	}
@@ -145,6 +151,66 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 	for _, extra := range extraArgs {
 		result = Apply(result, extra)
 	}
+
+	return result
+}
+
+// buildRecursorCallWithIndices constructs the IH call for indexed inductives.
+// For a recursive arg at position recArgIdx in ctorArgs, extracts the correct indices.
+//
+// For Vec with vcons : (A : Type) -> (n : Nat) -> A -> Vec A n -> Vec A (succ n):
+//   - data args: [n, x, xs]
+//   - xs is recursive at index 2
+//   - xs : Vec A n, so its index is n (ctorArgs[0])
+//
+// The IH for xs should be: vecElim A P pvnil pvcons n xs
+func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value, recArgIdx int, info *RecursorInfo) Value {
+	result := vGlobal(elimName)
+
+	// Apply params
+	for i := 0; i < info.NumParams; i++ {
+		result = Apply(result, sp[i])
+	}
+
+	// Apply motive P
+	result = Apply(result, sp[info.NumParams])
+
+	// Apply cases
+	casesStart := info.NumParams + 1
+	for i := 0; i < info.NumCases; i++ {
+		result = Apply(result, sp[casesStart+i])
+	}
+
+	// Apply indices from constructor args
+	// For indexed inductives, the indices for a recursive arg at position i
+	// come from earlier constructor args. Specifically, for standard indexed
+	// inductives like Vec, the index args precede the recursive arg.
+	//
+	// This is a heuristic that works for Vec-like inductives where:
+	//   vcons : A -> (n : Nat) -> A -> Vec A n -> Vec A (succ n)
+	// The recursive arg xs has type Vec A n where n is ctorArgs[0].
+	//
+	// For more complex indexed inductives, this would need refinement.
+	if info.NumIndices > 0 {
+		// Extract indices from constructor args preceding the recursive arg
+		// For Vec, recArgIdx for xs is 2, and its index n is at ctorArgs[0]
+		// The indices are the first NumIndices non-element args
+		indicesExtracted := 0
+		for j := 0; j < recArgIdx && indicesExtracted < info.NumIndices; j++ {
+			// Check if this arg position could be an index (heuristic: not the recursive arg itself)
+			// This works for Vec where indices come first
+			result = Apply(result, ctorArgs[j])
+			indicesExtracted++
+		}
+		// If we didn't find enough indices, fall back to first args
+		for indicesExtracted < info.NumIndices && indicesExtracted < len(ctorArgs) {
+			result = Apply(result, ctorArgs[indicesExtracted])
+			indicesExtracted++
+		}
+	}
+
+	// Apply the recursive argument
+	result = Apply(result, ctorArgs[recArgIdx])
 
 	return result
 }
