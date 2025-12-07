@@ -40,8 +40,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ConstructorInfo.IndexArgPositions` maps each recursive arg to its index arg positions in the constructor
   - `computeIndexArgPositions` analyzes recursive arg types at declaration time to extract index positions
   - Uses De Bruijn analysis: for data arg at position j, a Var{V} in its type refers to position j-1-V
-  - Eliminates runtime heuristics in `buildRecursorCallWithIndices` - now uses precomputed metadata
-  - Fallback heuristic retained for backwards compatibility with older inductives
+  - Precomputed metadata used only when COMPLETE (all indices are variable references)
+  - Fallback heuristic retained for backwards compatibility and computed index expressions
+
+### Fixed
+- **Partial index metadata bug** (`internal/eval/recursor.go:191-224`)
+  - Fixed: `buildRecursorCallWithIndices` now only uses `IndexArgPositions` when metadata is complete
+  - Previously, partial metadata (some indices are Vars, others are computed expressions) would
+    apply only the partial set without falling back, producing incorrect IH calls
+  - Now correctly falls back to heuristic when `len(IndexArgPositions[recArgIdx]) != NumIndices`
+
+### Known Limitations
+- **Computed index expressions**: Indices that are computed expressions (e.g., `succ n` in `Vec A (succ n)`)
+  are not captured in `IndexArgPositions` metadata and rely on the fallback heuristic
+- The fallback heuristic assumes indices precede the recursive arg, which may not hold for all
+  indexed inductives with computed index expressions
 
 ### Tests
 - **Parameterized List tests** (`kernel/check/integration_test.go`)

@@ -189,10 +189,14 @@ func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value,
 
 	// Apply indices from constructor args using precomputed metadata
 	if info.NumIndices > 0 {
-		// Use precomputed IndexArgPositions if available
+		// Use precomputed IndexArgPositions if available and COMPLETE
+		// (i.e., we have position info for ALL indices, not just some)
+		useMetadata := false
 		if ctor.IndexArgPositions != nil {
-			if indexPositions, ok := ctor.IndexArgPositions[recArgIdx]; ok && len(indexPositions) > 0 {
+			if indexPositions, ok := ctor.IndexArgPositions[recArgIdx]; ok && len(indexPositions) == info.NumIndices {
 				// Use the exact positions computed at declaration time
+				// Only if we have complete metadata (all indices are variable references)
+				useMetadata = true
 				for _, pos := range indexPositions {
 					if pos >= 0 && pos < len(ctorArgs) {
 						result = Apply(result, ctorArgs[pos])
@@ -200,9 +204,13 @@ func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value,
 				}
 			}
 		}
-		// If no metadata available, fall back to heuristic for backwards compatibility
-		// (e.g., for inductives declared before this feature)
-		if ctor.IndexArgPositions == nil || len(ctor.IndexArgPositions[recArgIdx]) == 0 {
+		// If no metadata or incomplete metadata, fall back to heuristic
+		// This handles:
+		// - Inductives declared before IndexArgPositions feature
+		// - Indices that are computed expressions (not variable references)
+		// Note: The heuristic assumes indices precede the recursive arg, which
+		// may not hold for all indexed inductives with computed index expressions.
+		if !useMetadata {
 			indicesExtracted := 0
 			for j := 0; j < recArgIdx && indicesExtracted < info.NumIndices; j++ {
 				result = Apply(result, ctorArgs[j])
