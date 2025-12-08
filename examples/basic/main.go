@@ -12,9 +12,9 @@ func main() {
 	h.AddVertex("A")
 	h.AddVertex("B")
 	h.AddVertex("C")
-	h.AddEdge("E1", []string{"A", "B"})
-	h.AddEdge("E2", []string{"B", "C"})
-	h.AddEdge("E3", []string{"A", "C"})
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"B", "C"})
+	_ = h.AddEdge("E3", []string{"A", "C"})
 
 	fmt.Println("Vertices:", h.Vertices())
 	fmt.Println("Edges:", h.Edges())
@@ -35,11 +35,11 @@ func main() {
 
 	// Write dual and section to JSON
 	dualFile, _ := os.Create("dual.json")
-	dual.SaveJSON(dualFile)
-	dualFile.Close()
+	_ = dual.SaveJSON(dualFile)
+	_ = dualFile.Close()
 
 	sectionFile, _ := os.Create("section.json")
 	// For section, since it's Graph, marshal manually
-	fmt.Fprintf(sectionFile, `{"vertices": ["A","B","C"], "edges": [{"from":"A","to":"B"},{"from":"B","to":"C"},{"from":"A","to":"C"}]}`)
-	sectionFile.Close()
+	_, _ = fmt.Fprintf(sectionFile, `{"vertices": ["A","B","C"], "edges": [{"from":"A","to":"B"},{"from":"B","to":"C"},{"from":"A","to":"C"}]}`)
+	_ = sectionFile.Close()
 }

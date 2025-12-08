@@ -548,16 +548,6 @@ func (e *InductiveError) Error() string {
 	return "inductive " + e.IndName + ": " + e.Message
 }
 
-// validateIsSort checks that ty is a Sort.
-func validateIsSort(ty ast.Term) error {
-	switch ty.(type) {
-	case ast.Sort:
-		return nil
-	default:
-		return &ValidationError{Msg: "expected Sort, got " + ast.Sprint(ty)}
-	}
-}
-
 // extractPiChain extracts all Pi arguments from a type.
 // For Type -> Nat -> Type, returns ([Type, Nat], Type)
 // For Type, returns ([], Type)

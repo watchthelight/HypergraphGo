@@ -30,6 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TestMutualInductive_Positivity_Reject` - rejects negative occurrences
 - `TestMutualInductive_Positivity_Accept` - accepts positive occurrences
 - `TestMutualInductive_Reduction` - verifies separate eliminator reduction
+- `TestMutualInductive_SameTypeRecursion` - same-type recursion still gets IH in mutual blocks
+- `TestMutualInductive_NestedNegative` - rejects deeply nested negative occurrences
+- `TestMutualInductive_DoublyNegativeIsPositive` - documents strict positivity (no double-flip)
+- `TestMutualInductive_SymmetricNegative` - symmetric checking across mutual types
+
+### Fixed
+- **golangci-lint cleanup** (30 issues resolved)
+  - S1016 staticcheck: Use type conversions instead of struct literals in `internal/ast/resolve.go`, `kernel/check/bidir.go`
+  - ST1023 staticcheck: Omit redundant type in declaration in `kernel/check/recursor_test.go`
+  - Removed unused `sigma` function from `internal/core/conv_test.go`
+  - Removed unused `cubicalEnabled` variable from `internal/parser/sexpr.go` and `sexpr_cubical.go`
+  - Fixed unchecked error returns in `examples/basic/main.go` and `hypergraph/edge_cases_test.go`
 
 ## [1.5.8] - 2025-12-06
 

@@ -235,12 +235,3 @@ func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value,
 
 	return result
 }
-
-// buildRecursorCall constructs: elim P case_c1 ... case_cn arg
-func buildRecursorCall(elimName string, prefix []Value, arg Value) Value {
-	result := vGlobal(elimName)
-	for _, v := range prefix {
-		result = Apply(result, v)
-	}
-	return Apply(result, arg)
-}

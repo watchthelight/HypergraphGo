@@ -32,13 +32,13 @@ func Resolve(globals Globals, sc scope, r RTerm) (Term, error) {
 			return Var{Ix: ix}, nil
 		}
 		if globals != nil && globals.Has(t.Name) {
-			return Global{Name: t.Name}, nil
+			return Global(t), nil
 		}
 		return nil, fmt.Errorf("resolve: unbound variable %q", t.Name)
 	case RGlobal:
-		return Global{Name: t.Name}, nil
+		return Global(t), nil
 	case RSort:
-		return Sort{U: t.U}, nil
+		return Sort(t), nil
 	case RPi:
 		A, err := Resolve(globals, sc, t.A)
 		if err != nil {

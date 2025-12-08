@@ -433,7 +433,7 @@ func TestBuildCaseType_Tree(t *testing.T) {
 	// Expected: (l : Tree) -> (ih_l : P l) -> (r : Tree) -> (ih_r : P r) -> P (branch l r)
 	// Count the Pi levels: should be 4 binders + result
 	count := 0
-	var current ast.Term = result
+	current := result
 	binders := []string{}
 	for {
 		if pi, ok := current.(ast.Pi); ok {

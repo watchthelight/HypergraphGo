@@ -44,9 +44,9 @@ func TestEmptyHypergraph(t *testing.T) {
 // TestRemoveVertex tests vertex removal with cascade effects.
 func TestRemoveVertex(t *testing.T) {
 	h := NewHypergraph[string]()
-	h.AddEdge("E1", []string{"A", "B", "C"})
-	h.AddEdge("E2", []string{"B", "C", "D"})
-	h.AddEdge("E3", []string{"D", "E"})
+	_ = h.AddEdge("E1", []string{"A", "B", "C"})
+	_ = h.AddEdge("E2", []string{"B", "C", "D"})
+	_ = h.AddEdge("E3", []string{"D", "E"})
 
 	// Remove B - should affect E1 and E2
 	h.RemoveVertex("B")
@@ -77,8 +77,8 @@ func TestRemoveVertex(t *testing.T) {
 // TestRemoveEdge tests edge removal.
 func TestRemoveEdge(t *testing.T) {
 	h := NewHypergraph[string]()
-	h.AddEdge("E1", []string{"A", "B"})
-	h.AddEdge("E2", []string{"B", "C"})
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"B", "C"})
 
 	h.RemoveEdge("E1")
 
@@ -109,7 +109,7 @@ func TestRemoveEdge(t *testing.T) {
 // TestBFSInvalidStart tests BFS with non-existent start vertex.
 func TestBFSInvalidStart(t *testing.T) {
 	h := NewHypergraph[string]()
-	h.AddEdge("E1", []string{"A", "B", "C"})
+	_ = h.AddEdge("E1", []string{"A", "B", "C"})
 
 	result := h.BFS("Z")
 	if result != nil {
@@ -127,7 +127,7 @@ func TestIsolatedVertex(t *testing.T) {
 	h := NewHypergraph[string]()
 	h.AddVertex("A")
 	h.AddVertex("B")
-	h.AddEdge("E1", []string{"C", "D"})
+	_ = h.AddEdge("E1", []string{"C", "D"})
 
 	if h.NumVertices() != 4 {
 		t.Errorf("expected 4 vertices, got %d", h.NumVertices())
@@ -154,10 +154,10 @@ func TestIsolatedVertex(t *testing.T) {
 // TestDisconnectedComponents tests BFS on multi-component graphs.
 func TestDisconnectedComponents(t *testing.T) {
 	h := NewHypergraph[string]()
-	h.AddEdge("E1", []string{"A", "B"})
-	h.AddEdge("E2", []string{"B", "C"})
-	h.AddEdge("E3", []string{"X", "Y"})
-	h.AddEdge("E4", []string{"Y", "Z"})
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"B", "C"})
+	_ = h.AddEdge("E3", []string{"X", "Y"})
+	_ = h.AddEdge("E4", []string{"Y", "Z"})
 
 	// BFS from A should not reach X, Y, Z
 	reachable := h.BFS("A")
@@ -183,9 +183,9 @@ func TestDisconnectedComponents(t *testing.T) {
 // TestDFSTraversal tests DFS correctness.
 func TestDFSTraversal(t *testing.T) {
 	h := NewHypergraph[string]()
-	h.AddEdge("E1", []string{"A", "B"})
-	h.AddEdge("E2", []string{"B", "C"})
-	h.AddEdge("E3", []string{"C", "D"})
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"B", "C"})
+	_ = h.AddEdge("E3", []string{"C", "D"})
 
 	result := h.DFS("A")
 
@@ -240,7 +240,7 @@ func BenchmarkAddEdge(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		h := NewHypergraph[int]()
 		for j := 0; j < 100; j++ {
-			h.AddEdge(string(rune('A'+j)), []int{j, j + 1, j + 2})
+			_ = h.AddEdge(string(rune('A'+j)), []int{j, j + 1, j + 2})
 		}
 	}
 }
@@ -250,7 +250,7 @@ func BenchmarkRemoveVertex(b *testing.B) {
 	// Setup
 	h := NewHypergraph[int]()
 	for j := 0; j < 100; j++ {
-		h.AddEdge(string(rune('A'+j)), []int{j, j + 1, j + 2})
+		_ = h.AddEdge(string(rune('A'+j)), []int{j, j + 1, j + 2})
 	}
 
 	b.ResetTimer()
