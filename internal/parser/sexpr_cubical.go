@@ -1,5 +1,3 @@
-//go:build cubical
-
 package parser
 
 import (

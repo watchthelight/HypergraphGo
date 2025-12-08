@@ -1,5 +1,3 @@
-//go:build cubical
-
 package check
 
 import (
@@ -69,6 +67,72 @@ func synthExtension(c *Checker, context *tyctx.Ctx, span Span, term ast.Term) (a
 
 	case ast.Transport:
 		return synthTransport(c, context, span, t)
+
+	// Face formulas
+	case ast.FaceTop, ast.FaceBot:
+		// Face formulas are not types themselves, but we allow them in certain contexts
+		// They represent face constraints (cofibrations)
+		// For now, treat them as having a special "Face" kind
+		return ast.Global{Name: "Face"}, nil, true
+
+	case ast.FaceEq:
+		// Check interval variable is valid
+		if !c.CheckIVar(t.IVar) {
+			return nil, errUnboundIVar(span, t.IVar), true
+		}
+		return ast.Global{Name: "Face"}, nil, true
+
+	case ast.FaceAnd:
+		// Check both sides are faces
+		if checkErr := c.checkFace(context, span, t.Left); checkErr != nil {
+			return nil, checkErr, true
+		}
+		if checkErr := c.checkFace(context, span, t.Right); checkErr != nil {
+			return nil, checkErr, true
+		}
+		return ast.Global{Name: "Face"}, nil, true
+
+	case ast.FaceOr:
+		// Check both sides are faces
+		if checkErr := c.checkFace(context, span, t.Left); checkErr != nil {
+			return nil, checkErr, true
+		}
+		if checkErr := c.checkFace(context, span, t.Right); checkErr != nil {
+			return nil, checkErr, true
+		}
+		return ast.Global{Name: "Face"}, nil, true
+
+	// Partial types
+	case ast.Partial:
+		return synthPartial(c, context, span, t)
+
+	case ast.System:
+		return synthSystem(c, context, span, t)
+
+	// Composition operations
+	case ast.Comp:
+		return synthComp(c, context, span, t)
+
+	case ast.HComp:
+		return synthHComp(c, context, span, t)
+
+	case ast.Fill:
+		return synthFill(c, context, span, t)
+
+	case ast.Glue:
+		return synthGlue(c, context, span, t)
+
+	case ast.GlueElem:
+		return synthGlueElem(c, context, span, t)
+
+	case ast.Unglue:
+		return synthUnglue(c, context, span, t)
+
+	case ast.UA:
+		return synthUA(c, context, span, t)
+
+	case ast.UABeta:
+		return synthUABeta(c, context, span, t)
 
 	default:
 		return nil, nil, false
@@ -309,4 +373,384 @@ func errUnboundIVar(span Span, ix int) *TypeError {
 		Kind:    ErrUnboundVariable, // reuse existing kind
 		Message: fmt.Sprintf("unbound interval variable %d", ix),
 	}
+}
+
+// --- Face and Partial Type Checking ---
+
+// checkFace validates a face formula.
+func (c *Checker) checkFace(context *tyctx.Ctx, span Span, face ast.Face) *TypeError {
+	if face == nil {
+		return nil
+	}
+	switch f := face.(type) {
+	case ast.FaceTop, ast.FaceBot:
+		return nil
+
+	case ast.FaceEq:
+		if !c.CheckIVar(f.IVar) {
+			return errUnboundIVar(span, f.IVar)
+		}
+		return nil
+
+	case ast.FaceAnd:
+		if err := c.checkFace(context, span, f.Left); err != nil {
+			return err
+		}
+		return c.checkFace(context, span, f.Right)
+
+	case ast.FaceOr:
+		if err := c.checkFace(context, span, f.Left); err != nil {
+			return err
+		}
+		return c.checkFace(context, span, f.Right)
+
+	default:
+		return &TypeError{
+			Span:    span,
+			Kind:    ErrTypeMismatch,
+			Message: "invalid face formula",
+		}
+	}
+}
+
+// synthPartial synthesizes the type of a partial type.
+// Partial φ A : Type_i where φ : Face and A : Type_i
+func synthPartial(c *Checker, context *tyctx.Ctx, span Span, partial ast.Partial) (ast.Term, *TypeError, bool) {
+	// Check the face formula is valid
+	if err := c.checkFace(context, span, partial.Phi); err != nil {
+		return nil, err, true
+	}
+
+	// Check A is a type
+	level, err := c.checkIsType(context, span, partial.A)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Partial φ A : Type_i (same level as A)
+	return ast.Sort{U: level}, nil, true
+}
+
+// synthSystem synthesizes the type of a system.
+// [φ₁ ↦ t₁, ...] : Partial (φ₁ ∨ ...) A
+// where each t_i has type A when φ_i holds
+func synthSystem(c *Checker, context *tyctx.Ctx, span Span, sys ast.System) (ast.Term, *TypeError, bool) {
+	if len(sys.Branches) == 0 {
+		// Empty system: has type Partial ⊥ A for any A
+		// We can't infer A without an annotation, so error
+		return nil, &TypeError{
+			Span:    span,
+			Kind:    ErrCannotInfer,
+			Message: "cannot infer type of empty system; add annotation",
+		}, true
+	}
+
+	// Check and synthesize from first branch to get the type
+	first := sys.Branches[0]
+	if err := c.checkFace(context, span, first.Phi); err != nil {
+		return nil, err, true
+	}
+
+	// Synthesize type from first branch term
+	termTy, err := c.synth(context, span, first.Term)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Build the combined face formula
+	combinedFace := first.Phi
+
+	// Check remaining branches
+	for i := 1; i < len(sys.Branches); i++ {
+		br := sys.Branches[i]
+
+		// Check face formula
+		if err := c.checkFace(context, span, br.Phi); err != nil {
+			return nil, err, true
+		}
+
+		// Check term has the same type
+		if checkErr := c.check(context, span, br.Term, termTy); checkErr != nil {
+			return nil, checkErr, true
+		}
+
+		// Add to combined face
+		combinedFace = ast.FaceOr{Left: combinedFace, Right: br.Phi}
+	}
+
+	// TODO: Check agreement on overlaps (φ_i ∧ φ_j ⊢ t_i = t_j)
+	// This requires evaluating under face constraints, which we defer for now
+
+	return ast.Partial{Phi: combinedFace, A: termTy}, nil, true
+}
+
+// --- Composition Type Checking ---
+
+// synthComp synthesizes the type of heterogeneous composition.
+// comp^i A [φ ↦ u] a₀ : A[i1/i]
+func synthComp(c *Checker, context *tyctx.Ctx, span Span, comp ast.Comp) (ast.Term, *TypeError, bool) {
+	// Push interval variable for type family and tube
+	popIVar := c.PushIVar()
+	defer popIVar()
+
+	// Check A[i0/i] is a type
+	aAtI0 := subst.ISubst(0, ast.I0{}, comp.A)
+	_, err := c.checkIsType(context, span, aAtI0)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check the face formula (under interval binder)
+	if checkErr := c.checkFace(context, span, comp.Phi); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// Check base : A[i0/i]
+	if checkErr := c.check(context, span, comp.Base, aAtI0); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// TODO: Check tube has type A when φ holds
+	// TODO: Check tube[i0/i] = base when φ[i0/i] holds
+
+	// Result type is A[i1/i]
+	return subst.ISubst(0, ast.I1{}, comp.A), nil, true
+}
+
+// synthHComp synthesizes the type of homogeneous composition.
+// hcomp A [φ ↦ u] a₀ : A
+func synthHComp(c *Checker, context *tyctx.Ctx, span Span, hcomp ast.HComp) (ast.Term, *TypeError, bool) {
+	// Push interval variable for tube
+	popIVar := c.PushIVar()
+	defer popIVar()
+
+	// Check A is a type
+	_, err := c.checkIsType(context, span, hcomp.A)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check the face formula (under interval binder)
+	if checkErr := c.checkFace(context, span, hcomp.Phi); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// Check base : A
+	if checkErr := c.check(context, span, hcomp.Base, hcomp.A); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// TODO: Check tube has type A when φ holds
+	// TODO: Check tube[i0/i] = base when φ[i0/i] holds
+
+	// Result type is A (same as input, since A is constant)
+	return hcomp.A, nil, true
+}
+
+// synthFill synthesizes the type of fill.
+// fill^i A [φ ↦ u] a₀ : A (under interval binder j, result is A[j/i])
+func synthFill(c *Checker, context *tyctx.Ctx, span Span, fill ast.Fill) (ast.Term, *TypeError, bool) {
+	// Push interval variable for type family and tube
+	popIVar := c.PushIVar()
+	defer popIVar()
+
+	// Check A[i0/i] is a type
+	aAtI0 := subst.ISubst(0, ast.I0{}, fill.A)
+	_, err := c.checkIsType(context, span, aAtI0)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check the face formula (under interval binder)
+	if checkErr := c.checkFace(context, span, fill.Phi); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// Check base : A[i0/i]
+	if checkErr := c.check(context, span, fill.Base, aAtI0); checkErr != nil {
+		return nil, checkErr, true
+	}
+
+	// TODO: Check tube and agreement
+
+	// Fill produces a value in A (the type family itself, since fill @ j has type A[j/i])
+	// For now, return the type family - caller should apply to interval
+	return fill.A, nil, true
+}
+
+// synthGlue synthesizes the type of Glue A [φ ↦ (T, e)].
+// Formation rule:
+//
+//	Γ ⊢ A : Type_i    Γ, φ ⊢ T : Type_i    Γ, φ ⊢ e : Equiv T A
+//	────────────────────────────────────────────────────────────
+//	Γ ⊢ Glue A [φ ↦ (T, e)] : Type_i
+func synthGlue(c *Checker, context *tyctx.Ctx, span Span, glue ast.Glue) (ast.Term, *TypeError, bool) {
+	// Check A is a type
+	sortA, err := c.checkIsType(context, span, glue.A)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check each branch
+	for _, br := range glue.System {
+		// Check face formula
+		if checkErr := c.checkFace(context, span, br.Phi); checkErr != nil {
+			return nil, checkErr, true
+		}
+
+		// Check T is a type (at same level as A)
+		sortT, err := c.checkIsType(context, span, br.T)
+		if err != nil {
+			return nil, err, true
+		}
+
+		// Universe levels should match
+		if sortA != sortT {
+			return nil, errTypeMismatch(span, ast.Sort{U: sortA}, ast.Sort{U: sortT}), true
+		}
+
+		// TODO: Check e : Equiv T A
+		// For now, we just check that Equiv is a type
+		_, err = c.Synth(context, span, br.Equiv)
+		if err != nil {
+			return nil, err, true
+		}
+	}
+
+	// Result type is same universe as A
+	return ast.Sort{U: sortA}, nil, true
+}
+
+// synthGlueElem synthesizes the type of glue [φ ↦ t] a.
+// Typing rule:
+//
+//	Γ ⊢ a : A    Γ, φ ⊢ t : T    Γ, φ ⊢ e.fst t = a : A
+//	────────────────────────────────────────────────────
+//	Γ ⊢ glue [φ ↦ t] a : Glue A [φ ↦ (T, e)]
+func synthGlueElem(c *Checker, context *tyctx.Ctx, span Span, elem ast.GlueElem) (ast.Term, *TypeError, bool) {
+	// Synthesize base type
+	baseType, err := c.Synth(context, span, elem.Base)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Build Glue type from the branches
+	glueBranches := make([]ast.GlueBranch, len(elem.System))
+	for i, br := range elem.System {
+		// Check face formula
+		if checkErr := c.checkFace(context, span, br.Phi); checkErr != nil {
+			return nil, checkErr, true
+		}
+
+		// Synthesize term type
+		termType, err := c.Synth(context, span, br.Term)
+		if err != nil {
+			return nil, err, true
+		}
+
+		// For now, use the term type as T and leave Equiv as placeholder
+		// A full implementation would require tracking the equivalence
+		glueBranches[i] = ast.GlueBranch{
+			Phi:   br.Phi,
+			T:     termType,
+			Equiv: ast.Global{Name: "idEquiv"}, // Placeholder
+		}
+	}
+
+	// Result is Glue type
+	return ast.Glue{A: baseType, System: glueBranches}, nil, true
+}
+
+// synthUnglue synthesizes the type of unglue g.
+// Typing rule:
+//
+//	Γ ⊢ g : Glue A [φ ↦ (T, e)]
+//	───────────────────────────
+//	Γ ⊢ unglue g : A
+func synthUnglue(c *Checker, context *tyctx.Ctx, span Span, unglue ast.Unglue) (ast.Term, *TypeError, bool) {
+	// Synthesize type of g
+	gType, err := c.Synth(context, span, unglue.G)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// If g has Glue type, return the base type A
+	if glueType, ok := gType.(ast.Glue); ok {
+		return glueType.A, nil, true
+	}
+
+	// If we have a stored Glue type annotation, use it
+	if unglue.Ty != nil {
+		if glueType, ok := unglue.Ty.(ast.Glue); ok {
+			return glueType.A, nil, true
+		}
+	}
+
+	// Otherwise stuck - can't determine base type
+	// Return the synthesized type for now
+	return gType, nil, true
+}
+
+// synthUA synthesizes the type of ua e : Path Type A B.
+// Typing rule:
+//
+//	Γ ⊢ A : Type_i    Γ ⊢ B : Type_i    Γ ⊢ e : Equiv A B
+//	─────────────────────────────────────────────────────
+//	Γ ⊢ ua e : Path Type_i A B
+func synthUA(c *Checker, context *tyctx.Ctx, span Span, ua ast.UA) (ast.Term, *TypeError, bool) {
+	// Check A is a type
+	sortA, err := c.checkIsType(context, span, ua.A)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check B is a type at same level
+	sortB, err := c.checkIsType(context, span, ua.B)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Universe levels should match
+	if sortA != sortB {
+		return nil, errTypeMismatch(span, ast.Sort{U: sortA}, ast.Sort{U: sortB}), true
+	}
+
+	// Check equivalence term (for now just verify it type-checks)
+	_, err = c.Synth(context, span, ua.Equiv)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Result type: Path Type_i A B
+	return ast.Path{
+		A: ast.Sort{U: sortA},
+		X: ua.A,
+		Y: ua.B,
+	}, nil, true
+}
+
+// synthUABeta synthesizes the type of ua-β e a.
+// This represents the computation: transport (ua e) a = e.fst a.
+// Typing rule:
+//
+//	Γ ⊢ e : Equiv A B    Γ ⊢ a : A
+//	──────────────────────────────
+//	Γ ⊢ ua-β e a : B
+func synthUABeta(c *Checker, context *tyctx.Ctx, span Span, uab ast.UABeta) (ast.Term, *TypeError, bool) {
+	// Synthesize type of equivalence
+	equivType, err := c.Synth(context, span, uab.Equiv)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// Check argument type-checks
+	_, err = c.Synth(context, span, uab.Arg)
+	if err != nil {
+		return nil, err, true
+	}
+
+	// The result type is B (the target type of the equivalence)
+	// For now, return the synthesized type of the equivalence
+	// A full implementation would extract B from Equiv A B
+	return equivType, nil, true
 }

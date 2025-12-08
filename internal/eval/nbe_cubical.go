@@ -1,7 +1,5 @@
-//go:build cubical
-
 // Package eval provides NbE for the HoTT kernel.
-// This file contains cubical type theory extensions (gated by build tag).
+// This file contains cubical type theory extensions.
 package eval
 
 import "github.com/watchthelight/HypergraphGo/internal/ast"
@@ -59,6 +57,168 @@ type VTransport struct {
 }
 
 func (VTransport) isValue() {}
+
+// --- Face Formula Values ---
+
+// VFaceTop represents the always-true face formula (⊤).
+type VFaceTop struct{}
+
+func (VFaceTop) isValue() {}
+func (VFaceTop) isFaceValue() {}
+
+// VFaceBot represents the always-false face formula (⊥).
+type VFaceBot struct{}
+
+func (VFaceBot) isValue() {}
+func (VFaceBot) isFaceValue() {}
+
+// VFaceEq represents an endpoint constraint: (i = 0) or (i = 1).
+type VFaceEq struct {
+	ILevel int  // Interval variable level (for reification)
+	IsOne  bool // true for (i = 1), false for (i = 0)
+}
+
+func (VFaceEq) isValue() {}
+func (VFaceEq) isFaceValue() {}
+
+// VFaceAnd represents conjunction of faces: φ ∧ ψ.
+type VFaceAnd struct {
+	Left  FaceValue
+	Right FaceValue
+}
+
+func (VFaceAnd) isValue() {}
+func (VFaceAnd) isFaceValue() {}
+
+// VFaceOr represents disjunction of faces: φ ∨ ψ.
+type VFaceOr struct {
+	Left  FaceValue
+	Right FaceValue
+}
+
+func (VFaceOr) isValue() {}
+func (VFaceOr) isFaceValue() {}
+
+// FaceValue is the interface for face formula values.
+type FaceValue interface {
+	Value
+	isFaceValue()
+}
+
+// --- Partial Type Values ---
+
+// VPartial represents a partial type value: Partial φ A.
+type VPartial struct {
+	Phi FaceValue // The face constraint
+	A   Value     // The type
+}
+
+func (VPartial) isValue() {}
+
+// VSystem represents a system of partial elements.
+type VSystem struct {
+	Branches []VSystemBranch
+}
+
+func (VSystem) isValue() {}
+
+// VSystemBranch represents a single branch in a system value.
+type VSystemBranch struct {
+	Phi  FaceValue
+	Term Value
+}
+
+// --- Composition Value Types ---
+
+// VComp represents a stuck heterogeneous composition.
+// Used when the face is not satisfied and reduction cannot proceed.
+type VComp struct {
+	A    *IClosure // Type line: I → Type
+	Phi  FaceValue // Face constraint
+	Tube *IClosure // Partial tube
+	Base Value     // Base element
+}
+
+func (VComp) isValue() {}
+
+// VHComp represents a stuck homogeneous composition.
+type VHComp struct {
+	A    Value     // Type (constant)
+	Phi  FaceValue // Face constraint
+	Tube *IClosure // Partial tube
+	Base Value     // Base element
+}
+
+func (VHComp) isValue() {}
+
+// VFill represents a stuck fill operation.
+type VFill struct {
+	A    *IClosure // Type line: I → Type
+	Phi  FaceValue // Face constraint
+	Tube *IClosure // Partial tube
+	Base Value     // Base element
+}
+
+func (VFill) isValue() {}
+
+// --- Glue Type Values ---
+
+// VGlue represents a Glue type value: Glue A [φ ↦ (T, e)].
+type VGlue struct {
+	A      Value           // Base type
+	System []VGlueBranch   // System of equivalences
+}
+
+func (VGlue) isValue() {}
+
+// VGlueBranch represents a branch in a VGlue value.
+type VGlueBranch struct {
+	Phi   FaceValue // Face constraint
+	T     Value     // Fiber type
+	Equiv Value     // Equivalence: Equiv T A
+}
+
+// VGlueElem represents a Glue element value: glue [φ ↦ t] a.
+type VGlueElem struct {
+	System []VGlueElemBranch // Partial element in fiber
+	Base   Value             // Base element
+}
+
+func (VGlueElem) isValue() {}
+
+// VGlueElemBranch represents a branch in a VGlueElem value.
+type VGlueElemBranch struct {
+	Phi  FaceValue
+	Term Value
+}
+
+// VUnglue represents a stuck unglue operation.
+type VUnglue struct {
+	Ty Value // The Glue type
+	G  Value // The Glue element
+}
+
+func (VUnglue) isValue() {}
+
+// --- Univalence Values ---
+
+// VUA represents ua e : Path Type A B.
+// ua is defined as: ua e = <i> Glue B [(i=0) ↦ (A, e)]
+type VUA struct {
+	A     Value // Source type
+	B     Value // Target type
+	Equiv Value // Equivalence: Equiv A B
+}
+
+func (VUA) isValue() {}
+
+// VUABeta represents the computation result: transport (ua e) a = e.fst a.
+type VUABeta struct {
+	Equiv Value // The equivalence e
+	Arg   Value // The argument a : A
+}
+
+func (VUABeta) isValue() {}
 
 // --- Interval Closure and Environment ---
 
@@ -233,6 +393,113 @@ func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 		e := EvalCubical(env, ienv, tm.E)
 		return EvalTransport(aClosure, e)
 
+	// --- Face Formulas ---
+
+	case ast.FaceTop:
+		return VFaceTop{}
+
+	case ast.FaceBot:
+		return VFaceBot{}
+
+	case ast.FaceEq:
+		// Look up the interval variable to see if it's resolved
+		iVal := ienv.Lookup(tm.IVar)
+		return evalFaceEq(iVal, tm.IVar, tm.IsOne, ienv.ILen())
+
+	case ast.FaceAnd:
+		left := evalFace(env, ienv, tm.Left)
+		right := evalFace(env, ienv, tm.Right)
+		return simplifyFaceAnd(left, right)
+
+	case ast.FaceOr:
+		left := evalFace(env, ienv, tm.Left)
+		right := evalFace(env, ienv, tm.Right)
+		return simplifyFaceOr(left, right)
+
+	// --- Partial Types and Systems ---
+
+	case ast.Partial:
+		phi := evalFace(env, ienv, tm.Phi)
+		a := EvalCubical(env, ienv, tm.A)
+		return VPartial{Phi: phi, A: a}
+
+	case ast.System:
+		branches := make([]VSystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			phi := evalFace(env, ienv, br.Phi)
+			term := EvalCubical(env, ienv, br.Term)
+			branches[i] = VSystemBranch{Phi: phi, Term: term}
+		}
+		return VSystem{Branches: branches}
+
+	// --- Composition Operations ---
+
+	case ast.Comp:
+		// Evaluate the face constraint
+		phi := evalFace(env, ienv, tm.Phi)
+		// Create closures for A and Tube (they bind interval variables)
+		aClosure := &IClosure{Env: env, IEnv: ienv, Term: tm.A}
+		tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: tm.Tube}
+		base := EvalCubical(env, ienv, tm.Base)
+		return EvalComp(aClosure, phi, tubeClosure, base)
+
+	case ast.HComp:
+		// Evaluate components
+		a := EvalCubical(env, ienv, tm.A)
+		phi := evalFace(env, ienv, tm.Phi)
+		tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: tm.Tube}
+		base := EvalCubical(env, ienv, tm.Base)
+		return EvalHComp(a, phi, tubeClosure, base)
+
+	case ast.Fill:
+		// Create closures for A and Tube
+		phi := evalFace(env, ienv, tm.Phi)
+		aClosure := &IClosure{Env: env, IEnv: ienv, Term: tm.A}
+		tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: tm.Tube}
+		base := EvalCubical(env, ienv, tm.Base)
+		return EvalFill(aClosure, phi, tubeClosure, base)
+
+	// --- Glue Types ---
+
+	case ast.Glue:
+		a := EvalCubical(env, ienv, tm.A)
+		branches := make([]VGlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			phi := evalFace(env, ienv, br.Phi)
+			t := EvalCubical(env, ienv, br.T)
+			equiv := EvalCubical(env, ienv, br.Equiv)
+			branches[i] = VGlueBranch{Phi: phi, T: t, Equiv: equiv}
+		}
+		return EvalGlue(a, branches)
+
+	case ast.GlueElem:
+		branches := make([]VGlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			phi := evalFace(env, ienv, br.Phi)
+			term := EvalCubical(env, ienv, br.Term)
+			branches[i] = VGlueElemBranch{Phi: phi, Term: term}
+		}
+		base := EvalCubical(env, ienv, tm.Base)
+		return EvalGlueElem(branches, base)
+
+	case ast.Unglue:
+		ty := EvalCubical(env, ienv, tm.Ty)
+		g := EvalCubical(env, ienv, tm.G)
+		return EvalUnglue(ty, g)
+
+	// --- Univalence ---
+
+	case ast.UA:
+		a := EvalCubical(env, ienv, tm.A)
+		b := EvalCubical(env, ienv, tm.B)
+		equiv := EvalCubical(env, ienv, tm.Equiv)
+		return EvalUA(a, b, equiv)
+
+	case ast.UABeta:
+		equiv := EvalCubical(env, ienv, tm.Equiv)
+		arg := EvalCubical(env, ienv, tm.Arg)
+		return EvalUABeta(equiv, arg)
+
 	default:
 		return evalError("unknown cubical term type")
 	}
@@ -282,6 +549,10 @@ func PathApply(p Value, r Value) Value {
 			return VNeutral{N: Neutral{Head: head, Sp: []Value{p, r}}}
 		}
 
+	case VUA:
+		// UA applied to interval: (ua e) @ r
+		return UAPathApply(pv, r)
+
 	case VNeutral:
 		// Stuck path application
 		head := Head{Glob: "@"}
@@ -304,6 +575,307 @@ func EvalTransport(aClosure *IClosure, e Value) Value {
 	}
 	// Cannot reduce - return stuck transport
 	return VTransport{A: aClosure, E: e}
+}
+
+// --- Face Formula Evaluation ---
+
+// evalFace evaluates a face formula to a face value.
+func evalFace(env *Env, ienv *IEnv, f ast.Face) FaceValue {
+	if f == nil {
+		return VFaceBot{}
+	}
+	switch face := f.(type) {
+	case ast.FaceTop:
+		return VFaceTop{}
+	case ast.FaceBot:
+		return VFaceBot{}
+	case ast.FaceEq:
+		iVal := ienv.Lookup(face.IVar)
+		return evalFaceEq(iVal, face.IVar, face.IsOne, ienv.ILen())
+	case ast.FaceAnd:
+		left := evalFace(env, ienv, face.Left)
+		right := evalFace(env, ienv, face.Right)
+		return simplifyFaceAnd(left, right)
+	case ast.FaceOr:
+		left := evalFace(env, ienv, face.Left)
+		right := evalFace(env, ienv, face.Right)
+		return simplifyFaceOr(left, right)
+	default:
+		return VFaceBot{}
+	}
+}
+
+// evalFaceEq evaluates a face equality constraint (i = 0) or (i = 1).
+// If the interval variable is resolved to an endpoint, simplify immediately.
+func evalFaceEq(iVal Value, ivar int, isOne bool, ienvLen int) FaceValue {
+	switch iv := iVal.(type) {
+	case VI0:
+		// i is known to be i0
+		if isOne {
+			return VFaceBot{} // (i0 = 1) is false
+		}
+		return VFaceTop{} // (i0 = 0) is true
+	case VI1:
+		// i is known to be i1
+		if isOne {
+			return VFaceTop{} // (i1 = 1) is true
+		}
+		return VFaceBot{} // (i1 = 0) is false
+	case VIVar:
+		// Interval variable is unresolved - keep as constraint
+		return VFaceEq{ILevel: iv.Level, IsOne: isOne}
+	default:
+		// Unknown interval value - use original index converted to level
+		return VFaceEq{ILevel: ienvLen - ivar - 1, IsOne: isOne}
+	}
+}
+
+// simplifyFaceAnd simplifies φ ∧ ψ using boolean identities.
+func simplifyFaceAnd(left, right FaceValue) FaceValue {
+	// ⊥ ∧ ψ = ⊥
+	if _, ok := left.(VFaceBot); ok {
+		return VFaceBot{}
+	}
+	// φ ∧ ⊥ = ⊥
+	if _, ok := right.(VFaceBot); ok {
+		return VFaceBot{}
+	}
+	// ⊤ ∧ ψ = ψ
+	if _, ok := left.(VFaceTop); ok {
+		return right
+	}
+	// φ ∧ ⊤ = φ
+	if _, ok := right.(VFaceTop); ok {
+		return left
+	}
+	// Check for (i=0) ∧ (i=1) = ⊥
+	if leq, lok := left.(VFaceEq); lok {
+		if req, rok := right.(VFaceEq); rok {
+			if leq.ILevel == req.ILevel && leq.IsOne != req.IsOne {
+				return VFaceBot{}
+			}
+		}
+	}
+	return VFaceAnd{Left: left, Right: right}
+}
+
+// simplifyFaceOr simplifies φ ∨ ψ using boolean identities.
+func simplifyFaceOr(left, right FaceValue) FaceValue {
+	// ⊤ ∨ ψ = ⊤
+	if _, ok := left.(VFaceTop); ok {
+		return VFaceTop{}
+	}
+	// φ ∨ ⊤ = ⊤
+	if _, ok := right.(VFaceTop); ok {
+		return VFaceTop{}
+	}
+	// ⊥ ∨ ψ = ψ
+	if _, ok := left.(VFaceBot); ok {
+		return right
+	}
+	// φ ∨ ⊥ = φ
+	if _, ok := right.(VFaceBot); ok {
+		return left
+	}
+	// Check for (i=0) ∨ (i=1) = ⊤
+	if leq, lok := left.(VFaceEq); lok {
+		if req, rok := right.(VFaceEq); rok {
+			if leq.ILevel == req.ILevel && leq.IsOne != req.IsOne {
+				return VFaceTop{}
+			}
+		}
+	}
+	return VFaceOr{Left: left, Right: right}
+}
+
+// IsFaceTrue checks if a face value is definitely true.
+func IsFaceTrue(f FaceValue) bool {
+	_, ok := f.(VFaceTop)
+	return ok
+}
+
+// IsFaceFalse checks if a face value is definitely false.
+func IsFaceFalse(f FaceValue) bool {
+	_, ok := f.(VFaceBot)
+	return ok
+}
+
+// --- Composition Evaluation ---
+
+// EvalComp evaluates heterogeneous composition: comp^i A [φ ↦ u] a₀.
+// Computation rules:
+//
+//	comp^i A [1 ↦ u] a₀  ⟶  u[i1/i]         (face satisfied)
+//	comp^i A [0 ↦ _] a₀  ⟶  transport A a₀  (face empty)
+func EvalComp(aClosure *IClosure, phi FaceValue, tubeClosure *IClosure, base Value) Value {
+	// If face is satisfied (φ = ⊤), return tube at i1
+	if IsFaceTrue(phi) {
+		return EvalCubical(tubeClosure.Env, tubeClosure.IEnv.Extend(VI1{}), tubeClosure.Term)
+	}
+
+	// If face is empty (φ = ⊥), reduce to transport
+	if IsFaceFalse(phi) {
+		return EvalTransport(aClosure, base)
+	}
+
+	// Cannot reduce - return stuck composition
+	return VComp{A: aClosure, Phi: phi, Tube: tubeClosure, Base: base}
+}
+
+// EvalHComp evaluates homogeneous composition: hcomp A [φ ↦ u] a₀.
+// Computation rules:
+//
+//	hcomp A [1 ↦ u] a₀  ⟶  u[i1/i]   (face satisfied)
+//	hcomp A [0 ↦ _] a₀  ⟶  a₀        (face empty, identity)
+func EvalHComp(a Value, phi FaceValue, tubeClosure *IClosure, base Value) Value {
+	// If face is satisfied (φ = ⊤), return tube at i1
+	if IsFaceTrue(phi) {
+		return EvalCubical(tubeClosure.Env, tubeClosure.IEnv.Extend(VI1{}), tubeClosure.Term)
+	}
+
+	// If face is empty (φ = ⊥), return base (identity)
+	if IsFaceFalse(phi) {
+		return base
+	}
+
+	// Cannot reduce - return stuck hcomp
+	return VHComp{A: a, Phi: phi, Tube: tubeClosure, Base: base}
+}
+
+// EvalFill evaluates the filler: fill^i A [φ ↦ u] a₀.
+// For now, we keep fill stuck since it requires additional interval variable tracking.
+// In a full implementation, fill is defined as:
+//
+//	fill^i A [φ ↦ u] a₀ @ j = comp^i A[j∧i/i] [φ ∨ (j=0) ↦ ...] a₀
+func EvalFill(aClosure *IClosure, phi FaceValue, tubeClosure *IClosure, base Value) Value {
+	// Fill is always stuck for now - requires more sophisticated interval handling
+	return VFill{A: aClosure, Phi: phi, Tube: tubeClosure, Base: base}
+}
+
+// --- Glue Type Evaluation ---
+
+// EvalGlue evaluates a Glue type: Glue A [φ ↦ (T, e)].
+// Computation rules:
+//
+//	Glue A [⊤ ↦ (T, e)] = T    (face satisfied)
+//	Glue A []           = A    (no branches)
+func EvalGlue(a Value, branches []VGlueBranch) Value {
+	// Check if any branch has face ⊤
+	for _, br := range branches {
+		if IsFaceTrue(br.Phi) {
+			return br.T
+		}
+	}
+
+	// Filter out branches with ⊥ face
+	var nonTrivialBranches []VGlueBranch
+	for _, br := range branches {
+		if !IsFaceFalse(br.Phi) {
+			nonTrivialBranches = append(nonTrivialBranches, br)
+		}
+	}
+
+	// If no branches remain, return base type
+	if len(nonTrivialBranches) == 0 {
+		return a
+	}
+
+	return VGlue{A: a, System: nonTrivialBranches}
+}
+
+// EvalGlueElem evaluates a Glue element: glue [φ ↦ t] a.
+// Computation rules:
+//
+//	glue [⊤ ↦ t] a = t    (face satisfied)
+func EvalGlueElem(branches []VGlueElemBranch, base Value) Value {
+	// Check if any branch has face ⊤
+	for _, br := range branches {
+		if IsFaceTrue(br.Phi) {
+			return br.Term
+		}
+	}
+
+	// Filter out branches with ⊥ face
+	var nonTrivialBranches []VGlueElemBranch
+	for _, br := range branches {
+		if !IsFaceFalse(br.Phi) {
+			nonTrivialBranches = append(nonTrivialBranches, br)
+		}
+	}
+
+	return VGlueElem{System: nonTrivialBranches, Base: base}
+}
+
+// EvalUnglue evaluates unglue: unglue g.
+// Computation rules:
+//
+//	unglue (glue [φ ↦ t] a) = a    (definitional)
+func EvalUnglue(ty Value, g Value) Value {
+	// If g is a glue element, return its base
+	if ge, ok := g.(VGlueElem); ok {
+		return ge.Base
+	}
+
+	// Otherwise stuck
+	return VUnglue{Ty: ty, G: g}
+}
+
+// --- Univalence Evaluation ---
+
+// EvalUA evaluates ua e : Path Type A B.
+// Definition via Glue:
+//
+//	ua e = <i> Glue B [(i=0) ↦ (A, e)]
+//
+// At i=0: Glue B [⊤ ↦ (A, e)] = A
+// At i=1: Glue B [⊥ ↦ (A, e)] = B
+func EvalUA(a, b, equiv Value) Value {
+	// ua produces a path, which we represent as VUA
+	// When applied to an interval, we compute the Glue type
+	return VUA{A: a, B: b, Equiv: equiv}
+}
+
+// EvalUABeta evaluates the transport computation: transport (ua e) a = e.fst a.
+// This represents applying the function part of the equivalence to the argument.
+func EvalUABeta(equiv, arg Value) Value {
+	// In a full implementation, we would extract fst from equiv and apply it
+	// For now, keep as VUABeta to represent the computation result
+	return VUABeta{Equiv: equiv, Arg: arg}
+}
+
+// UAPathApply applies ua to an interval argument.
+// This is called when we have (ua e) @ r.
+//
+//	(ua e) @ i0 = A
+//	(ua e) @ i1 = B
+//	(ua e) @ i  = Glue B [(i=0) ↦ (A, e)]
+func UAPathApply(ua VUA, r Value) Value {
+	switch r.(type) {
+	case VI0:
+		// At i=0: Glue B [⊤ ↦ (A, e)] = A
+		return ua.A
+	case VI1:
+		// At i=1: Glue B [⊥ ↦ (A, e)] = B
+		return ua.B
+	default:
+		// At i: Glue B [(i=0) ↦ (A, e)]
+		// We need to construct the Glue type with the face constraint
+		branch := VGlueBranch{
+			Phi:   evalFaceEqForUA(r),
+			T:     ua.A,
+			Equiv: ua.Equiv,
+		}
+		return VGlue{A: ua.B, System: []VGlueBranch{branch}}
+	}
+}
+
+// evalFaceEqForUA creates a face constraint (i = 0) for the given interval value.
+func evalFaceEqForUA(r Value) FaceValue {
+	if iv, ok := r.(VIVar); ok {
+		return VFaceEq{ILevel: iv.Level, IsOne: false} // (i = 0)
+	}
+	// If r is not a variable, this shouldn't happen in well-typed code
+	return VFaceBot{}
 }
 
 // isConstantFamily checks if an interval closure produces the same value at i0 and i1.
@@ -423,8 +995,151 @@ func ReifyCubicalAt(level int, ilevel int, v Value) ast.Term {
 		e := ReifyCubicalAt(level, ilevel, val.E)
 		return ast.Transport{A: a, E: e}
 
+	// --- Face Formula Values ---
+
+	case VFaceTop:
+		return ast.FaceTop{}
+
+	case VFaceBot:
+		return ast.FaceBot{}
+
+	case VFaceEq:
+		// Convert from level to de Bruijn index
+		ix := ilevel - val.ILevel - 1
+		if ix < 0 {
+			ix = val.ILevel
+		}
+		return ast.FaceEq{IVar: ix, IsOne: val.IsOne}
+
+	case VFaceAnd:
+		left := reifyFaceAt(level, ilevel, val.Left)
+		right := reifyFaceAt(level, ilevel, val.Right)
+		return ast.FaceAnd{Left: left, Right: right}
+
+	case VFaceOr:
+		left := reifyFaceAt(level, ilevel, val.Left)
+		right := reifyFaceAt(level, ilevel, val.Right)
+		return ast.FaceOr{Left: left, Right: right}
+
+	// --- Partial Type Values ---
+
+	case VPartial:
+		phi := reifyFaceAt(level, ilevel, val.Phi)
+		a := ReifyCubicalAt(level, ilevel, val.A)
+		return ast.Partial{Phi: phi, A: a}
+
+	case VSystem:
+		branches := make([]ast.SystemBranch, len(val.Branches))
+		for i, br := range val.Branches {
+			phi := reifyFaceAt(level, ilevel, br.Phi)
+			term := ReifyCubicalAt(level, ilevel, br.Term)
+			branches[i] = ast.SystemBranch{Phi: phi, Term: term}
+		}
+		return ast.System{Branches: branches}
+
+	// --- Composition Values ---
+
+	case VComp:
+		// Reify stuck composition
+		freshIVar := VIVar{Level: ilevel}
+		aVal := EvalCubical(val.A.Env, val.A.IEnv.Extend(freshIVar), val.A.Term)
+		a := ReifyCubicalAt(level, ilevel+1, aVal)
+		phi := reifyFaceAt(level, ilevel+1, val.Phi)
+		tubeVal := EvalCubical(val.Tube.Env, val.Tube.IEnv.Extend(freshIVar), val.Tube.Term)
+		tube := ReifyCubicalAt(level, ilevel+1, tubeVal)
+		base := ReifyCubicalAt(level, ilevel, val.Base)
+		return ast.Comp{IBinder: "_", A: a, Phi: phi, Tube: tube, Base: base}
+
+	case VHComp:
+		// Reify stuck hcomp
+		freshIVar := VIVar{Level: ilevel}
+		a := ReifyCubicalAt(level, ilevel, val.A)
+		phi := reifyFaceAt(level, ilevel+1, val.Phi)
+		tubeVal := EvalCubical(val.Tube.Env, val.Tube.IEnv.Extend(freshIVar), val.Tube.Term)
+		tube := ReifyCubicalAt(level, ilevel+1, tubeVal)
+		base := ReifyCubicalAt(level, ilevel, val.Base)
+		return ast.HComp{A: a, Phi: phi, Tube: tube, Base: base}
+
+	case VFill:
+		// Reify stuck fill
+		freshIVar := VIVar{Level: ilevel}
+		aVal := EvalCubical(val.A.Env, val.A.IEnv.Extend(freshIVar), val.A.Term)
+		a := ReifyCubicalAt(level, ilevel+1, aVal)
+		phi := reifyFaceAt(level, ilevel+1, val.Phi)
+		tubeVal := EvalCubical(val.Tube.Env, val.Tube.IEnv.Extend(freshIVar), val.Tube.Term)
+		tube := ReifyCubicalAt(level, ilevel+1, tubeVal)
+		base := ReifyCubicalAt(level, ilevel, val.Base)
+		return ast.Fill{IBinder: "_", A: a, Phi: phi, Tube: tube, Base: base}
+
+	// --- Glue Type Values ---
+
+	case VGlue:
+		a := ReifyCubicalAt(level, ilevel, val.A)
+		branches := make([]ast.GlueBranch, len(val.System))
+		for i, br := range val.System {
+			phi := reifyFaceAt(level, ilevel, br.Phi)
+			t := ReifyCubicalAt(level, ilevel, br.T)
+			equiv := ReifyCubicalAt(level, ilevel, br.Equiv)
+			branches[i] = ast.GlueBranch{Phi: phi, T: t, Equiv: equiv}
+		}
+		return ast.Glue{A: a, System: branches}
+
+	case VGlueElem:
+		branches := make([]ast.GlueElemBranch, len(val.System))
+		for i, br := range val.System {
+			phi := reifyFaceAt(level, ilevel, br.Phi)
+			term := ReifyCubicalAt(level, ilevel, br.Term)
+			branches[i] = ast.GlueElemBranch{Phi: phi, Term: term}
+		}
+		base := ReifyCubicalAt(level, ilevel, val.Base)
+		return ast.GlueElem{System: branches, Base: base}
+
+	case VUnglue:
+		g := ReifyCubicalAt(level, ilevel, val.G)
+		return ast.Unglue{Ty: ReifyCubicalAt(level, ilevel, val.Ty), G: g}
+
+	// --- Univalence Values ---
+
+	case VUA:
+		a := ReifyCubicalAt(level, ilevel, val.A)
+		b := ReifyCubicalAt(level, ilevel, val.B)
+		equiv := ReifyCubicalAt(level, ilevel, val.Equiv)
+		return ast.UA{A: a, B: b, Equiv: equiv}
+
+	case VUABeta:
+		equiv := ReifyCubicalAt(level, ilevel, val.Equiv)
+		arg := ReifyCubicalAt(level, ilevel, val.Arg)
+		return ast.UABeta{Equiv: equiv, Arg: arg}
+
 	default:
 		return reifyError("unknown cubical value type")
+	}
+}
+
+// reifyFaceAt converts a face value to an AST face formula.
+func reifyFaceAt(level int, ilevel int, f FaceValue) ast.Face {
+	switch fv := f.(type) {
+	case VFaceTop:
+		return ast.FaceTop{}
+	case VFaceBot:
+		return ast.FaceBot{}
+	case VFaceEq:
+		// Convert from level to de Bruijn index
+		ix := ilevel - fv.ILevel - 1
+		if ix < 0 {
+			ix = fv.ILevel
+		}
+		return ast.FaceEq{IVar: ix, IsOne: fv.IsOne}
+	case VFaceAnd:
+		left := reifyFaceAt(level, ilevel, fv.Left)
+		right := reifyFaceAt(level, ilevel, fv.Right)
+		return ast.FaceAnd{Left: left, Right: right}
+	case VFaceOr:
+		left := reifyFaceAt(level, ilevel, fv.Left)
+		right := reifyFaceAt(level, ilevel, fv.Right)
+		return ast.FaceOr{Left: left, Right: right}
+	default:
+		return ast.FaceBot{}
 	}
 }
 
@@ -546,6 +1261,88 @@ func tryEvalCubical(env *Env, t ast.Term) (Value, bool) {
 		aClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.A}
 		e := Eval(env, tm.E)
 		return EvalTransport(aClosure, e), true
+	// Face formulas
+	case ast.FaceTop:
+		return VFaceTop{}, true
+	case ast.FaceBot:
+		return VFaceBot{}, true
+	case ast.FaceEq:
+		// Without ienv, use index as level
+		return VFaceEq{ILevel: tm.IVar, IsOne: tm.IsOne}, true
+	case ast.FaceAnd:
+		left := evalFace(env, EmptyIEnv(), tm.Left)
+		right := evalFace(env, EmptyIEnv(), tm.Right)
+		return simplifyFaceAnd(left, right), true
+	case ast.FaceOr:
+		left := evalFace(env, EmptyIEnv(), tm.Left)
+		right := evalFace(env, EmptyIEnv(), tm.Right)
+		return simplifyFaceOr(left, right), true
+	// Partial types
+	case ast.Partial:
+		phi := evalFace(env, EmptyIEnv(), tm.Phi)
+		a := Eval(env, tm.A)
+		return VPartial{Phi: phi, A: a}, true
+	case ast.System:
+		branches := make([]VSystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			phi := evalFace(env, EmptyIEnv(), br.Phi)
+			term := Eval(env, br.Term)
+			branches[i] = VSystemBranch{Phi: phi, Term: term}
+		}
+		return VSystem{Branches: branches}, true
+	// Composition operations
+	case ast.Comp:
+		phi := evalFace(env, EmptyIEnv(), tm.Phi)
+		aClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.A}
+		tubeClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.Tube}
+		base := Eval(env, tm.Base)
+		return EvalComp(aClosure, phi, tubeClosure, base), true
+	case ast.HComp:
+		a := Eval(env, tm.A)
+		phi := evalFace(env, EmptyIEnv(), tm.Phi)
+		tubeClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.Tube}
+		base := Eval(env, tm.Base)
+		return EvalHComp(a, phi, tubeClosure, base), true
+	case ast.Fill:
+		phi := evalFace(env, EmptyIEnv(), tm.Phi)
+		aClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.A}
+		tubeClosure := &IClosure{Env: env, IEnv: EmptyIEnv(), Term: tm.Tube}
+		base := Eval(env, tm.Base)
+		return EvalFill(aClosure, phi, tubeClosure, base), true
+	// Glue types
+	case ast.Glue:
+		a := Eval(env, tm.A)
+		branches := make([]VGlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			phi := evalFace(env, EmptyIEnv(), br.Phi)
+			t := Eval(env, br.T)
+			equiv := Eval(env, br.Equiv)
+			branches[i] = VGlueBranch{Phi: phi, T: t, Equiv: equiv}
+		}
+		return EvalGlue(a, branches), true
+	case ast.GlueElem:
+		branches := make([]VGlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			phi := evalFace(env, EmptyIEnv(), br.Phi)
+			term := Eval(env, br.Term)
+			branches[i] = VGlueElemBranch{Phi: phi, Term: term}
+		}
+		base := Eval(env, tm.Base)
+		return EvalGlueElem(branches, base), true
+	case ast.Unglue:
+		ty := Eval(env, tm.Ty)
+		g := Eval(env, tm.G)
+		return EvalUnglue(ty, g), true
+	// Univalence
+	case ast.UA:
+		a := Eval(env, tm.A)
+		b := Eval(env, tm.B)
+		equiv := Eval(env, tm.Equiv)
+		return EvalUA(a, b, equiv), true
+	case ast.UABeta:
+		equiv := Eval(env, tm.Equiv)
+		arg := Eval(env, tm.Arg)
+		return EvalUABeta(equiv, arg), true
 	default:
 		return nil, false
 	}
@@ -575,6 +1372,41 @@ func tryReifyCubical(level int, v Value) (ast.Term, bool) {
 	case VPathLam:
 		return ReifyCubicalAt(level, 0, val), true
 	case VTransport:
+		return ReifyCubicalAt(level, 0, val), true
+	// Face formulas
+	case VFaceTop:
+		return ast.FaceTop{}, true
+	case VFaceBot:
+		return ast.FaceBot{}, true
+	case VFaceEq:
+		return ast.FaceEq{IVar: val.ILevel, IsOne: val.IsOne}, true
+	case VFaceAnd:
+		return ReifyCubicalAt(level, 0, val), true
+	case VFaceOr:
+		return ReifyCubicalAt(level, 0, val), true
+	// Partial types
+	case VPartial:
+		return ReifyCubicalAt(level, 0, val), true
+	case VSystem:
+		return ReifyCubicalAt(level, 0, val), true
+	// Composition values
+	case VComp:
+		return ReifyCubicalAt(level, 0, val), true
+	case VHComp:
+		return ReifyCubicalAt(level, 0, val), true
+	case VFill:
+		return ReifyCubicalAt(level, 0, val), true
+	// Glue types
+	case VGlue:
+		return ReifyCubicalAt(level, 0, val), true
+	case VGlueElem:
+		return ReifyCubicalAt(level, 0, val), true
+	case VUnglue:
+		return ReifyCubicalAt(level, 0, val), true
+	// Univalence
+	case VUA:
+		return ReifyCubicalAt(level, 0, val), true
+	case VUABeta:
 		return ReifyCubicalAt(level, 0, val), true
 	default:
 		return nil, false

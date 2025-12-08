@@ -1,5 +1,3 @@
-//go:build cubical
-
 package core
 
 import "github.com/watchthelight/HypergraphGo/internal/ast"

@@ -1,5 +1,3 @@
-//go:build cubical
-
 package subst
 
 import (
@@ -52,6 +50,114 @@ func IShift(d, cutoff int, t ast.Term) ast.Term {
 		return ast.Transport{
 			A: IShift(d, cutoff+1, tm.A),
 			E: IShift(d, cutoff, tm.E),
+		}
+
+	// Face formulas
+	case ast.FaceTop, ast.FaceBot:
+		return tm
+	case ast.FaceEq:
+		if tm.IVar >= cutoff {
+			return ast.FaceEq{IVar: tm.IVar + d, IsOne: tm.IsOne}
+		}
+		return tm
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  IShiftFace(d, cutoff, tm.Left),
+			Right: IShiftFace(d, cutoff, tm.Right),
+		}
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  IShiftFace(d, cutoff, tm.Left),
+			Right: IShiftFace(d, cutoff, tm.Right),
+		}
+
+	// Partial types
+	case ast.Partial:
+		return ast.Partial{
+			Phi: IShiftFace(d, cutoff, tm.Phi),
+			A:   IShift(d, cutoff, tm.A),
+		}
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  IShiftFace(d, cutoff, br.Phi),
+				Term: IShift(d, cutoff, br.Term),
+			}
+		}
+		return ast.System{Branches: branches}
+
+	// Composition operations
+	case ast.Comp:
+		// A and Tube bind an interval variable
+		return ast.Comp{
+			IBinder: tm.IBinder,
+			A:       IShift(d, cutoff+1, tm.A),
+			Phi:     IShiftFace(d, cutoff+1, tm.Phi),
+			Tube:    IShift(d, cutoff+1, tm.Tube),
+			Base:    IShift(d, cutoff, tm.Base),
+		}
+	case ast.HComp:
+		// Tube binds an interval variable, A does not
+		return ast.HComp{
+			A:    IShift(d, cutoff, tm.A),
+			Phi:  IShiftFace(d, cutoff+1, tm.Phi),
+			Tube: IShift(d, cutoff+1, tm.Tube),
+			Base: IShift(d, cutoff, tm.Base),
+		}
+	case ast.Fill:
+		// A and Tube bind an interval variable
+		return ast.Fill{
+			IBinder: tm.IBinder,
+			A:       IShift(d, cutoff+1, tm.A),
+			Phi:     IShiftFace(d, cutoff+1, tm.Phi),
+			Tube:    IShift(d, cutoff+1, tm.Tube),
+			Base:    IShift(d, cutoff, tm.Base),
+		}
+
+	// Glue types - no interval binders
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   IShiftFace(d, cutoff, br.Phi),
+				T:     IShift(d, cutoff, br.T),
+				Equiv: IShift(d, cutoff, br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      IShift(d, cutoff, tm.A),
+			System: branches,
+		}
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  IShiftFace(d, cutoff, br.Phi),
+				Term: IShift(d, cutoff, br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: branches,
+			Base:   IShift(d, cutoff, tm.Base),
+		}
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: IShift(d, cutoff, tm.Ty),
+			G:  IShift(d, cutoff, tm.G),
+		}
+
+	// Univalence - no interval binders
+	case ast.UA:
+		return ast.UA{
+			A:     IShift(d, cutoff, tm.A),
+			B:     IShift(d, cutoff, tm.B),
+			Equiv: IShift(d, cutoff, tm.Equiv),
+		}
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: IShift(d, cutoff, tm.Equiv),
+			Arg:   IShift(d, cutoff, tm.Arg),
 		}
 
 	// Standard terms - recurse without changing cutoff (no interval binders)
@@ -168,6 +274,134 @@ func ISubst(j int, s ast.Term, t ast.Term) ast.Term {
 			E: ISubst(j, s, tm.E),
 		}
 
+	// Face formulas
+	case ast.FaceTop, ast.FaceBot:
+		return tm
+	case ast.FaceEq:
+		if tm.IVar == j {
+			// Substituting this variable - need to check endpoint
+			switch iv := s.(type) {
+			case ast.I0:
+				if tm.IsOne {
+					return ast.FaceBot{} // (i0 = 1) is false
+				}
+				return ast.FaceTop{} // (i0 = 0) is true
+			case ast.I1:
+				if tm.IsOne {
+					return ast.FaceTop{} // (i1 = 1) is true
+				}
+				return ast.FaceBot{} // (i1 = 0) is false
+			case ast.IVar:
+				return ast.FaceEq{IVar: iv.Ix, IsOne: tm.IsOne}
+			default:
+				return tm
+			}
+		} else if tm.IVar > j {
+			return ast.FaceEq{IVar: tm.IVar - 1, IsOne: tm.IsOne}
+		}
+		return tm
+	case ast.FaceAnd:
+		result := simplifyFaceAndAST(
+			ISubstFace(j, s, tm.Left),
+			ISubstFace(j, s, tm.Right),
+		)
+		return faceToTerm(result)
+	case ast.FaceOr:
+		result := simplifyFaceOrAST(
+			ISubstFace(j, s, tm.Left),
+			ISubstFace(j, s, tm.Right),
+		)
+		return faceToTerm(result)
+
+	// Partial types
+	case ast.Partial:
+		return ast.Partial{
+			Phi: ISubstFace(j, s, tm.Phi),
+			A:   ISubst(j, s, tm.A),
+		}
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  ISubstFace(j, s, br.Phi),
+				Term: ISubst(j, s, br.Term),
+			}
+		}
+		return ast.System{Branches: branches}
+
+	// Composition operations
+	case ast.Comp:
+		// A and Tube bind an interval variable
+		return ast.Comp{
+			IBinder: tm.IBinder,
+			A:       ISubst(j+1, IShift(1, 0, s), tm.A),
+			Phi:     ISubstFace(j+1, IShift(1, 0, s), tm.Phi),
+			Tube:    ISubst(j+1, IShift(1, 0, s), tm.Tube),
+			Base:    ISubst(j, s, tm.Base),
+		}
+	case ast.HComp:
+		// Tube binds an interval variable, A does not
+		return ast.HComp{
+			A:    ISubst(j, s, tm.A),
+			Phi:  ISubstFace(j+1, IShift(1, 0, s), tm.Phi),
+			Tube: ISubst(j+1, IShift(1, 0, s), tm.Tube),
+			Base: ISubst(j, s, tm.Base),
+		}
+	case ast.Fill:
+		// A and Tube bind an interval variable
+		return ast.Fill{
+			IBinder: tm.IBinder,
+			A:       ISubst(j+1, IShift(1, 0, s), tm.A),
+			Phi:     ISubstFace(j+1, IShift(1, 0, s), tm.Phi),
+			Tube:    ISubst(j+1, IShift(1, 0, s), tm.Tube),
+			Base:    ISubst(j, s, tm.Base),
+		}
+
+	// Glue types - no interval binders
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   ISubstFace(j, s, br.Phi),
+				T:     ISubst(j, s, br.T),
+				Equiv: ISubst(j, s, br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      ISubst(j, s, tm.A),
+			System: branches,
+		}
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  ISubstFace(j, s, br.Phi),
+				Term: ISubst(j, s, br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: branches,
+			Base:   ISubst(j, s, tm.Base),
+		}
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: ISubst(j, s, tm.Ty),
+			G:  ISubst(j, s, tm.G),
+		}
+
+	// Univalence - no interval binders
+	case ast.UA:
+		return ast.UA{
+			A:     ISubst(j, s, tm.A),
+			B:     ISubst(j, s, tm.B),
+			Equiv: ISubst(j, s, tm.Equiv),
+		}
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: ISubst(j, s, tm.Equiv),
+			Arg:   ISubst(j, s, tm.Arg),
+		}
+
 	// Standard terms - recurse without changing j (no interval binders)
 	case ast.Var, ast.Sort, ast.Global:
 		return tm
@@ -270,6 +504,101 @@ func shiftExtension(d, cutoff int, t ast.Term) (ast.Term, bool) {
 			A: Shift(d, cutoff, tm.A),
 			E: Shift(d, cutoff, tm.E),
 		}, true
+	// Face formulas - no term variables
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq:
+		return tm, true
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  ShiftFace(d, cutoff, tm.Left),
+			Right: ShiftFace(d, cutoff, tm.Right),
+		}, true
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  ShiftFace(d, cutoff, tm.Left),
+			Right: ShiftFace(d, cutoff, tm.Right),
+		}, true
+	// Partial types
+	case ast.Partial:
+		return ast.Partial{
+			Phi: ShiftFace(d, cutoff, tm.Phi),
+			A:   Shift(d, cutoff, tm.A),
+		}, true
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  ShiftFace(d, cutoff, br.Phi),
+				Term: Shift(d, cutoff, br.Term),
+			}
+		}
+		return ast.System{Branches: branches}, true
+	// Composition operations - no term variable binders
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: tm.IBinder,
+			A:       Shift(d, cutoff, tm.A),
+			Phi:     ShiftFace(d, cutoff, tm.Phi),
+			Tube:    Shift(d, cutoff, tm.Tube),
+			Base:    Shift(d, cutoff, tm.Base),
+		}, true
+	case ast.HComp:
+		return ast.HComp{
+			A:    Shift(d, cutoff, tm.A),
+			Phi:  ShiftFace(d, cutoff, tm.Phi),
+			Tube: Shift(d, cutoff, tm.Tube),
+			Base: Shift(d, cutoff, tm.Base),
+		}, true
+	case ast.Fill:
+		return ast.Fill{
+			IBinder: tm.IBinder,
+			A:       Shift(d, cutoff, tm.A),
+			Phi:     ShiftFace(d, cutoff, tm.Phi),
+			Tube:    Shift(d, cutoff, tm.Tube),
+			Base:    Shift(d, cutoff, tm.Base),
+		}, true
+	// Glue types - no term variable binders
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   ShiftFace(d, cutoff, br.Phi),
+				T:     Shift(d, cutoff, br.T),
+				Equiv: Shift(d, cutoff, br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      Shift(d, cutoff, tm.A),
+			System: branches,
+		}, true
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  ShiftFace(d, cutoff, br.Phi),
+				Term: Shift(d, cutoff, br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: branches,
+			Base:   Shift(d, cutoff, tm.Base),
+		}, true
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: Shift(d, cutoff, tm.Ty),
+			G:  Shift(d, cutoff, tm.G),
+		}, true
+	// Univalence - no term variable binders
+	case ast.UA:
+		return ast.UA{
+			A:     Shift(d, cutoff, tm.A),
+			B:     Shift(d, cutoff, tm.B),
+			Equiv: Shift(d, cutoff, tm.Equiv),
+		}, true
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: Shift(d, cutoff, tm.Equiv),
+			Arg:   Shift(d, cutoff, tm.Arg),
+		}, true
 	default:
 		return nil, false
 	}
@@ -308,7 +637,267 @@ func substExtension(j int, s ast.Term, t ast.Term) (ast.Term, bool) {
 			A: Subst(j, s, tm.A),
 			E: Subst(j, s, tm.E),
 		}, true
+	// Face formulas - no term variables
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq:
+		return tm, true
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  SubstFace(j, s, tm.Left),
+			Right: SubstFace(j, s, tm.Right),
+		}, true
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  SubstFace(j, s, tm.Left),
+			Right: SubstFace(j, s, tm.Right),
+		}, true
+	// Partial types
+	case ast.Partial:
+		return ast.Partial{
+			Phi: SubstFace(j, s, tm.Phi),
+			A:   Subst(j, s, tm.A),
+		}, true
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  SubstFace(j, s, br.Phi),
+				Term: Subst(j, s, br.Term),
+			}
+		}
+		return ast.System{Branches: branches}, true
+	// Composition operations - no term variable binders
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: tm.IBinder,
+			A:       Subst(j, s, tm.A),
+			Phi:     SubstFace(j, s, tm.Phi),
+			Tube:    Subst(j, s, tm.Tube),
+			Base:    Subst(j, s, tm.Base),
+		}, true
+	case ast.HComp:
+		return ast.HComp{
+			A:    Subst(j, s, tm.A),
+			Phi:  SubstFace(j, s, tm.Phi),
+			Tube: Subst(j, s, tm.Tube),
+			Base: Subst(j, s, tm.Base),
+		}, true
+	case ast.Fill:
+		return ast.Fill{
+			IBinder: tm.IBinder,
+			A:       Subst(j, s, tm.A),
+			Phi:     SubstFace(j, s, tm.Phi),
+			Tube:    Subst(j, s, tm.Tube),
+			Base:    Subst(j, s, tm.Base),
+		}, true
+	// Glue types - no term variable binders
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   SubstFace(j, s, br.Phi),
+				T:     Subst(j, s, br.T),
+				Equiv: Subst(j, s, br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      Subst(j, s, tm.A),
+			System: branches,
+		}, true
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  SubstFace(j, s, br.Phi),
+				Term: Subst(j, s, br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: branches,
+			Base:   Subst(j, s, tm.Base),
+		}, true
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: Subst(j, s, tm.Ty),
+			G:  Subst(j, s, tm.G),
+		}, true
+	// Univalence - no term variable binders
+	case ast.UA:
+		return ast.UA{
+			A:     Subst(j, s, tm.A),
+			B:     Subst(j, s, tm.B),
+			Equiv: Subst(j, s, tm.Equiv),
+		}, true
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: Subst(j, s, tm.Equiv),
+			Arg:   Subst(j, s, tm.Arg),
+		}, true
 	default:
 		return nil, false
 	}
+}
+
+// --- Face Formula Helpers ---
+
+// faceToTerm converts a Face to a Term (all Face types implement Term).
+func faceToTerm(f ast.Face) ast.Term {
+	switch ft := f.(type) {
+	case ast.FaceTop:
+		return ft
+	case ast.FaceBot:
+		return ft
+	case ast.FaceEq:
+		return ft
+	case ast.FaceAnd:
+		return ft
+	case ast.FaceOr:
+		return ft
+	default:
+		// Should not happen for valid faces
+		return ast.FaceBot{}
+	}
+}
+
+// IShiftFace shifts interval variables in a face formula.
+func IShiftFace(d, cutoff int, f ast.Face) ast.Face {
+	if f == nil {
+		return nil
+	}
+	switch fm := f.(type) {
+	case ast.FaceTop, ast.FaceBot:
+		return fm
+	case ast.FaceEq:
+		if fm.IVar >= cutoff {
+			return ast.FaceEq{IVar: fm.IVar + d, IsOne: fm.IsOne}
+		}
+		return fm
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  IShiftFace(d, cutoff, fm.Left),
+			Right: IShiftFace(d, cutoff, fm.Right),
+		}
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  IShiftFace(d, cutoff, fm.Left),
+			Right: IShiftFace(d, cutoff, fm.Right),
+		}
+	default:
+		return f
+	}
+}
+
+// ISubstFace substitutes an interval term for an interval variable in a face formula.
+func ISubstFace(j int, s ast.Term, f ast.Face) ast.Face {
+	if f == nil {
+		return nil
+	}
+	switch fm := f.(type) {
+	case ast.FaceTop, ast.FaceBot:
+		return fm
+	case ast.FaceEq:
+		if fm.IVar == j {
+			// Substituting this variable
+			switch iv := s.(type) {
+			case ast.I0:
+				if fm.IsOne {
+					return ast.FaceBot{} // (i0 = 1) is false
+				}
+				return ast.FaceTop{} // (i0 = 0) is true
+			case ast.I1:
+				if fm.IsOne {
+					return ast.FaceTop{} // (i1 = 1) is true
+				}
+				return ast.FaceBot{} // (i1 = 0) is false
+			case ast.IVar:
+				return ast.FaceEq{IVar: iv.Ix, IsOne: fm.IsOne}
+			default:
+				return fm
+			}
+		} else if fm.IVar > j {
+			return ast.FaceEq{IVar: fm.IVar - 1, IsOne: fm.IsOne}
+		}
+		return fm
+	case ast.FaceAnd:
+		return simplifyFaceAndAST(
+			ISubstFace(j, s, fm.Left),
+			ISubstFace(j, s, fm.Right),
+		)
+	case ast.FaceOr:
+		return simplifyFaceOrAST(
+			ISubstFace(j, s, fm.Left),
+			ISubstFace(j, s, fm.Right),
+		)
+	default:
+		return f
+	}
+}
+
+// ShiftFace shifts term variables in a face formula (faces have no term vars).
+func ShiftFace(d, cutoff int, f ast.Face) ast.Face {
+	// Faces contain no term variables, so return unchanged
+	return f
+}
+
+// SubstFace substitutes a term for a term variable in a face formula.
+func SubstFace(j int, s ast.Term, f ast.Face) ast.Face {
+	// Faces contain no term variables, so return unchanged
+	return f
+}
+
+// simplifyFaceAndAST simplifies φ ∧ ψ in AST representation.
+func simplifyFaceAndAST(left, right ast.Face) ast.Face {
+	// ⊥ ∧ ψ = ⊥
+	if _, ok := left.(ast.FaceBot); ok {
+		return ast.FaceBot{}
+	}
+	// φ ∧ ⊥ = ⊥
+	if _, ok := right.(ast.FaceBot); ok {
+		return ast.FaceBot{}
+	}
+	// ⊤ ∧ ψ = ψ
+	if _, ok := left.(ast.FaceTop); ok {
+		return right
+	}
+	// φ ∧ ⊤ = φ
+	if _, ok := right.(ast.FaceTop); ok {
+		return left
+	}
+	// Check for (i=0) ∧ (i=1) = ⊥
+	if leq, lok := left.(ast.FaceEq); lok {
+		if req, rok := right.(ast.FaceEq); rok {
+			if leq.IVar == req.IVar && leq.IsOne != req.IsOne {
+				return ast.FaceBot{}
+			}
+		}
+	}
+	return ast.FaceAnd{Left: left, Right: right}
+}
+
+// simplifyFaceOrAST simplifies φ ∨ ψ in AST representation.
+func simplifyFaceOrAST(left, right ast.Face) ast.Face {
+	// ⊤ ∨ ψ = ⊤
+	if _, ok := left.(ast.FaceTop); ok {
+		return ast.FaceTop{}
+	}
+	// φ ∨ ⊤ = ⊤
+	if _, ok := right.(ast.FaceTop); ok {
+		return ast.FaceTop{}
+	}
+	// ⊥ ∨ ψ = ψ
+	if _, ok := left.(ast.FaceBot); ok {
+		return right
+	}
+	// φ ∨ ⊥ = φ
+	if _, ok := right.(ast.FaceBot); ok {
+		return left
+	}
+	// Check for (i=0) ∨ (i=1) = ⊤
+	if leq, lok := left.(ast.FaceEq); lok {
+		if req, rok := right.(ast.FaceEq); rok {
+			if leq.IVar == req.IVar && leq.IsOne != req.IsOne {
+				return ast.FaceTop{}
+			}
+		}
+	}
+	return ast.FaceOr{Left: left, Right: right}
 }
