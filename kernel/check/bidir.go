@@ -216,7 +216,7 @@ func (c *Checker) synthSnd(context *tyctx.Ctx, span Span, snd ast.Snd) (ast.Term
 	}
 
 	// Substitute fst p into the second component type: B[fst p/x]
-	return subst.Subst(0, ast.Fst{P: snd.P}, sigma.B), nil
+	return subst.Subst(0, ast.Fst(snd), sigma.B), nil
 }
 
 // synthLet synthesizes the type of a let expression.

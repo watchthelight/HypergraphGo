@@ -337,33 +337,6 @@ func isRecursiveArgTypeMulti(indNames []string, ty ast.Term) bool {
 	}
 }
 
-// getRecursiveArgIndName returns the name of the inductive type that the arg
-// refers to, or empty string if not recursive. Used for mutual types to determine
-// which eliminator to use for IH construction.
-func getRecursiveArgIndName(indNames []string, ty ast.Term) string {
-	switch t := ty.(type) {
-	case ast.Global:
-		for _, name := range indNames {
-			if t.Name == name {
-				return name
-			}
-		}
-	case ast.App:
-		for _, name := range indNames {
-			if isAppOfGlobal(t, name) {
-				return name
-			}
-		}
-	case ast.Pi:
-		for _, name := range indNames {
-			if OccursIn(name, t.B) {
-				return name
-			}
-		}
-	}
-	return ""
-}
-
 // buildCaseTypeFull constructs the full case type for a constructor with index support.
 //
 // For indexed constructor c : (params...) -> (x1 : A1) -> ... -> (xn : An) -> T params indices:

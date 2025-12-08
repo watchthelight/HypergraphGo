@@ -10,9 +10,6 @@ import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
-// cubicalEnabled is set to true in sexpr_cubical.go when built with cubical tag.
-var cubicalEnabled = false
-
 // ParseError represents a parsing error with position information.
 type ParseError struct {
 	Pos     int

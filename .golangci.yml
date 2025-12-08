@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 3m
   tests: true
@@ -6,7 +8,6 @@ linters:
   enable:
     - govet
     - errcheck
-    - gosimple
     - staticcheck
     - ineffassign
     - unused

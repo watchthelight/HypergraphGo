@@ -1,5 +1,3 @@
-//go:build cubical
-
 package parser
 
 import (
@@ -7,10 +5,6 @@ import (
 
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
-
-func init() {
-	cubicalEnabled = true
-}
 
 // parseCubicalAtom parses cubical-specific atoms.
 func (p *SExprParser) parseCubicalAtom(atom string) ast.Term {

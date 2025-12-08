@@ -39,10 +39,6 @@ func pi(binder string, a, b ast.Term) ast.Term {
 	return ast.Pi{Binder: binder, A: a, B: b}
 }
 
-func sigma(binder string, a, b ast.Term) ast.Term {
-	return ast.Sigma{Binder: binder, A: a, B: b}
-}
-
 func sort(level int) ast.Term {
 	return ast.Sort{U: ast.Level(level)}
 }
