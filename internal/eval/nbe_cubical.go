@@ -63,13 +63,13 @@ func (VTransport) isValue() {}
 // VFaceTop represents the always-true face formula (⊤).
 type VFaceTop struct{}
 
-func (VFaceTop) isValue() {}
+func (VFaceTop) isValue()     {}
 func (VFaceTop) isFaceValue() {}
 
 // VFaceBot represents the always-false face formula (⊥).
 type VFaceBot struct{}
 
-func (VFaceBot) isValue() {}
+func (VFaceBot) isValue()     {}
 func (VFaceBot) isFaceValue() {}
 
 // VFaceEq represents an endpoint constraint: (i = 0) or (i = 1).
@@ -78,7 +78,7 @@ type VFaceEq struct {
 	IsOne  bool // true for (i = 1), false for (i = 0)
 }
 
-func (VFaceEq) isValue() {}
+func (VFaceEq) isValue()     {}
 func (VFaceEq) isFaceValue() {}
 
 // VFaceAnd represents conjunction of faces: φ ∧ ψ.
@@ -87,7 +87,7 @@ type VFaceAnd struct {
 	Right FaceValue
 }
 
-func (VFaceAnd) isValue() {}
+func (VFaceAnd) isValue()     {}
 func (VFaceAnd) isFaceValue() {}
 
 // VFaceOr represents disjunction of faces: φ ∨ ψ.
@@ -96,7 +96,7 @@ type VFaceOr struct {
 	Right FaceValue
 }
 
-func (VFaceOr) isValue() {}
+func (VFaceOr) isValue()     {}
 func (VFaceOr) isFaceValue() {}
 
 // FaceValue is the interface for face formula values.
@@ -165,8 +165,8 @@ func (VFill) isValue() {}
 
 // VGlue represents a Glue type value: Glue A [φ ↦ (T, e)].
 type VGlue struct {
-	A      Value           // Base type
-	System []VGlueBranch   // System of equivalences
+	A      Value         // Base type
+	System []VGlueBranch // System of equivalences
 }
 
 func (VGlue) isValue() {}

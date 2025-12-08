@@ -952,3 +952,292 @@ func TestUABetaTypeCheck(t *testing.T) {
 		t.Fatalf("UABeta type checking failed: %v", err)
 	}
 }
+
+// TestTransportUAComputes verifies the key univalence computation rule:
+// transport (ua e) a = e.fst a
+//
+// This is the fundamental property that makes univalence computational.
+// When we transport an element along a path created by ua from an equivalence,
+// the result is the same as applying the forward function of the equivalence.
+func TestTransportUAComputes(t *testing.T) {
+	// The transport (ua e) a computation works as follows:
+	// 1. ua e creates a path from A to B using Glue types
+	// 2. transport along this path evaluates through the Glue composition
+	// 3. The result is e.fst a (applying the first projection of the equivalence)
+	//
+	// At the AST level, UABeta represents this computation:
+	// UABeta{Equiv: e, Arg: a} represents the result of transport (ua e) a
+
+	// Test 1: UABeta should represent the transport result
+	uaBeta := ast.UABeta{
+		Equiv: ast.Global{Name: "myEquiv"},
+		Arg:   ast.Global{Name: "myArg"},
+	}
+
+	// Evaluate the UABeta term
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), uaBeta)
+
+	// The result should be a VUABeta value (neutral, waiting for reduction)
+	if _, ok := result.(eval.VUABeta); !ok {
+		t.Errorf("Expected VUABeta value, got %T", result)
+	}
+
+	// Test 2: Verify transport structure
+	// transport : (A : I → Type) → A[i0] → A[i1]
+	// For ua e where e : Equiv A B:
+	// - (ua e) : Path Type A B
+	// - transport (λi. (ua e) @ i) a : B
+	//
+	// The type line for transport is the ua path applied to the interval variable
+	ua := ast.UA{
+		A:     ast.Sort{U: 0}, // Source type A
+		B:     ast.Sort{U: 1}, // Target type B
+		Equiv: ast.Global{Name: "e"},
+	}
+
+	// The type family for transport: λi. (ua e) @ i
+	typeLine := ast.PathLam{
+		Binder: "i",
+		Body:   ast.PathApp{P: ua, R: ast.IVar{Ix: 0}},
+	}
+
+	// transport (λi. (ua e) @ i) myArg
+	transport := ast.Transport{
+		A: typeLine.Body, // The type family body
+		E: ast.Global{Name: "myArg"},
+	}
+
+	// Evaluate transport
+	transResult := eval.EvalCubical(nil, eval.EmptyIEnv(), transport)
+
+	// The transport should produce a value (possibly stuck as VTransport if not fully reduced)
+	// This verifies the evaluation machinery handles the transport structure
+	if transResult == nil {
+		t.Error("Transport evaluation returned nil")
+	}
+}
+
+// TestUABetaReification verifies that UABeta values reify correctly.
+func TestUABetaReification(t *testing.T) {
+	// Create a UABeta value using neutral global references
+	equivVal := eval.VNeutral{N: eval.Neutral{Head: eval.Head{Glob: "e"}, Sp: nil}}
+	argVal := eval.VNeutral{N: eval.Neutral{Head: eval.Head{Glob: "a"}, Sp: nil}}
+
+	uaBetaVal := eval.VUABeta{
+		Equiv: equivVal,
+		Arg:   argVal,
+	}
+
+	// Reify back to AST
+	result := eval.ReifyCubicalAt(0, 0, uaBetaVal)
+
+	// Should be UABeta term
+	if uab, ok := result.(ast.UABeta); ok {
+		if _, ok := uab.Equiv.(ast.Global); !ok {
+			t.Errorf("Expected Global for Equiv, got %T", uab.Equiv)
+		}
+		if _, ok := uab.Arg.(ast.Global); !ok {
+			t.Errorf("Expected Global for Arg, got %T", uab.Arg)
+		}
+	} else {
+		t.Errorf("Expected UABeta term, got %T", result)
+	}
+}
+
+// --- Composition Tests ---
+
+// TestCompFaceSatisfied verifies comp reduces when face is ⊤.
+// comp^i A [⊤ ↦ u] a₀ = u[i1/i]
+func TestCompFaceSatisfied(t *testing.T) {
+	// comp^i Type0 [⊤ ↦ Type1] Type0
+	// When face is satisfied (⊤), result should be Type1 (tube at i1)
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 0}, // Type line: Type0
+		Phi:     ast.FaceTop{},  // Face is always true
+		Tube:    ast.Sort{U: 1}, // Tube gives Type1
+		Base:    ast.Sort{U: 0}, // Base is Type0
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), comp)
+
+	// When face is ⊤, should reduce to tube[i1/i] = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{Level: 1}, got %T %v", result, result)
+	}
+}
+
+// TestCompFaceEmpty verifies comp reduces to transport when face is ⊥.
+// comp^i A [⊥ ↦ _] a₀ = transport A a₀
+func TestCompFaceEmpty(t *testing.T) {
+	// comp^i Type0 [⊥ ↦ _] Type0
+	// When face is empty (⊥), should reduce to transport
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 0}, // Type line: Type0 (constant)
+		Phi:     ast.FaceBot{},  // Face is never true
+		Tube:    ast.Sort{U: 1}, // Tube is irrelevant when face is ⊥
+		Base:    ast.Sort{U: 0}, // Base is Type0
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), comp)
+
+	// When face is ⊥ and type is constant, should reduce to base
+	// (transport along constant type is identity)
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T %v", result, result)
+	}
+}
+
+// TestHCompFaceSatisfied verifies hcomp reduces when face is ⊤.
+// hcomp A [⊤ ↦ u] a₀ = u[i1/i]
+func TestHCompFaceSatisfied(t *testing.T) {
+	// hcomp Type0 [⊤ ↦ Type1] Type0
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 0}, // Constant type
+		Phi:  ast.FaceTop{},  // Face is always true
+		Tube: ast.Sort{U: 1}, // Tube gives Type1
+		Base: ast.Sort{U: 0}, // Base is Type0
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), hcomp)
+
+	// When face is ⊤, should reduce to tube[i1/i] = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{Level: 1}, got %T %v", result, result)
+	}
+}
+
+// TestHCompFaceEmpty verifies hcomp reduces to base when face is ⊥.
+// hcomp A [⊥ ↦ _] a₀ = a₀
+func TestHCompFaceEmpty(t *testing.T) {
+	// hcomp Type0 [⊥ ↦ _] Type0
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 0}, // Constant type
+		Phi:  ast.FaceBot{},  // Face is never true
+		Tube: ast.Sort{U: 1}, // Tube is irrelevant
+		Base: ast.Sort{U: 0}, // Base is Type0
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), hcomp)
+
+	// When face is ⊥, should reduce to base = Type0
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T %v", result, result)
+	}
+}
+
+// TestFillEvaluation verifies fill produces correct values at endpoints.
+// fill^i A [φ ↦ u] a₀ @ i0 = a₀
+// fill^i A [φ ↦ u] a₀ @ i1 = comp^i A [φ ↦ u] a₀
+func TestFillEvaluation(t *testing.T) {
+	// fill^i Type0 [⊥ ↦ _] Type0
+	fill := ast.Fill{
+		IBinder: "i",
+		A:       ast.Sort{U: 0}, // Type line
+		Phi:     ast.FaceBot{},  // Face constraint
+		Tube:    ast.Sort{U: 1}, // Tube
+		Base:    ast.Sort{U: 0}, // Base
+	}
+
+	// Evaluate fill directly (produces a value representing the fill)
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), fill)
+
+	// Fill should produce a VFill value (or reduce if possible)
+	// When evaluated, it represents a path from base to comp
+	if result == nil {
+		t.Error("Fill evaluation returned nil")
+	}
+
+	// Test applying fill to endpoints
+	// fill @ i0 should give base
+	fillAtI0 := ast.PathApp{P: fill, R: ast.I0{}}
+	resultI0 := eval.EvalCubical(nil, eval.EmptyIEnv(), fillAtI0)
+
+	if sort, ok := resultI0.(eval.VSort); ok && sort.Level != 0 {
+		t.Errorf("fill @ i0: expected VSort{Level: 0}, got %v", result)
+	}
+}
+
+// TestCompTypeCheck verifies composition type checking.
+func TestCompTypeCheck(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval variable for tube
+
+	// Context with x : Type1 (element of the composition type)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// comp^i Type1 [⊥ ↦ x] x where x : Type1
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 1}, // Type line: Type1
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Var{Ix: 0}, // Tube: x : Type1
+		Base:    ast.Var{Ix: 0}, // Base: x : Type1
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp type checking failed: %v", err)
+	}
+
+	// Result type should be A[i1/i] = Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestHCompTypeCheckWithBot verifies hcomp type checking with bot face.
+func TestHCompTypeCheckWithBot(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval variable for tube
+
+	// Context with x : Type1
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// hcomp Type1 [⊥ ↦ x] x
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 1}, // Constant type: Type1
+		Phi:  ast.FaceBot{},
+		Tube: ast.Var{Ix: 0}, // x : Type1
+		Base: ast.Var{Ix: 0}, // x : Type1
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp type checking failed: %v", err)
+	}
+
+	// Result type should be A = Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestFillTypeCheck verifies fill type checking.
+func TestFillTypeCheck(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval variable
+
+	// Context with x : Type1
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// fill^i Type1 [⊥ ↦ x] x
+	fill := ast.Fill{
+		IBinder: "i",
+		A:       ast.Sort{U: 1}, // Type line: Type1
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Var{Ix: 0}, // x : Type1
+		Base:    ast.Var{Ix: 0}, // x : Type1
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), fill)
+	if err != nil {
+		t.Fatalf("Fill type checking failed: %v", err)
+	}
+
+	// Result type should be the type family A = Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}

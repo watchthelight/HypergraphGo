@@ -133,15 +133,15 @@ type Face interface {
 // An element defined on FaceTop is defined everywhere.
 type FaceTop struct{}
 
-func (FaceTop) isFace()      {}
-func (FaceTop) isCoreTerm()  {}
+func (FaceTop) isFace()     {}
+func (FaceTop) isCoreTerm() {}
 
 // FaceBot represents the always-false face formula (⊥ or 0).
 // An element defined on FaceBot is defined nowhere (empty partial element).
 type FaceBot struct{}
 
-func (FaceBot) isFace()      {}
-func (FaceBot) isCoreTerm()  {}
+func (FaceBot) isFace()     {}
+func (FaceBot) isCoreTerm() {}
 
 // FaceEq represents an endpoint constraint: (i = 0) or (i = 1).
 // This is satisfied when the interval variable equals the specified endpoint.
@@ -150,8 +150,8 @@ type FaceEq struct {
 	IsOne bool // true for (i = 1), false for (i = 0)
 }
 
-func (FaceEq) isFace()      {}
-func (FaceEq) isCoreTerm()  {}
+func (FaceEq) isFace()     {}
+func (FaceEq) isCoreTerm() {}
 
 // FaceAnd represents conjunction of faces: φ ∧ ψ.
 // Satisfied when both φ and ψ are satisfied.
@@ -160,8 +160,8 @@ type FaceAnd struct {
 	Right Face
 }
 
-func (FaceAnd) isFace()      {}
-func (FaceAnd) isCoreTerm()  {}
+func (FaceAnd) isFace()     {}
+func (FaceAnd) isCoreTerm() {}
 
 // FaceOr represents disjunction of faces: φ ∨ ψ.
 // Satisfied when either φ or ψ (or both) are satisfied.
@@ -170,8 +170,8 @@ type FaceOr struct {
 	Right Face
 }
 
-func (FaceOr) isFace()      {}
-func (FaceOr) isCoreTerm()  {}
+func (FaceOr) isFace()     {}
+func (FaceOr) isCoreTerm() {}
 
 // --- Partial Types and Systems ---
 
@@ -301,8 +301,8 @@ func (Fill) isCoreTerm() {}
 //	Glue A [1 ↦ (T, e)] = T              (face satisfied)
 //	Glue A [0 ↦ (T, e)] = A              (face empty)
 type Glue struct {
-	A      Term          // Base type
-	System []GlueBranch  // System of equivalences
+	A      Term         // Base type
+	System []GlueBranch // System of equivalences
 }
 
 func (Glue) isCoreTerm() {}

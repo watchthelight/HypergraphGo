@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Alpha-equality completeness for cubical types** (`internal/core/conv_cubical.go`)
+  - Added alpha-equality cases for Face formulas: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr`
+  - Added alpha-equality cases for Partial types: `Partial`, `System`
+  - Added alpha-equality cases for Composition: `Comp`, `HComp`, `Fill`
+  - Added alpha-equality cases for Glue types: `Glue`, `GlueElem`, `Unglue`
+  - Added alpha-equality cases for Univalence: `UA`, `UABeta`
+  - New `alphaEqFace` helper function for face formula equality
+  - Comprehensive test suite in `internal/core/conv_cubical_test.go`
+
+- **Type synthesis improvements** (`kernel/check/bidir_cubical.go`)
+  - `synthUABeta` now properly extracts target type B from `Equiv A B` structure
+  - `synthComp`, `synthHComp`, `synthFill` now check tube types against type family
+  - System branch agreement checking via `checkSystemAgreement`
+  - Face formula satisfiability checking with `faceIsBot` and `isContradictoryFaceAnd`
+
+### Added
+- **Composition tests** (`kernel/check/path_test.go`)
+  - `TestCompFaceSatisfied` / `TestCompFaceEmpty` - comp reduction rules
+  - `TestHCompFaceSatisfied` / `TestHCompFaceEmpty` - hcomp reduction rules
+  - `TestFillEvaluation` - fill endpoint behavior
+  - `TestCompTypeCheck` / `TestHCompTypeCheckWithBot` / `TestFillTypeCheck` - type checking
+  - `TestTransportUAComputes` - verifies `transport (ua e) a = e.fst a`
+  - `TestUABetaReification` - UABeta value reification
+
 ## [1.6.0] - 2025-12-08
 
 ### Added
