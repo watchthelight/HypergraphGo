@@ -1,8 +1,13 @@
-# HypergraphGo: HoTT Kernel Design (Phase 0)
+# HypergraphGo: HoTT Kernel Design
 
 ## Core theory profile
-- Start profile: intensional MLTT with Id types (`Id`, `refl`, `J`). 
-- Planned upgrade: gated cubical features (Interval `I`, Path types, `comp`/`fill`, Glue) introduced in Phase 4; all rules must be explicitly documented before enabling.
+- **Base**: Intensional MLTT with Id types (`Id`, `refl`, `J`)
+- **Cubical features** (always enabled as of v1.6.0):
+  - Interval type `I` with endpoints `i0`, `i1`
+  - Path types: `Path A x y`, `PathP A x y`
+  - Composition: `comp`, `hcomp`, `fill`
+  - Glue types: `Glue A [φ ↦ (T, e)]`
+  - Univalence: `ua A B e : Path Type A B`
 - Universes: predicative, cumulative tower `Type0 : Type1 : …`. No `Type : Type`. Explicit level arithmetic; no impredicativity.
 
 ## Binding & syntax

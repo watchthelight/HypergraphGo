@@ -41,14 +41,44 @@ The HoTT kernel implements a cutting-edge type theory foundation:
 
 ## Highlights
 
-### Phase 5 In Progress: Inductives & Recursors
+### v1.6.0: Computational Univalence
 
-**Parameterized Inductives (v1.5.8+):**
-- **Parameterized types**: `List : Type -> Type`, `Maybe : Type -> Type`
-- **Constructor validation**: Ensures constructors return applied inductive with correct params
-- **Eliminator generation**: `listElim : (A : Type) -> (P : List A -> Type) -> ... -> (xs : List A) -> P xs`
-- **NbE reduction**: Generic recursor reduction with parameter-aware spine handling
-- **Strict positivity**: Full positivity checking for parameterized constructors
+**Univalence Axiom (ua):**
+- `ua A B e : Path Type A B` — converts equivalences to paths between types
+- Computation: `(ua e) @ i0 = A`, `(ua e) @ i1 = B`
+- Intermediate: `(ua e) @ i = Glue B [(i=0) ↦ (A, e)]`
+
+**Glue Types:**
+- `Glue A [φ ↦ (T, e)] : Type` — glue types for univalence
+- `glue [φ ↦ t] a` — glue element constructor
+- `unglue g : A` — extract base from glue element
+- Computation: `Glue A [⊤ ↦ (T, e)] = T`
+
+**Composition Operations:**
+- `comp^i A [φ ↦ u] a₀ : A[i1/i]` — heterogeneous composition
+- `hcomp A [φ ↦ u] a₀ : A` — homogeneous composition
+- `fill^i A [φ ↦ u] a₀` — fill operation for paths
+
+**Face Formulas & Partial Types:**
+- Face formulas: `⊤`, `⊥`, `(i=0)`, `(i=1)`, `φ∧ψ`, `φ∨ψ`
+- `Partial φ A` — partial elements defined when φ is satisfied
+- `System` — systems of compatible partial elements
+
+**Cubical Types Always Enabled:**
+- No build tags required — cubical features available in default build
+- Path types, interval, transport, composition all built-in
+
+### Inductives & Recursors
+
+**Mutual Inductives (v1.6.0):**
+- `DeclareMutual` API for mutually recursive types (e.g., Even/Odd)
+- Cross-type positivity checking via `CheckMutualPositivity`
+- Separate eliminators per type in mutual block
+
+**Parameterized & Indexed Inductives (v1.5.8+):**
+- **Parameterized types**: `List : Type -> Type`, `Vec : Type -> Nat -> Type`
+- **Indexed types**: Automatic parameter/index analysis from constructor results
+- **Eliminator generation**: Full support for params and indices in motives
 
 **Core Inductives (v1.5.3+):**
 - **User-defined inductives**: `DeclareInductive` with full validation pipeline
@@ -56,36 +86,22 @@ The HoTT kernel implements a cutting-edge type theory foundation:
 - **Generic reduction**: Registry-based recursor reduction for arbitrary inductives
 - **Built-in primitives**: `Nat`, `Bool` with `natElim`, `boolElim`
 
-### Phase 4 Complete: Identity Types + Cubical Path Types
+### Identity Types & Path Types
 
-**Martin-Löf Identity Types (v1.5.0):**
-- **Identity types**: `Id A x y` for propositional equality
-- **Reflexivity**: `refl A x : Id A x x`
-- **Path induction**: `J A C d x y p : C y p` eliminator
-- **Computation rule**: `J A C d x x (refl A x) --> d`
-- **NbE support**: `VId`, `VRefl` semantic values with J reduction
-- **Derived operations**: transport, symmetry, transitivity, congruence
+**Martin-Löf Identity Types:**
+- `Id A x y` for propositional equality
+- `refl A x : Id A x x` and `J` eliminator
 
-**Cubical Path Types (gated by `cubical` build tag):**
-- **Path types**: `Path A x y`, `PathP A x y` for cubical equality
-- **Path abstraction**: `<i> t : PathP (λi. A) t[i0/i] t[i1/i]`
-- **Path application**: `p @ r : A[r/i]` with endpoint beta reduction
-- **Transport**: `transport A e : A[i1/i]` with constant reduction
-- **Interval type**: `I`, `i0`, `i1`, `IVar` with separate de Bruijn space
-- **Build to enable**: `go build -tags cubical ./...`
+**Cubical Path Types:**
+- `Path A x y`, `PathP A x y` for cubical equality
+- `<i> t` path abstraction, `p @ r` path application
+- `transport A e : A[i1/i]` with constant reduction
 
-### Phase 3 Complete: Bidirectional Type Checking
+### Bidirectional Type Checking
 
-- **Bidirectional type checker** at `kernel/check` with `Synth`/`Check`/`CheckIsType` API
-- **Built-in primitives**: `Nat`, `zero`, `succ`, `natElim`, `Bool`, `true`, `false`, `boolElim`
-- **Structured error types** with source spans for precise diagnostics
-- **Global environment** with axioms, definitions, inductives, and primitives
-
-### Phase 2 Complete: NbE & Definitional Equality
-
-- **NbE skeleton** under `internal/eval` with semantic domain (Values, Closures, Neutrals)
-- **Definitional equality** at `core.Conv` with environment support
-- **Optional η-rules** for functions and pairs behind feature flags
+- `Synth`/`Check`/`CheckIsType` API at `kernel/check`
+- Structured error types with source spans
+- Global environment with axioms, definitions, inductives, primitives
 
 ---
 
@@ -195,15 +211,15 @@ See [`DIAGRAMS.md`](DIAGRAMS.md) for comprehensive Mermaid architecture diagrams
 | **Phase 2** | ✅ | Normalization and definitional equality |
 | **Phase 3** | ✅ | Bidirectional type checking |
 | **Phase 4** | ✅ | Identity types + Cubical path types |
-| **Phase 5** | 🔄 | Inductives, recursors, positivity (parameterized ✓) |
-| **Phase 6** | ⏳ | Univalence |
+| **Phase 5** | ✅ | Inductives, recursors, positivity (parameterized, indexed, mutual) |
+| **Phase 6** | ✅ | Computational univalence (Glue, comp, ua) |
 | **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
 | **Phase 8** | ⏳ | Elaboration and tactics |
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current:** Phase 5 In Progress — Parameterized inductives complete
-**Next:** Indexed families, mutual inductives
+**Current:** v1.6.0 — Computational univalence complete
+**Next:** Higher Inductive Types (HITs)
 
 ---
 

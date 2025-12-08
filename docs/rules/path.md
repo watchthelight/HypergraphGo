@@ -1,10 +1,13 @@
 # Cubical Path Types
 
-This document describes the typing rules for cubical path types in the HoTT kernel. Path types are gated by the `cubical` build tag.
+This document describes the typing rules for cubical path types in the HoTT kernel. As of v1.6.0, cubical features are always enabled.
 
 ## Overview
 
 Cubical path types provide an alternative to Martin-Lof identity types with better computational properties. A path `Path A x y` is a function from the interval `I` to type `A` with fixed endpoints. The key advantage is that paths compute: applying a path to an interval endpoint directly yields the corresponding term.
+
+See also:
+- [Univalence](univalence.md) — `ua`, Glue types, composition operations
 
 ## The Interval Type
 
@@ -190,14 +193,14 @@ type IClosure struct {
 
 ## Build Configuration
 
-Cubical path types are enabled with the `cubical` build tag:
+As of v1.6.0, cubical path types are always enabled. No build tags are required:
 
 ```bash
-go build -tags cubical ./...
-go test -tags cubical ./...
+go build ./...
+go test ./...
 ```
 
-Without the tag, the standard build uses only Martin-Lof identity types.
+All cubical features (paths, composition, Glue types, univalence) are available in the default build.
 
 ## Coexistence with Identity Types
 

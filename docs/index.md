@@ -50,13 +50,19 @@ go get github.com/watchthelight/hypergraphgo
 
 ## Current Status
 
-**Phase 5 In Progress**: Inductives & Recursors (parameterized inductives complete)
+**v1.6.0**: Computational Univalence Complete
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 0–4 | ✅ | Syntax, NbE, type checking, Id types, paths |
-| Phase 5 | 🔄 | Inductives, recursors, positivity (parameterized ✓) |
-| Phase 6–10 | ⏳ | Univalence, HITs, tactics, stdlib |
+| Phase 5 | ✅ | Inductives, recursors, positivity (parameterized, indexed, mutual) |
+| Phase 6 | ✅ | Computational univalence (Glue, comp, ua) |
+| Phase 7+ | ⏳ | HITs, tactics, stdlib |
+
+**Highlights:**
+- Univalence axiom: `ua A B e : Path Type A B`
+- Glue types and composition operations
+- Cubical types always enabled (no build tag needed)
 
 ---
 
