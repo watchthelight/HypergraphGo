@@ -7,75 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Univalence axiom (ua)** (Phase 7.5: Univalence)
-  - `UA` AST type: `ua A B e : Path Type A B` - univalence path constructor
-  - `UABeta` AST type: `ua-β e a` - computation for transport along ua
-  - Value types: `VUA`, `VUABeta` for NbE
-  - Computation rules via Glue types:
-    - `(ua e) @ i0 = A` (left endpoint)
-    - `(ua e) @ i1 = B` (right endpoint)
-    - `(ua e) @ i = Glue B [(i=0) ↦ (A, e)]` (intermediate)
-  - `UAPathApply` evaluates ua paths at interval values
-  - Type synthesis: `synthUA`, `synthUABeta`
-  - Substitution support for UA terms
-  - Positivity checking for UA terms
-  - Tests: UA printing, path application at endpoints, intermediate evaluation, type checking
-
-- **Glue types** (Phase 7.4: Glue Types)
-  - `Glue` AST type: `Glue A [φ ↦ (T, e)] : Type` - Glue type for univalence
-  - `GlueElem` AST type: `glue [φ ↦ t] a` - Glue element constructor
-  - `Unglue` AST type: `unglue g : A` - Extract base from Glue element
-  - Value types: `VGlue`, `VGlueElem`, `VUnglue` for NbE
-  - Computation rules:
-    - `Glue A [⊤ ↦ (T, e)] = T` (face satisfied)
-    - `Glue A [] = A` (no branches)
-    - `glue [⊤ ↦ t] a = t` (face satisfied)
-    - `unglue (glue [φ ↦ t] a) = a` (definitional)
-  - Substitution support for Glue terms
-  - Type synthesis: `synthGlue`, `synthGlueElem`, `synthUnglue`
-  - Positivity checking for Glue terms
-  - Tests for Glue printing, evaluation, and type checking
-
-- **Composition operations** (Phase 7.3: Composition Operation)
-  - `Comp` AST type: `comp^i A [φ ↦ u] a₀ : A[i1/i]` - heterogeneous composition
-  - `HComp` AST type: `hcomp A [φ ↦ u] a₀ : A` - homogeneous composition
-  - `Fill` AST type: `fill^i A [φ ↦ u] a₀` - produces path from base to comp result
-  - Value types: `VComp`, `VHComp`, `VFill` for NbE
-  - `IClosure` type for capturing interval environments in closures
-  - Computation rules:
-    - `comp^i A [⊤ ↦ u] a₀ → u[i1/i]` (face satisfied)
-    - `comp^i A [⊥ ↦ _] a₀ → transport A a₀` (face empty, reduces to transport)
-    - `hcomp A [⊥ ↦ _] a₀ → a₀` (identity when face empty)
-  - Substitution support: `IShift` and `ISubst` for composition terms
-  - Type synthesis: `synthComp`, `synthHComp`, `synthFill`
-  - Positivity checking for composition terms
-  - Tests for composition printing, evaluation, and type checking
-
-- **Face formulas and Partial types** (Phase 7.2: Face Formulas and Partial Types)
-  - Face formula AST types: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr`
-  - Face interface for representing cofibrations (φ ::= ⊤ | ⊥ | (i=0) | (i=1) | φ∧ψ | φ∨ψ)
-  - `Partial φ A` type for partial elements defined when face φ is satisfied
-  - `System` type for systems of partial elements: [φ₁ ↦ t₁, φ₂ ↦ t₂, ...]
-  - Face formula evaluation with simplification (e.g., (i=0)∧(i=1) → ⊥, (i=0)∨(i=1) → ⊤)
-  - Face value types in NbE: `VFaceTop`, `VFaceBot`, `VFaceEq`, `VFaceAnd`, `VFaceOr`
-  - `VPartial` and `VSystem` value types
-  - Face formula substitution (`ISubstFace`, `IShiftFace`)
-  - Face formula type checking and validation
-  - Partial type formation: `Partial φ A : Type_i` when `A : Type_i`
-  - System type synthesis: `[φ₁ ↦ t₁, ...] : Partial (φ₁ ∨ ...) A`
-  - Tests for face printing, evaluation, substitution, and Partial type checking
-
-### Changed
-- **Cubical types always enabled** (Phase 7.1: Merge Cubical into Main)
-  - Removed `//go:build cubical` tags from all cubical files
-  - Deleted stub files (`*_ext.go`, `*_nocubical.go`)
-  - Path types, interval type, and transport now available in default build
-  - No longer need `-tags cubical` for cubical features
-
 ## [1.6.0] - 2025-12-08
 
 ### Added
+- **Computational Univalence** (Phase 7: Complete cubical univalence implementation)
+  - **Univalence axiom (ua)** - `ua A B e : Path Type A B`
+    - `UA` and `UABeta` AST types
+    - Computation: `(ua e) @ i0 = A`, `(ua e) @ i1 = B`
+    - Intermediate: `(ua e) @ i = Glue B [(i=0) ↦ (A, e)]`
+  - **Glue types** - `Glue A [φ ↦ (T, e)] : Type`
+    - `Glue`, `GlueElem`, `Unglue` AST types
+    - Computation: `Glue A [⊤ ↦ (T, e)] = T`, `glue [⊤ ↦ t] a = t`
+  - **Composition operations** - `comp^i A [φ ↦ u] a₀ : A[i1/i]`
+    - `Comp`, `HComp`, `Fill` AST types with `IClosure` for interval environments
+    - Computation: `comp^i A [⊤ ↦ u] a₀ → u[i1/i]`, `hcomp A [⊥ ↦ _] a₀ → a₀`
+  - **Face formulas and Partial types** - `Partial φ A`, `System`
+    - Face formulas: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr`
+    - Face simplification: `(i=0)∧(i=1) → ⊥`, `(i=0)∨(i=1) → ⊤`
+  - Full NbE support with value types for all cubical constructs
+  - Type synthesis, substitution, and positivity checking
+  - Comprehensive test suite for all phases
+
 - **Mutual inductive types** (`kernel/check/env.go`, `kernel/check/positivity.go`)
   - `MutualInductiveSpec` struct for specifying types in a mutual block
   - `DeclareMutual` API for declaring mutually recursive types (e.g., Even/Odd)
@@ -102,6 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TestMutualInductive_NestedNegative` - rejects deeply nested negative occurrences
 - `TestMutualInductive_DoublyNegativeIsPositive` - documents strict positivity (no double-flip)
 - `TestMutualInductive_SymmetricNegative` - symmetric checking across mutual types
+
+### Changed
+- **Cubical types always enabled** (Phase 7.1: Merge Cubical into Main)
+  - Removed `//go:build cubical` tags from all cubical files
+  - Deleted stub files (`*_ext.go`, `*_nocubical.go`)
+  - Path types, interval type, and transport now available in default build
+  - No longer need `-tags cubical` for cubical features
 
 ### Fixed
 - **golangci-lint cleanup** (30 issues resolved)
