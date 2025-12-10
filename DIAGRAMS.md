@@ -7,443 +7,693 @@ This document provides visual representations of the HypergraphGo HoTT (Homotopy
 ## MASTER DIAGRAM: Complete HoTT Kernel Architecture
 
 ```mermaid
+%%{init: {'themeVariables': { 'fontSize': '14px'}}}%%
+flowchart LR
+    %% ═══════════════════════════════════════════════════════════════════════════
+    %% LEFT COLUMN: INPUT + KERNEL LAYER
+    %% ═══════════════════════════════════════════════════════════════════════════
+
+    subgraph COL1[" "]
+        direction TB
+
+        subgraph INPUT["⬇ INPUT"]
+            direction LR
+            I1["ast.Term"]
+            I2["ctx.Ctx"]
+            I3["GlobalEnv"]
+        end
+
+        subgraph KERNEL["⚙ KERNEL LAYER"]
+            direction TB
+
+            subgraph CHECK["kernel/check"]
+                direction TB
+                C1["Checker"]
+                C2["Synth · Check · CheckIsType"]
+                C3["GlobalEnv · Inductive · Recursor"]
+                C4["Positivity · Errors · Span"]
+            end
+
+            subgraph CTX["kernel/ctx"]
+                direction LR
+                X1["Ctx{Tele}"]
+                X2["Extend · Lookup · Drop"]
+            end
+
+            subgraph SUBST["kernel/subst"]
+                direction LR
+                S1["Shift · Subst"]
+                S2["IShift · ISubst"]
+            end
+        end
+
+        subgraph OUTPUT["⬆ OUTPUT"]
+            direction LR
+            O1["Type"]
+            O2["Error"]
+            O3["Normal Form"]
+        end
+    end
+
+    %% ═══════════════════════════════════════════════════════════════════════════
+    %% CENTER COLUMN: AST TERMS
+    %% ═══════════════════════════════════════════════════════════════════════════
+
+    subgraph COL2[" "]
+        direction TB
+
+        subgraph AST["📦 internal/ast"]
+            direction TB
+
+            subgraph CORE_TERMS["Core Terms"]
+                direction LR
+                subgraph ATOMIC["Atomic"]
+                    T01["Sort{U}"]
+                    T02["Var{Ix}"]
+                    T03["Global{Name}"]
+                end
+                subgraph FUNCS["Π Types"]
+                    T04["Pi{A,B}"]
+                    T05["Lam{Body}"]
+                    T06["App{T,U}"]
+                end
+                subgraph PRODS["Σ Types"]
+                    T07["Sigma{A,B}"]
+                    T08["Pair{Fst,Snd}"]
+                    T09["Fst · Snd"]
+                end
+            end
+
+            subgraph IDENT["Identity Types"]
+                direction LR
+                T10["Id{A,X,Y}"]
+                T11["Refl{A,X}"]
+                T12["J{A,C,D,X,Y,P}"]
+                T13["Let{Val,Body}"]
+            end
+
+            subgraph CUBICAL_TERMS["Cubical Terms"]
+                direction LR
+
+                subgraph INTERVAL["Interval"]
+                    T14["I · I0 · I1"]
+                    T15["IVar{Ix}"]
+                end
+
+                subgraph PATHS["Paths"]
+                    T16["Path{A,X,Y}"]
+                    T17["PathP{A,X,Y}"]
+                    T18["PathLam{Body}"]
+                    T19["PathApp{P,R}"]
+                    T20["Transport{A,E}"]
+                end
+
+                subgraph FACES["Faces"]
+                    T21["⊤ · ⊥"]
+                    T22["FaceEq{i=0/1}"]
+                    T23["∧ · ∨"]
+                end
+
+                subgraph PARTIAL["Partial"]
+                    T24["Partial{Φ,A}"]
+                    T25["System{Branches}"]
+                end
+
+                subgraph COMP["Composition"]
+                    T26["Comp{A,Φ,u,a₀}"]
+                    T27["HComp{A,Φ,u,a₀}"]
+                    T28["Fill{A,Φ,u,a₀}"]
+                end
+
+                subgraph GLUE["Glue Types"]
+                    T29["Glue{A,Sys}"]
+                    T30["GlueElem"]
+                    T31["Unglue"]
+                end
+
+                subgraph UA["Univalence"]
+                    T32["UA{A,B,e}"]
+                    T33["UABeta{e,a}"]
+                end
+            end
+        end
+    end
+
+    %% ═══════════════════════════════════════════════════════════════════════════
+    %% RIGHT COLUMN: EVALUATION + VALUES
+    %% ═══════════════════════════════════════════════════════════════════════════
+
+    subgraph COL3[" "]
+        direction TB
+
+        subgraph EVAL["⚡ internal/eval"]
+            direction TB
+
+            subgraph NBE["NbE Pipeline"]
+                direction LR
+                E1["Eval(env,term)"]
+                E2["Apply(f,arg)"]
+                E3["Reify(value)"]
+            end
+
+            subgraph CUBICAL_EVAL["Cubical Evaluation"]
+                direction LR
+                E4["EvalCubical"]
+                E5["PathApply"]
+                E6["EvalTransport"]
+                E7["EvalComp · EvalHComp"]
+                E8["EvalGlue · EvalUnglue"]
+                E9["UAPathApply"]
+            end
+
+            subgraph RECURSOR["Recursor Engine"]
+                direction LR
+                R1["RecursorRegistry"]
+                R2["tryGenericReduction"]
+                R3["buildIH"]
+            end
+        end
+
+        subgraph VALUES["📊 Semantic Domain"]
+            direction TB
+
+            subgraph CORE_VALUES["Core Values"]
+                direction LR
+                V01["VSort{Level}"]
+                V02["VLam{Closure}"]
+                V03["VPi{A,B}"]
+                V04["VSigma{A,B}"]
+                V05["VPair{Fst,Snd}"]
+                V06["VNeutral{N}"]
+                V07["VId · VRefl"]
+            end
+
+            subgraph CUBICAL_VALUES["Cubical Values"]
+                direction LR
+
+                subgraph IVAL["Interval"]
+                    V08["VI0 · VI1"]
+                    V09["VIVar{Level}"]
+                end
+
+                subgraph PVAL["Paths"]
+                    V10["VPath{A,X,Y}"]
+                    V11["VPathP{A,X,Y}"]
+                    V12["VPathLam{IClosure}"]
+                    V13["VTransport{A,E}"]
+                end
+
+                subgraph FVAL["Faces"]
+                    V14["VFaceTop · VFaceBot"]
+                    V15["VFaceEq{ILevel,IsOne}"]
+                    V16["VFaceAnd · VFaceOr"]
+                end
+
+                subgraph CVAL["Composition"]
+                    V17["VPartial · VSystem"]
+                    V18["VComp · VHComp"]
+                    V19["VFill"]
+                end
+
+                subgraph GVAL["Glue"]
+                    V20["VGlue{A,System}"]
+                    V21["VGlueElem"]
+                    V22["VUnglue"]
+                end
+
+                subgraph UVAL["Univalence"]
+                    V23["VUA{A,B,Equiv}"]
+                    V24["VUABeta{Equiv,Arg}"]
+                end
+            end
+
+            subgraph STRUCTURES["Supporting Structures"]
+                direction LR
+                ST1["Env{Bindings}"]
+                ST2["Closure{Env,Term}"]
+                ST3["IClosure{Env,IEnv,Term}"]
+                ST4["IEnv{Bindings}"]
+                ST5["Neutral{Head,Spine}"]
+            end
+        end
+
+        subgraph CONV["🔄 internal/core"]
+            direction LR
+            CV1["Conv(t,u)"]
+            CV2["AlphaEq"]
+            CV3["alphaEqExtension"]
+        end
+    end
+
+    %% ═══════════════════════════════════════════════════════════════════════════
+    %% CONNECTIONS
+    %% ═══════════════════════════════════════════════════════════════════════════
+
+    INPUT --> CHECK
+    CHECK --> OUTPUT
+    CHECK --> CTX
+    CHECK --> SUBST
+    CHECK --> CONV
+    CHECK --> EVAL
+
+    AST --> CHECK
+    AST --> EVAL
+    AST --> CONV
+
+    EVAL --> VALUES
+    VALUES --> CONV
+
+    NBE --> CORE_VALUES
+    CUBICAL_EVAL --> CUBICAL_VALUES
+
+    %% ═══════════════════════════════════════════════════════════════════════════
+    %% STYLING - No background fills, only stroke colors
+    %% ═══════════════════════════════════════════════════════════════════════════
+
+    style COL1 fill:none,stroke:none
+    style COL2 fill:none,stroke:none
+    style COL3 fill:none,stroke:none
+
+    style INPUT stroke:#666,stroke-width:2px
+    style OUTPUT stroke:#666,stroke-width:2px
+
+    style KERNEL stroke:#888,stroke-width:2px
+    style CHECK stroke:#888
+    style CTX stroke:#888
+    style SUBST stroke:#888
+
+    style AST stroke:#888,stroke-width:2px
+    style CORE_TERMS stroke:#666
+    style ATOMIC stroke:#666
+    style FUNCS stroke:#666
+    style PRODS stroke:#666
+    style IDENT stroke:#666
+
+    %% Cubical components - green stroke
+    style CUBICAL_TERMS stroke:#2da44e,stroke-width:2px
+    style INTERVAL stroke:#2da44e
+    style PATHS stroke:#2da44e
+    style FACES stroke:#2da44e
+    style PARTIAL stroke:#2da44e
+    style COMP stroke:#2da44e
+    style GLUE stroke:#2da44e
+    style UA stroke:#2da44e
+
+    style EVAL stroke:#888,stroke-width:2px
+    style NBE stroke:#666
+    style CUBICAL_EVAL stroke:#2da44e,stroke-width:2px
+    style RECURSOR stroke:#666
+
+    style VALUES stroke:#888,stroke-width:2px
+    style CORE_VALUES stroke:#666
+    style CUBICAL_VALUES stroke:#2da44e,stroke-width:2px
+    style IVAL stroke:#2da44e
+    style PVAL stroke:#2da44e
+    style FVAL stroke:#2da44e
+    style CVAL stroke:#2da44e
+    style GVAL stroke:#2da44e
+    style UVAL stroke:#2da44e
+    style STRUCTURES stroke:#666
+
+    style CONV stroke:#888,stroke-width:2px
+```
+
+---
+
+## MASTER DIAGRAM: Detailed Component Architecture
+
+```mermaid
 flowchart TB
-    subgraph InputLayer["INPUT LAYER"]
+    subgraph LAYER1["INPUT LAYER"]
         direction LR
-        SourceTerm["Source Term<br/>(ast.Term)"]
-        TypingCtx["Typing Context<br/>(kernel/ctx.Ctx)"]
-        GlobalEnv["Global Environment<br/>(kernel/check.GlobalEnv)"]
+        IN1["Source Term<br/>ast.Term"]
+        IN2["Typing Context<br/>ctx.Ctx"]
+        IN3["Global Environment<br/>GlobalEnv"]
     end
 
-    subgraph KernelCheck["KERNEL: TYPE CHECKER (kernel/check)"]
-        direction TB
+    subgraph LAYER2["KERNEL LAYER"]
+        direction LR
 
-        subgraph CheckerCore["Checker Core"]
-            Checker["Checker{globals, conv}"]
-            PublicAPI["Public API:<br/>Synth() / Check() / CheckIsType()"]
-        end
-
-        subgraph SynthesisMode["SYNTHESIS MODE (Infer Type)"]
+        subgraph CHECKER["kernel/check"]
             direction TB
-            SynthDispatch{"synth()<br/>dispatch"}
+            CHK1["Checker API"]
+            CHK2["Synth() · Check()"]
+            CHK3["CheckIsType()"]
 
-            subgraph AtomicSynth["Atomic Terms"]
-                SynthVar["synthVar<br/>ctx.LookupVar(ix)<br/>+ Shift"]
-                SynthSort["synthSort<br/>Sort U → Sort U+1"]
-                SynthGlobal["synthGlobal<br/>globals.LookupType"]
+            subgraph BIDIR["Bidirectional Rules"]
+                direction TB
+                BD1["synthVar · synthSort · synthGlobal"]
+                BD2["synthPi · synthLam · synthApp"]
+                BD3["synthSigma · synthFst · synthSnd"]
+                BD4["synthId · synthRefl · synthJ"]
             end
 
-            subgraph FunctionSynth["Function Types"]
-                SynthPi["synthPi<br/>checkIsType(A,B)<br/>→ Sort max(U,V)"]
-                SynthLam["synthLam<br/>(annotated only)<br/>→ Pi type"]
-                SynthApp["synthApp<br/>synth(f) → Pi<br/>check(u,A)<br/>→ B[u/x]"]
+            subgraph BIDIR_CUB["Cubical Rules"]
+                direction TB
+                BC1["synthPath · synthPathP"]
+                BC2["synthPathLam · synthPathApp"]
+                BC3["synthTransport"]
+                BC4["synthComp · synthHComp · synthFill"]
+                BC5["synthGlue · synthUA · synthUABeta"]
+                BC6["checkSystemAgreement"]
+                BC7["faceIsBot · isContradictoryFaceAnd"]
             end
 
-            subgraph ProductSynth["Product Types"]
-                SynthSigma["synthSigma<br/>checkIsType(A,B)<br/>→ Sort max(U,V)"]
-                SynthFst["synthFst<br/>synth(p) → Sigma<br/>→ A"]
-                SynthSnd["synthSnd<br/>synth(p) → Sigma<br/>→ B[fst p/x]"]
+            subgraph ENV["Environment"]
+                direction TB
+                EN1["Axiom · Definition"]
+                EN2["Inductive · Primitive"]
+                EN3["Constructor · Eliminator"]
             end
 
-            subgraph IdentitySynth["Identity Types"]
-                SynthId["synthId<br/>checkIsType(A)<br/>check(x,y : A)<br/>→ Sort U"]
-                SynthRefl["synthRefl<br/>checkIsType(A)<br/>check(x : A)<br/>→ Id A x x"]
-                SynthJ["synthJ<br/>check motive C<br/>check base d<br/>check proof p<br/>→ C y p"]
+            subgraph RECUR["Recursor Generation"]
+                direction TB
+                RG1["GenerateRecursorType"]
+                RG2["buildMotiveType"]
+                RG3["buildCaseType"]
             end
 
-            subgraph ControlSynth["Control Flow"]
-                SynthLet["synthLet<br/>synth/check val<br/>extend ctx<br/>→ bodyTy[val/x]"]
+            subgraph POS["Positivity Checking"]
+                direction TB
+                PS1["CheckPositivity"]
+                PS2["checkArgTypePositivity"]
+                PS3["occursIn"]
             end
         end
 
-        subgraph CheckingMode["CHECKING MODE (Verify Type)"]
+        subgraph CONTEXT["kernel/ctx"]
             direction TB
-            CheckDispatch{"check()<br/>dispatch"}
-
-            CheckLam["checkLam<br/>(unannotated)<br/>ensurePi(expected)<br/>check(body, B)"]
-            CheckPair["checkPair<br/>ensureSigma(expected)<br/>check(fst, A)<br/>check(snd, B[fst/x])"]
-            CheckBySynth["checkBySynth<br/>synth(term)<br/>conv(inferred, expected)"]
+            CTX1["Ctx{Tele: []Binding}"]
+            CTX2["Extend(name, type)"]
+            CTX3["LookupVar(ix) → Term"]
+            CTX4["Drop() · Len()"]
         end
 
-        subgraph Helpers["Helper Functions"]
-            CheckIsType["checkIsType<br/>synth → ensureSort<br/>→ Level"]
-            EnsurePi["ensurePi<br/>whnf → expect Pi"]
-            EnsureSigma["ensureSigma<br/>whnf → expect Sigma"]
-            EnsureSort["ensureSort<br/>whnf → expect Sort"]
-            WHNF["whnf<br/>→ EvalNBE"]
-            ConvCheck["conv<br/>→ core.Conv"]
-            MkJMotiveType["mkJMotiveType<br/>Π(y:A).Π(p:Id A x y).Type"]
+        subgraph SUBSTITUTION["kernel/subst"]
+            direction TB
+            SUB1["Shift(d, c, term)"]
+            SUB2["Subst(ix, repl, term)"]
+            SUB3["IShift(d, c, term)"]
+            SUB4["ISubst(ix, r, term)"]
+            SUB5["ISubstFace → simplify"]
         end
     end
 
-    subgraph KernelSubst["KERNEL: SUBSTITUTION (kernel/subst)"]
+    subgraph LAYER3["INTERNAL LAYER"]
         direction LR
-        Shift["Shift(d, c, term)<br/>Increment free vars by d"]
-        Subst["Subst(ix, repl, term)<br/>Replace var ix with repl"]
-    end
 
-    subgraph InternalCore["INTERNAL: CONVERSION (internal/core)"]
-        direction TB
-        Conv["Conv(env, t, u, opts)<br/>Definitional Equality"]
-        AlphaEq["AlphaEq(a, b)<br/>Structural Equality"]
-        EtaEqual["etaEqual(a, b)<br/>η-Equality (optional)"]
-        ShiftTerm["shiftTerm(d, c, term)<br/>Variable Shifting"]
-    end
-
-    subgraph InternalEval["INTERNAL: NbE ENGINE (internal/eval)"]
-        direction TB
-
-        subgraph EvalCore["Evaluation Core"]
-            EvalNBE["EvalNBE(term)<br/>Full Normalization"]
-            Eval["Eval(env, term)<br/>Syntax → Semantics"]
-            Reify["Reify(value)<br/>Semantics → Syntax"]
+        subgraph CORE["internal/core"]
+            direction TB
+            CR1["Conv(env, t, u, opts)"]
+            CR2["AlphaEq(a, b)"]
+            CR3["alphaEqExtension<br/>(cubical terms)"]
+            CR4["alphaEqFace<br/>(face formulas)"]
+            CR5["etaEqual(a, b)"]
+            CR6["shiftTerm"]
         end
 
-        subgraph EvalDispatch["Eval Dispatch"]
-            EvalVar["Var → env.Lookup(ix)"]
-            EvalGlobal["Global → VGlobal{name}"]
-            EvalSort["Sort → VSort{level}"]
-            EvalLam["Lam → VLam{Closure{env,body}}"]
-            EvalApp["App → Apply(Eval(f), Eval(u))"]
-            EvalPair["Pair → VPair{Eval(fst), Eval(snd)}"]
-            EvalFst["Fst → doFst(Eval(p))"]
-            EvalSnd["Snd → doSnd(Eval(p))"]
-            EvalPi["Pi → VPi{Eval(A), Closure{env,B}}"]
-            EvalSigma["Sigma → VSigma{Eval(A), Closure{env,B}}"]
-            EvalLet["Let → Eval(env.Extend(val), body)"]
-            EvalId["Id → VId{Eval(A,X,Y)}"]
-            EvalRefl["Refl → VRefl{Eval(A,X)}"]
-            EvalJ["J → evalJ(...)"]
-        end
+        subgraph EVALUATION["internal/eval"]
+            direction TB
 
-        subgraph ApplyCore["Application & Projections"]
-            Apply["Apply(fun, arg)"]
-            BetaReduce["VLam: Beta Reduction<br/>Eval(env.Extend(arg), body)"]
-            NeutralApp["VNeutral: Extend Spine<br/>append(sp, arg)"]
-            DoFst["doFst(pair)<br/>VPair → Fst<br/>VNeutral → extend sp"]
-            DoSnd["doSnd(pair)<br/>VPair → Snd<br/>VNeutral → extend sp"]
-        end
-
-        subgraph JElim["J Elimination"]
-            EvalJFn["evalJ(a,c,d,x,y,p)"]
-            JCompRule["p = VRefl?<br/>YES → return d<br/>NO → VNeutral{J, spine}"]
-        end
-
-        subgraph ReifyDispatch["Reify Dispatch"]
-            ReifyNeutral["VNeutral → reifyNeutral"]
-            ReifyLam["VLam → Lam{Reify(Apply(lam,fresh))}"]
-            ReifyPair["VPair → Pair{Reify(fst,snd)}"]
-            ReifySort["VSort → Sort{level}"]
-            ReifyGlobal["VGlobal → Global{name}"]
-            ReifyPi["VPi → Pi{Reify(A), Reify(Apply(B,fresh))}"]
-            ReifySigma["VSigma → Sigma{Reify(A), Reify(Apply(B,fresh))}"]
-            ReifyId["VId → Id{Reify(A,X,Y)}"]
-            ReifyRefl["VRefl → Refl{Reify(A,X)}"]
-        end
-
-        subgraph SemanticDomain["SEMANTIC DOMAIN (Values)"]
-            direction LR
-            VSort["VSort{Level}"]
-            VGlobal["VGlobal{Name}"]
-            VLam["VLam{*Closure}"]
-            VPi["VPi{A, *Closure}"]
-            VSigma["VSigma{A, *Closure}"]
-            VPair["VPair{Fst, Snd}"]
-            VNeutral["VNeutral{Neutral}"]
-            VId["VId{A, X, Y}"]
-            VRefl["VRefl{A, X}"]
-        end
-
-        subgraph NeutralTerms["Neutral Terms"]
-            Neutral["Neutral{Head, Spine}"]
-            HeadVar["Head.Var: int"]
-            HeadGlob["Head.Glob: string"]
-            Spine["Spine: []Value"]
-        end
-
-        subgraph Environment["Environment"]
-            Env["Env{Bindings: []Value}"]
-            EnvExtend["Extend(v) → prepend v"]
-            EnvLookup["Lookup(ix) → Bindings[ix]"]
-        end
-
-        subgraph Closure["Closure"]
-            ClosureStruct["Closure{*Env, ast.Term}"]
-            ClosureApply["Apply: Eval(env.Extend(arg), term)"]
-        end
-    end
-
-    subgraph InternalAST["INTERNAL: AST (internal/ast)"]
-        direction TB
-
-        subgraph TermInterface["Term Interface"]
-            Term["Term interface<br/>isCoreTerm()"]
-        end
-
-        subgraph TermTypes["Term Types"]
-            direction LR
-
-            subgraph Atomic["Atomic"]
-                TSort["Sort{U}"]
-                TVar["Var{Ix}"]
-                TGlobal["Global{Name}"]
+            subgraph NBE_CORE["NbE Core"]
+                NB1["EvalNBE(term)"]
+                NB2["Eval(env, term)"]
+                NB3["Reify(value)"]
+                NB4["reifyAt(level, v)"]
             end
 
-            subgraph Functions["Functions (Π)"]
-                TPi["Pi{Binder,A,B}"]
-                TLam["Lam{Binder,Ann,Body}"]
-                TApp["App{T,U}"]
+            subgraph NBE_CUB["Cubical NbE"]
+                NC1["EvalCubical(env, ienv, term)"]
+                NC2["ReifyCubicalAt(level, ilevel, v)"]
+                NC3["PathApply(p, r)"]
+                NC4["EvalTransport(A, e)"]
+                NC5["EvalComp · EvalHComp · EvalFill"]
+                NC6["EvalGlue · EvalGlueElem · EvalUnglue"]
+                NC7["EvalUA · EvalUABeta · UAPathApply"]
+                NC8["evalFace · simplifyFaceAnd/Or"]
             end
 
-            subgraph Products["Products (Σ)"]
-                TSigma["Sigma{Binder,A,B}"]
-                TPair["Pair{Fst,Snd}"]
-                TFst["Fst{P}"]
-                TSnd["Snd{P}"]
+            subgraph APPLY["Application"]
+                AP1["Apply(fun, arg)"]
+                AP2["β-reduce: VLam"]
+                AP3["extend spine: VNeutral"]
             end
 
-            subgraph Identity["Identity (Id)"]
-                TId["Id{A,X,Y}"]
-                TRefl["Refl{A,X}"]
-                TJ["J{A,C,D,X,Y,P}"]
+            subgraph PROJ["Projections"]
+                PJ1["Fst(pair)"]
+                PJ2["Snd(pair)"]
+                PJ3["VPair → component"]
+                PJ4["VNeutral → extend"]
             end
 
-            subgraph Control["Control"]
-                TLet["Let{Binder,Ann,Val,Body}"]
+            subgraph JELIM["J Elimination"]
+                JE1["evalJ(a,c,d,x,y,p)"]
+                JE2["p = VRefl → d"]
+                JE3["else → VNeutral"]
+            end
+
+            subgraph REC_ENGINE["Recursor Engine"]
+                RE1["RecursorRegistry"]
+                RE2["RegisterRecursor"]
+                RE3["tryGenericRecursorReduction"]
+                RE4["buildRecursorCall"]
             end
         end
 
-        subgraph Printing["Pretty Printing"]
-            Sprint["Sprint(term) → string"]
-            Write["write(buf, term)"]
+        subgraph SYNTAX["internal/ast"]
+            direction TB
+
+            subgraph TERM_CORE["Core Terms"]
+                TC1["Sort{U Level}"]
+                TC2["Var{Ix int}"]
+                TC3["Global{Name string}"]
+                TC4["Pi{Binder, A, B}"]
+                TC5["Lam{Binder, Ann, Body}"]
+                TC6["App{T, U}"]
+                TC7["Sigma{Binder, A, B}"]
+                TC8["Pair{Fst, Snd}"]
+                TC9["Fst{P} · Snd{P}"]
+                TC10["Let{Binder, Ann, Val, Body}"]
+                TC11["Id{A, X, Y}"]
+                TC12["Refl{A, X}"]
+                TC13["J{A, C, D, X, Y, P}"]
+            end
+
+            subgraph TERM_CUB["Cubical Terms"]
+                TB1["Interval · I0 · I1 · IVar"]
+                TB2["Path{A,X,Y} · PathP{A,X,Y}"]
+                TB3["PathLam{Body} · PathApp{P,R}"]
+                TB4["Transport{A, E}"]
+                TB5["FaceTop · FaceBot · FaceEq · FaceAnd · FaceOr"]
+                TB6["Partial{Φ,A} · System{Branches}"]
+                TB7["Comp · HComp · Fill"]
+                TB8["Glue · GlueElem · Unglue"]
+                TB9["UA{A,B,Equiv} · UABeta{Equiv,Arg}"]
+            end
+
+            subgraph PRINT["Printing"]
+                PR1["Sprint(term)"]
+                PR2["write(buf, term)"]
+            end
         end
     end
 
-    subgraph KernelCtx["KERNEL: CONTEXT (kernel/ctx)"]
-        direction TB
-        Ctx["Ctx{Tele: []Binding}"]
-        CtxExtend["Extend(name, type)<br/>prepend binding"]
-        CtxLookup["LookupVar(ix)<br/>→ type at index"]
-        CtxDrop["Drop()<br/>remove newest"]
-        Binding["Binding{Name, Type}"]
-    end
-
-    subgraph OutputLayer["OUTPUT LAYER"]
+    subgraph LAYER4["SEMANTIC DOMAIN"]
         direction LR
-        InferredType["Inferred Type<br/>(ast.Term)"]
-        TypeError["Type Error<br/>(*TypeError)"]
-        NormalForm["Normal Form<br/>(ast.Term)"]
+
+        subgraph VALUES_CORE["Core Values"]
+            VC1["VSort{Level int}"]
+            VC2["VGlobal{Name string}"]
+            VC3["VLam{Body *Closure}"]
+            VC4["VPi{A Value, B *Closure}"]
+            VC5["VSigma{A Value, B *Closure}"]
+            VC6["VPair{Fst, Snd Value}"]
+            VC7["VNeutral{N Neutral}"]
+            VC8["VId{A, X, Y Value}"]
+            VC9["VRefl{A, X Value}"]
+        end
+
+        subgraph VALUES_CUB["Cubical Values"]
+            VB1["VI0 · VI1 · VIVar{Level}"]
+            VB2["VPath{A,X,Y} · VPathP{A,X,Y}"]
+            VB3["VPathLam{Body *IClosure}"]
+            VB4["VTransport{A *IClosure, E Value}"]
+            VB5["VFaceTop · VFaceBot · VFaceEq · VFaceAnd · VFaceOr"]
+            VB6["VPartial · VSystem{Branches}"]
+            VB7["VComp · VHComp · VFill"]
+            VB8["VGlue · VGlueElem · VUnglue"]
+            VB9["VUA{A,B,Equiv} · VUABeta{Equiv,Arg}"]
+        end
+
+        subgraph STRUCTURES["Structures"]
+            ST1["Env{Bindings []Value}"]
+            ST2["Closure{*Env, ast.Term}"]
+            ST3["IClosure{*Env, *IEnv, ast.Term}"]
+            ST4["IEnv{Bindings []Value}"]
+            ST5["Neutral{Head, Sp []Value}"]
+            ST6["Head{Var int, Glob string}"]
+        end
     end
 
-    %% INPUT CONNECTIONS
-    SourceTerm --> Checker
-    TypingCtx --> Checker
-    GlobalEnv --> Checker
+    subgraph LAYER5["OUTPUT LAYER"]
+        direction LR
+        OUT1["Inferred Type"]
+        OUT2["Type Error"]
+        OUT3["Normal Form"]
+    end
 
-    %% CHECKER CORE FLOW
-    Checker --> PublicAPI
-    PublicAPI --> SynthDispatch
-    PublicAPI --> CheckDispatch
+    %% CONNECTIONS
+    LAYER1 --> CHECKER
+    CHECKER --> LAYER5
 
-    %% SYNTHESIS DISPATCH
-    SynthDispatch --> SynthVar
-    SynthDispatch --> SynthSort
-    SynthDispatch --> SynthGlobal
-    SynthDispatch --> SynthPi
-    SynthDispatch --> SynthLam
-    SynthDispatch --> SynthApp
-    SynthDispatch --> SynthSigma
-    SynthDispatch --> SynthFst
-    SynthDispatch --> SynthSnd
-    SynthDispatch --> SynthId
-    SynthDispatch --> SynthRefl
-    SynthDispatch --> SynthJ
-    SynthDispatch --> SynthLet
+    CHECKER --> CONTEXT
+    CHECKER --> SUBSTITUTION
+    CHECKER --> CORE
+    CHECKER --> EVALUATION
 
-    %% CHECK DISPATCH
-    CheckDispatch --> CheckLam
-    CheckDispatch --> CheckPair
-    CheckDispatch --> CheckBySynth
+    SYNTAX --> CHECKER
+    SYNTAX --> EVALUATION
+    SYNTAX --> CORE
 
-    %% HELPERS CONNECTIONS
-    SynthPi --> CheckIsType
-    SynthSigma --> CheckIsType
-    SynthId --> CheckIsType
-    SynthRefl --> CheckIsType
-    SynthJ --> CheckIsType
-    SynthJ --> MkJMotiveType
-    SynthApp --> EnsurePi
-    SynthFst --> EnsureSigma
-    SynthSnd --> EnsureSigma
-    CheckLam --> EnsurePi
-    CheckPair --> EnsureSigma
-    CheckIsType --> EnsureSort
-    EnsurePi --> WHNF
-    EnsureSigma --> WHNF
-    EnsureSort --> WHNF
-    CheckBySynth --> ConvCheck
+    EVALUATION --> VALUES_CORE
+    EVALUATION --> VALUES_CUB
+    NBE_CUB --> VALUES_CUB
 
-    %% WHNF TO NBE
-    WHNF --> EvalNBE
+    CORE --> EVALUATION
 
-    %% SUBST CONNECTIONS
-    SynthVar --> Shift
-    SynthApp --> Subst
-    SynthSnd --> Subst
-    SynthLet --> Subst
-    CheckPair --> Subst
-    MkJMotiveType --> Shift
+    %% STYLING - No background fills, only stroke colors
+    style LAYER1 stroke:#888,stroke-width:2px
+    style LAYER2 stroke:#888,stroke-width:2px
+    style LAYER3 stroke:#888,stroke-width:2px
+    style LAYER4 stroke:#888,stroke-width:2px
+    style LAYER5 stroke:#888,stroke-width:2px
 
-    %% CORE CONNECTIONS
-    ConvCheck --> Conv
-    Conv --> Eval
-    Conv --> Reify
-    Conv --> AlphaEq
-    Conv --> EtaEqual
-    AlphaEq --> ShiftTerm
+    style CHECKER stroke:#666
+    style CONTEXT stroke:#666
+    style SUBSTITUTION stroke:#666
+    style CORE stroke:#666
+    style EVALUATION stroke:#666
+    style SYNTAX stroke:#666
 
-    %% EVALNBE FLOW
-    EvalNBE --> Eval
-    EvalNBE --> Reify
+    style BIDIR stroke:#666
+    style BIDIR_CUB stroke:#2da44e,stroke-width:2px
+    style ENV stroke:#666
+    style RECUR stroke:#666
+    style POS stroke:#666
 
-    %% EVAL DISPATCH
-    Eval --> EvalVar
-    Eval --> EvalGlobal
-    Eval --> EvalSort
-    Eval --> EvalLam
-    Eval --> EvalApp
-    Eval --> EvalPair
-    Eval --> EvalFst
-    Eval --> EvalSnd
-    Eval --> EvalPi
-    Eval --> EvalSigma
-    Eval --> EvalLet
-    Eval --> EvalId
-    Eval --> EvalRefl
-    Eval --> EvalJ
+    style NBE_CORE stroke:#666
+    style NBE_CUB stroke:#2da44e,stroke-width:2px
+    style APPLY stroke:#666
+    style PROJ stroke:#666
+    style JELIM stroke:#666
+    style REC_ENGINE stroke:#666
 
-    %% APPLY CONNECTIONS
-    EvalApp --> Apply
-    Apply --> BetaReduce
-    Apply --> NeutralApp
-    EvalFst --> DoFst
-    EvalSnd --> DoSnd
+    style TERM_CORE stroke:#666
+    style TERM_CUB stroke:#2da44e,stroke-width:2px
+    style PRINT stroke:#666
 
-    %% J ELIM
-    EvalJ --> EvalJFn
-    EvalJFn --> JCompRule
+    style VALUES_CORE stroke:#666
+    style VALUES_CUB stroke:#2da44e,stroke-width:2px
+    style STRUCTURES stroke:#666
+```
 
-    %% REIFY DISPATCH
-    Reify --> ReifyNeutral
-    Reify --> ReifyLam
-    Reify --> ReifyPair
-    Reify --> ReifySort
-    Reify --> ReifyGlobal
-    Reify --> ReifyPi
-    Reify --> ReifySigma
-    Reify --> ReifyId
-    Reify --> ReifyRefl
+---
 
-    %% VALUE TYPES
-    EvalSort --> VSort
-    EvalGlobal --> VGlobal
-    EvalLam --> VLam
-    EvalPi --> VPi
-    EvalSigma --> VSigma
-    EvalPair --> VPair
-    NeutralApp --> VNeutral
-    EvalId --> VId
-    EvalRefl --> VRefl
+## Type System Summary
 
-    %% NEUTRAL STRUCTURE
-    VNeutral --> Neutral
-    Neutral --> HeadVar
-    Neutral --> HeadGlob
-    Neutral --> Spine
+```mermaid
+flowchart LR
+    subgraph MLTT["Martin-Löf Type Theory"]
+        direction TB
+        M1["Π Types<br/>Dependent Functions"]
+        M2["Σ Types<br/>Dependent Pairs"]
+        M3["Id Types<br/>Identity/Equality"]
+        M4["Type Universes<br/>Type₀ : Type₁ : ..."]
+    end
 
-    %% ENVIRONMENT
-    EvalVar --> EnvLookup
-    EvalLet --> EnvExtend
-    BetaReduce --> EnvExtend
-    Env --> EnvExtend
-    Env --> EnvLookup
+    subgraph CUBICAL["Cubical Type Theory"]
+        direction TB
+        C1["Interval I<br/>i0, i1, IVar"]
+        C2["Path Types<br/>PathP A x y"]
+        C3["Transport<br/>transport A e"]
+        C4["Face Formulas<br/>⊤ ⊥ (i=0) ∧ ∨"]
+        C5["Partial Types<br/>Partial φ A"]
+        C6["Composition<br/>comp hcomp fill"]
+        C7["Glue Types<br/>Glue A [φ ↦ (T,e)]"]
+        C8["Univalence<br/>ua : Equiv A B → A ≡ B"]
+    end
 
-    %% CLOSURE
-    VLam --> ClosureStruct
-    VPi --> ClosureStruct
-    VSigma --> ClosureStruct
-    ClosureStruct --> ClosureApply
-    ClosureApply --> Eval
+    subgraph INDUCTIVE["Inductive Types"]
+        direction TB
+        I1["Formation<br/>T : Type"]
+        I2["Introduction<br/>constructors"]
+        I3["Elimination<br/>eliminators"]
+        I4["Computation<br/>reduction rules"]
+        I5["Positivity<br/>strict positivity"]
+        I6["Mutual<br/>mutual recursion"]
+    end
 
-    %% CONTEXT
-    SynthVar --> CtxLookup
-    SynthPi --> CtxExtend
-    SynthSigma --> CtxExtend
-    SynthLam --> CtxExtend
-    SynthLet --> CtxExtend
-    CheckLam --> CtxExtend
-    Ctx --> Binding
+    MLTT --> CUBICAL
+    MLTT --> INDUCTIVE
+    CUBICAL --> |"ua computes"| MLTT
 
-    %% AST TERM TYPES
-    Term --> TSort
-    Term --> TVar
-    Term --> TGlobal
-    Term --> TPi
-    Term --> TLam
-    Term --> TApp
-    Term --> TSigma
-    Term --> TPair
-    Term --> TFst
-    Term --> TSnd
-    Term --> TId
-    Term --> TRefl
-    Term --> TJ
-    Term --> TLet
+    style MLTT stroke:#666,stroke-width:2px
+    style CUBICAL stroke:#2da44e,stroke-width:2px
+    style INDUCTIVE stroke:#666,stroke-width:2px
+```
 
-    %% OUTPUT
-    SynthDispatch --> InferredType
-    CheckDispatch --> TypeError
-    Reify --> NormalForm
+---
 
-    %% DARK COLOR SCHEME - All black/dark gray
-    style InputLayer fill:#1a1a1a,stroke:#444,color:#fff
-    style KernelCheck fill:#1a1a1a,stroke:#444,color:#fff
-    style KernelSubst fill:#1a1a1a,stroke:#444,color:#fff
-    style KernelCtx fill:#1a1a1a,stroke:#444,color:#fff
-    style InternalCore fill:#1a1a1a,stroke:#444,color:#fff
-    style InternalEval fill:#1a1a1a,stroke:#444,color:#fff
-    style InternalAST fill:#1a1a1a,stroke:#444,color:#fff
-    style OutputLayer fill:#1a1a1a,stroke:#444,color:#fff
+## Computation Rules
 
-    style CheckerCore fill:#222,stroke:#555,color:#fff
-    style SynthesisMode fill:#222,stroke:#555,color:#fff
-    style CheckingMode fill:#222,stroke:#555,color:#fff
-    style Helpers fill:#222,stroke:#555,color:#fff
+```mermaid
+flowchart TB
+    subgraph BETA["β-Reduction"]
+        B1["(λx.t) u → t[u/x]"]
+        B2["fst (a,b) → a"]
+        B3["snd (a,b) → b"]
+        B4["J A C d x x refl → d"]
+    end
 
-    style AtomicSynth fill:#2a2a2a,stroke:#666,color:#fff
-    style FunctionSynth fill:#2a2a2a,stroke:#666,color:#fff
-    style ProductSynth fill:#2a2a2a,stroke:#666,color:#fff
-    style IdentitySynth fill:#2a2a2a,stroke:#666,color:#fff
-    style ControlSynth fill:#2a2a2a,stroke:#666,color:#fff
+    subgraph PATH_COMP["Path Computation"]
+        P1["⟨i⟩t @ i0 → t[i0/i]"]
+        P2["⟨i⟩t @ i1 → t[i1/i]"]
+        P3["transport A e → e<br/>(when A constant)"]
+    end
 
-    style EvalCore fill:#222,stroke:#555,color:#fff
-    style EvalDispatch fill:#222,stroke:#555,color:#fff
-    style ApplyCore fill:#222,stroke:#555,color:#fff
-    style JElim fill:#222,stroke:#555,color:#fff
-    style ReifyDispatch fill:#222,stroke:#555,color:#fff
-    style SemanticDomain fill:#2a2a2a,stroke:#666,color:#fff
-    style NeutralTerms fill:#2a2a2a,stroke:#666,color:#fff
-    style Environment fill:#2a2a2a,stroke:#666,color:#fff
-    style Closure fill:#2a2a2a,stroke:#666,color:#fff
+    subgraph COMP_RULES["Composition Rules"]
+        C1["comp A [⊤ ↦ u] a₀ → u[i1/i]"]
+        C2["comp A [⊥ ↦ _] a₀ → transport A a₀"]
+        C3["hcomp A [⊤ ↦ u] a₀ → u[i1/i]"]
+        C4["hcomp A [⊥ ↦ _] a₀ → a₀"]
+    end
 
-    style TermInterface fill:#222,stroke:#555,color:#fff
-    style TermTypes fill:#2a2a2a,stroke:#666,color:#fff
-    style Atomic fill:#333,stroke:#777,color:#fff
-    style Functions fill:#333,stroke:#777,color:#fff
-    style Products fill:#333,stroke:#777,color:#fff
-    style Identity fill:#333,stroke:#777,color:#fff
-    style Control fill:#333,stroke:#777,color:#fff
-    style Printing fill:#333,stroke:#777,color:#fff
+    subgraph GLUE_RULES["Glue Computation"]
+        G1["Glue A [⊤ ↦ (T,e)] = T"]
+        G2["glue [⊤ ↦ t] a = t"]
+        G3["unglue (glue [φ↦t] a) = a"]
+    end
+
+    subgraph UA_RULES["Univalence Computation"]
+        U1["(ua e) @ i0 = A"]
+        U2["(ua e) @ i1 = B"]
+        U3["(ua e) @ i = Glue B [(i=0)↦(A,e)]"]
+        U4["transport (ua e) a = e.fst a"]
+    end
+
+    subgraph FACE_SIMP["Face Simplification"]
+        F1["(i=0) ∧ (i=1) → ⊥"]
+        F2["(i=0) ∨ (i=1) → ⊤"]
+        F3["⊤ ∧ φ → φ"]
+        F4["⊥ ∨ φ → φ"]
+    end
+
+    style BETA stroke:#666,stroke-width:2px
+    style PATH_COMP stroke:#2da44e,stroke-width:2px
+    style COMP_RULES stroke:#2da44e,stroke-width:2px
+    style GLUE_RULES stroke:#2da44e,stroke-width:2px
+    style UA_RULES stroke:#2da44e,stroke-width:2px
+    style FACE_SIMP stroke:#2da44e,stroke-width:2px
 ```
 
 ---
@@ -507,10 +757,10 @@ flowchart TB
 
     eval --> ast
 
-    style kernel fill:#1a1a1a,stroke:#444,color:#fff
-    style internal fill:#1a1a1a,stroke:#444,color:#fff
-    style cmd fill:#1a1a1a,stroke:#444,color:#fff
-    style hypergraph fill:#1a1a1a,stroke:#444,color:#fff
+    style kernel stroke:#888,stroke-width:2px
+    style internal stroke:#888,stroke-width:2px
+    style cmd stroke:#888,stroke-width:2px
+    style hypergraph stroke:#888,stroke-width:2px
 ```
 
 ### Package Dependencies (Detailed)
@@ -543,14 +793,14 @@ flowchart LR
 
     eval -->|Term, Value| ast
 
-    style Kernel fill:#1a1a1a,stroke:#444,color:#fff
-    style Internal fill:#1a1a1a,stroke:#444,color:#fff
-    style check fill:#222,stroke:#555,color:#fff
-    style ctx fill:#222,stroke:#555,color:#fff
-    style subst fill:#222,stroke:#555,color:#fff
-    style ast fill:#222,stroke:#555,color:#fff
-    style eval fill:#222,stroke:#555,color:#fff
-    style core fill:#222,stroke:#555,color:#fff
+    style Kernel stroke:#888,stroke-width:2px
+    style Internal stroke:#888,stroke-width:2px
+    style check stroke:#666
+    style ctx stroke:#666
+    style subst stroke:#666
+    style ast stroke:#666
+    style eval stroke:#666
+    style core stroke:#666
 ```
 
 ---
@@ -696,11 +946,11 @@ flowchart TB
     Id --> Refl
     Refl --> J
 
-    style Atomic fill:#1a1a1a,stroke:#444,color:#fff
-    style Function fill:#1a1a1a,stroke:#444,color:#fff
-    style Product fill:#1a1a1a,stroke:#444,color:#fff
-    style Identity fill:#1a1a1a,stroke:#444,color:#fff
-    style Control fill:#1a1a1a,stroke:#444,color:#fff
+    style Atomic stroke:#666
+    style Function stroke:#666
+    style Product stroke:#666
+    style Identity stroke:#666
+    style Control stroke:#666
 ```
 
 ---
@@ -846,8 +1096,8 @@ flowchart TB
     CheckPair --> ResultCheck
     CheckBySynth --> ResultCheck
 
-    style SynthMode fill:#1a1a1a,stroke:#444,color:#fff
-    style CheckMode fill:#1a1a1a,stroke:#444,color:#fff
+    style SynthMode stroke:#888,stroke-width:2px
+    style CheckMode stroke:#888,stroke-width:2px
 ```
 
 ---
@@ -870,8 +1120,8 @@ flowchart LR
 
     Term -.->|"EvalNBE(term)"| NormalForm
 
-    style Syntax fill:#1a1a1a,stroke:#444,color:#fff
-    style Semantics fill:#1a1a1a,stroke:#444,color:#fff
+    style Syntax stroke:#888,stroke-width:2px
+    style Semantics stroke:#888,stroke-width:2px
 ```
 
 ### NbE Complete Pipeline
@@ -955,7 +1205,7 @@ flowchart TB
     EvalJ --> Result
     ReturnNil --> Result
 
-    style Switch fill:#1a1a1a,stroke:#444,color:#fff
+    style Switch stroke:#888,stroke-width:2px
 ```
 
 ---
@@ -990,9 +1240,9 @@ flowchart TB
     ExtendSpine --> Result
     BadApp --> Result
 
-    style BetaReduce fill:#1a1a1a,stroke:#444,color:#fff
-    style ExtendSpine fill:#1a1a1a,stroke:#444,color:#fff
-    style BadApp fill:#1a1a1a,stroke:#444,color:#fff
+    style BetaReduce stroke:#666
+    style ExtendSpine stroke:#666
+    style BadApp stroke:#666
 ```
 
 ### Beta Reduction Example
@@ -1068,9 +1318,9 @@ flowchart TB
     ReifyId --> Result
     ReifyRefl --> Result
 
-    style ReifyLam fill:#1a1a1a,stroke:#444,color:#fff
-    style ReifyPi fill:#1a1a1a,stroke:#444,color:#fff
-    style ReifySigma fill:#1a1a1a,stroke:#444,color:#fff
+    style ReifyLam stroke:#666
+    style ReifyPi stroke:#666
+    style ReifySigma stroke:#666
 ```
 
 ### Reify Neutral Terms
@@ -1098,7 +1348,7 @@ flowchart TB
     CreateFst --> Result
     CreateSnd --> Result
 
-    style ApplySpine fill:#1a1a1a,stroke:#444,color:#fff
+    style ApplySpine stroke:#666
 ```
 
 ---
@@ -1128,8 +1378,8 @@ flowchart TB
     ComputationRule --> Result([Value])
     StuckNeutral --> Result
 
-    style ComputationRule fill:#1a1a1a,stroke:#444,color:#fff
-    style StuckNeutral fill:#1a1a1a,stroke:#444,color:#fff
+    style ComputationRule stroke:#666
+    style StuckNeutral stroke:#666
 ```
 
 ### J Typing Rules
@@ -1154,7 +1404,7 @@ flowchart TB
         p --> result
     end
 
-    style JType fill:#1a1a1a,stroke:#444,color:#fff
+    style JType stroke:#888,stroke-width:2px
 ```
 
 ---
@@ -1190,8 +1440,8 @@ flowchart TB
     EtaEqual --> Result([bool])
     AlphaEq --> Result
 
-    style EvalBoth fill:#1a1a1a,stroke:#444,color:#fff
-    style Reify fill:#1a1a1a,stroke:#444,color:#fff
+    style EvalBoth stroke:#666
+    style Reify stroke:#666
 ```
 
 ### Alpha Equality
@@ -1224,7 +1474,7 @@ flowchart TB
 
     Compare --> Result([bool])
 
-    style Compare fill:#1a1a1a,stroke:#444,color:#fff
+    style Compare stroke:#666
 ```
 
 ---
@@ -1248,8 +1498,8 @@ flowchart LR
 
     Ctx --> Operations
 
-    style Ctx fill:#1a1a1a,stroke:#444,color:#fff
-    style Operations fill:#1a1a1a,stroke:#444,color:#fff
+    style Ctx stroke:#888,stroke-width:2px
+    style Operations stroke:#666
 ```
 
 ### De Bruijn Environment (internal/eval)
@@ -1279,9 +1529,9 @@ flowchart TB
     Env --> EnvOps
     EnvOps --> Example
 
-    style Env fill:#1a1a1a,stroke:#444,color:#fff
-    style EnvOps fill:#1a1a1a,stroke:#444,color:#fff
-    style Example fill:#1a1a1a,stroke:#444,color:#fff
+    style Env stroke:#888,stroke-width:2px
+    style EnvOps stroke:#666
+    style Example stroke:#666
 ```
 
 ### Global Environment (kernel/check)
@@ -1395,12 +1645,12 @@ flowchart TB
     TypeChecker --> Type
     TypeChecker --> Error
 
-    style Input fill:#1a1a1a,stroke:#444,color:#fff
-    style TypeChecker fill:#1a1a1a,stroke:#444,color:#fff
-    style NbE fill:#1a1a1a,stroke:#444,color:#fff
-    style Helpers fill:#1a1a1a,stroke:#444,color:#fff
-    style CoreOps fill:#1a1a1a,stroke:#444,color:#fff
-    style Output fill:#1a1a1a,stroke:#444,color:#fff
+    style Input stroke:#888,stroke-width:2px
+    style TypeChecker stroke:#888,stroke-width:2px
+    style NbE stroke:#666
+    style Helpers stroke:#666
+    style CoreOps stroke:#666
+    style Output stroke:#888,stroke-width:2px
 ```
 
 ### Complete Example: Type Checking Identity Function

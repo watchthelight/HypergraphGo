@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TestTransportUAComputes` - verifies `transport (ua e) a = e.fst a`
   - `TestUABetaReification` - UABeta value reification
 
+### Changed
+- **Revamped architecture diagrams** (`DIAGRAMS.md`)
+  - Complete rewrite of master architecture diagram with 3-column layout (more square/aesthetic)
+  - Added detailed component architecture diagram showing all internal functions
+  - Added type system summary diagram (MLTT + Cubical + Inductive)
+  - Added computation rules diagram covering all reduction rules
+  - Cubical-specific components highlighted with green borders (`#2da44e`)
+  - Removed all background fills for mermaid.live compatibility (stroke-only styling)
+  - All diagrams now accurate to current codebase including Phase 7 cubical features
+
 ## [1.6.0] - 2025-12-08
 
 ### Added
