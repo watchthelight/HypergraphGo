@@ -19,11 +19,9 @@
     <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases/tag/v__REPLACE__</releaseNotes>
     <copyright>Copyright 2025 watchthelight</copyright>
     <tags>cli tool hypergraph</tags>
-    <dependencies>
-      <dependency id="chocolatey" version="0.10.15" />
-    </dependencies>
   </metadata>
   <files>
-    <file src="tools\**" target="tools" />
+    <file src="tools\chocolateyinstall.ps1" target="tools" />
+    <file src="tools\chocolateyuninstall.ps1" target="tools" />
   </files>
 </package>

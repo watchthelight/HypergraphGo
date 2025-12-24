@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Chocolatey package review issues** (`packaging/chocolatey/hypergraphgo.nuspec`)
+  - Removed unnecessary `chocolatey` dependency from nuspec
+  - Excluded `.tmpl` template file from package (explicitly list only `.ps1` scripts)
+  - Added `workflow_dispatch` trigger to chocolatey workflow for manual re-publishing
+
 - **Alpha-equality completeness for cubical types** (`internal/core/conv_cubical.go`)
   - Added alpha-equality cases for Face formulas: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr`
   - Added alpha-equality cases for Partial types: `Partial`, `System`

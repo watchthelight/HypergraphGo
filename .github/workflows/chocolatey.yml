@@ -3,6 +3,12 @@ name: chocolatey
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without v prefix, e.g. 1.6.0)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,11 +23,15 @@ jobs:
           # Pull the repo just so scripts are available
           fetch-depth: 1
 
-      - name: Set VERSION from release tag
+      - name: Set VERSION
         shell: pwsh
         run: |
-          $tag = "${{ github.event.release.tag_name }}"
-          $ver = $tag -replace '^v',''
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ inputs.version }}"
+          } else {
+            $tag = "${{ github.event.release.tag_name }}"
+            $ver = $tag -replace '^v',''
+          }
           "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Resolved VERSION=$ver"
 
@@ -30,8 +40,7 @@ jobs:
       - name: Wait for checksums.txt to be available (max ~90s)
         shell: pwsh
         run: |
-          $tag = "${{ github.event.release.tag_name }}"
-          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/checksums.txt"
+          $url = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/checksums.txt"
           $ok = $false
           for ($i=0; $i -lt 30; $i++) {
             try {
