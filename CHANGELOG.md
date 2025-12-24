@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2025-12-24
+
 ### Fixed
 - **Chocolatey package review issues** (`packaging/chocolatey/hypergraphgo.nuspec`)
   - Removed unnecessary `chocolatey` dependency from nuspec
