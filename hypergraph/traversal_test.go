@@ -476,3 +476,82 @@ func TestConnectedComponents_MixedIsolatedAndConnected(t *testing.T) {
 		t.Fatal("ConnectedComponents mixed: did not find component of size 3")
 	}
 }
+
+// ============================================================================
+// Benchmarks
+// ============================================================================
+
+func BenchmarkBFS_Large(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 2000 vertices with 4000 edges, each with 5 members
+	N, E, k := 2000, 4000, 5
+	for i := 0; i < E; i++ {
+		members := make([]int, 0, k)
+		start := (i * 3) % (N - k)
+		for j := 0; j < k; j++ {
+			members = append(members, start+j)
+		}
+		_ = h.AddEdge("E"+intToStr(i), members)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.BFS(0)
+	}
+}
+
+func BenchmarkDFS_Large(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Same graph as BFS benchmark
+	N, E, k := 2000, 4000, 5
+	for i := 0; i < E; i++ {
+		members := make([]int, 0, k)
+		start := (i * 3) % (N - k)
+		for j := 0; j < k; j++ {
+			members = append(members, start+j)
+		}
+		_ = h.AddEdge("E"+intToStr(i), members)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.DFS(0)
+	}
+}
+
+func BenchmarkConnectedComponents(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 500 vertices with 5 disconnected components
+	// Each component has ~100 vertices
+	for comp := 0; comp < 5; comp++ {
+		base := comp * 100
+		for i := 0; i < 50; i++ {
+			members := []int{base + i*2, base + i*2 + 1}
+			_ = h.AddEdge("E"+intToStr(comp)+"_"+intToStr(i), members)
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.ConnectedComponents()
+	}
+}
+
+// Helper for benchmark edge IDs
+func intToStr(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	if i < 0 {
+		return "-" + intToStr(-i)
+	}
+	var digits []byte
+	for i > 0 {
+		digits = append([]byte{byte('0' + i%10)}, digits...)
+		i /= 10
+	}
+	return string(digits)
+}
