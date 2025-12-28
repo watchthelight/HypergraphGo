@@ -296,3 +296,249 @@ func TestDebugValue_VNeutral(t *testing.T) {
 		t.Error("DebugValue missing VNeutral type name")
 	}
 }
+
+// ============================================================================
+// ValueEqual Tests
+// ============================================================================
+
+func TestValueEqual_VSort_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VSort{Level: 0}
+	v2 := VSort{Level: 0}
+	if !ValueEqual(v1, v2) {
+		t.Error("VSort{0} should equal VSort{0}")
+	}
+}
+
+func TestValueEqual_VSort_NotEqual(t *testing.T) {
+	t.Parallel()
+	v1 := VSort{Level: 0}
+	v2 := VSort{Level: 1}
+	if ValueEqual(v1, v2) {
+		t.Error("VSort{0} should not equal VSort{1}")
+	}
+}
+
+func TestValueEqual_VGlobal_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VGlobal{Name: "foo"}
+	v2 := VGlobal{Name: "foo"}
+	if !ValueEqual(v1, v2) {
+		t.Error("VGlobal{foo} should equal VGlobal{foo}")
+	}
+}
+
+func TestValueEqual_VGlobal_NotEqual(t *testing.T) {
+	t.Parallel()
+	v1 := VGlobal{Name: "foo"}
+	v2 := VGlobal{Name: "bar"}
+	if ValueEqual(v1, v2) {
+		t.Error("VGlobal{foo} should not equal VGlobal{bar}")
+	}
+}
+
+func TestValueEqual_VPair_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VPair{Fst: VSort{Level: 0}, Snd: VGlobal{Name: "x"}}
+	v2 := VPair{Fst: VSort{Level: 0}, Snd: VGlobal{Name: "x"}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VPair values should be equal")
+	}
+}
+
+func TestValueEqual_VPair_NotEqual_Fst(t *testing.T) {
+	t.Parallel()
+	v1 := VPair{Fst: VSort{Level: 0}, Snd: VGlobal{Name: "x"}}
+	v2 := VPair{Fst: VSort{Level: 1}, Snd: VGlobal{Name: "x"}}
+	if ValueEqual(v1, v2) {
+		t.Error("VPair with different Fst should not be equal")
+	}
+}
+
+func TestValueEqual_VPair_NotEqual_Snd(t *testing.T) {
+	t.Parallel()
+	v1 := VPair{Fst: VSort{Level: 0}, Snd: VGlobal{Name: "x"}}
+	v2 := VPair{Fst: VSort{Level: 0}, Snd: VGlobal{Name: "y"}}
+	if ValueEqual(v1, v2) {
+		t.Error("VPair with different Snd should not be equal")
+	}
+}
+
+func TestValueEqual_TypeMismatch(t *testing.T) {
+	t.Parallel()
+	v1 := VSort{Level: 0}
+	v2 := VGlobal{Name: "Type0"}
+	if ValueEqual(v1, v2) {
+		t.Error("Different types should not be equal")
+	}
+}
+
+func TestValueEqual_VNeutral_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VNeutral{N: Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}}
+	v2 := VNeutral{N: Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VNeutral values should be equal")
+	}
+}
+
+func TestValueEqual_VNeutral_DifferentHead(t *testing.T) {
+	t.Parallel()
+	v1 := VNeutral{N: Neutral{Head: Head{Glob: "f"}, Sp: nil}}
+	v2 := VNeutral{N: Neutral{Head: Head{Glob: "g"}, Sp: nil}}
+	if ValueEqual(v1, v2) {
+		t.Error("VNeutral with different heads should not be equal")
+	}
+}
+
+func TestValueEqual_VId_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VId{A: VSort{Level: 0}, X: VGlobal{Name: "a"}, Y: VGlobal{Name: "b"}}
+	v2 := VId{A: VSort{Level: 0}, X: VGlobal{Name: "a"}, Y: VGlobal{Name: "b"}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VId values should be equal")
+	}
+}
+
+func TestValueEqual_VId_NotEqual(t *testing.T) {
+	t.Parallel()
+	v1 := VId{A: VSort{Level: 0}, X: VGlobal{Name: "a"}, Y: VGlobal{Name: "b"}}
+	v2 := VId{A: VSort{Level: 0}, X: VGlobal{Name: "a"}, Y: VGlobal{Name: "c"}}
+	if ValueEqual(v1, v2) {
+		t.Error("VId with different Y should not be equal")
+	}
+}
+
+func TestValueEqual_VRefl_Equal(t *testing.T) {
+	t.Parallel()
+	v1 := VRefl{A: VSort{Level: 0}, X: VGlobal{Name: "a"}}
+	v2 := VRefl{A: VSort{Level: 0}, X: VGlobal{Name: "a"}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VRefl values should be equal")
+	}
+}
+
+func TestValueEqual_VLam_Equal(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: nil}
+	v1 := VLam{Body: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	v2 := VLam{Body: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VLam values should be equal")
+	}
+}
+
+func TestValueEqual_VLam_DifferentTerm(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: nil}
+	v1 := VLam{Body: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	v2 := VLam{Body: &Closure{Env: env, Term: ast.Var{Ix: 1}}}
+	if ValueEqual(v1, v2) {
+		t.Error("VLam with different terms should not be equal")
+	}
+}
+
+func TestValueEqual_VPi_Equal(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: nil}
+	v1 := VPi{A: VSort{Level: 0}, B: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	v2 := VPi{A: VSort{Level: 0}, B: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VPi values should be equal")
+	}
+}
+
+func TestValueEqual_VSigma_Equal(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: nil}
+	v1 := VSigma{A: VSort{Level: 0}, B: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	v2 := VSigma{A: VSort{Level: 0}, B: &Closure{Env: env, Term: ast.Var{Ix: 0}}}
+	if !ValueEqual(v1, v2) {
+		t.Error("Equal VSigma values should be equal")
+	}
+}
+
+func TestValueEqual_NilEnvEqual(t *testing.T) {
+	t.Parallel()
+	v1 := VLam{Body: &Closure{Env: nil, Term: ast.Var{Ix: 0}}}
+	v2 := VLam{Body: &Closure{Env: nil, Term: ast.Var{Ix: 0}}}
+	if !ValueEqual(v1, v2) {
+		t.Error("VLam with nil env should be equal")
+	}
+}
+
+func TestValueEqual_NilVsNonNilEnv(t *testing.T) {
+	t.Parallel()
+	v1 := VLam{Body: &Closure{Env: nil, Term: ast.Var{Ix: 0}}}
+	v2 := VLam{Body: &Closure{Env: &Env{Bindings: nil}, Term: ast.Var{Ix: 0}}}
+	if ValueEqual(v1, v2) {
+		t.Error("VLam with nil vs non-nil env should not be equal")
+	}
+}
+
+// ============================================================================
+// NeutralEqual Tests
+// ============================================================================
+
+func TestNeutralEqual_SameHead_EmptySpine(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Glob: "f"}, Sp: nil}
+	n2 := Neutral{Head: Head{Glob: "f"}, Sp: nil}
+	if !NeutralEqual(n1, n2) {
+		t.Error("Same head, empty spine should be equal")
+	}
+}
+
+func TestNeutralEqual_SameHead_SameSpine(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}
+	n2 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}
+	if !NeutralEqual(n1, n2) {
+		t.Error("Same head and spine should be equal")
+	}
+}
+
+func TestNeutralEqual_DifferentHeads(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Glob: "f"}, Sp: nil}
+	n2 := Neutral{Head: Head{Glob: "g"}, Sp: nil}
+	if NeutralEqual(n1, n2) {
+		t.Error("Different heads should not be equal")
+	}
+}
+
+func TestNeutralEqual_DifferentSpineLengths(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}
+	n2 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}, VSort{Level: 1}}}
+	if NeutralEqual(n1, n2) {
+		t.Error("Different spine lengths should not be equal")
+	}
+}
+
+func TestNeutralEqual_DifferentSpineValues(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 0}}}
+	n2 := Neutral{Head: Head{Glob: "f"}, Sp: []Value{VSort{Level: 1}}}
+	if NeutralEqual(n1, n2) {
+		t.Error("Different spine values should not be equal")
+	}
+}
+
+func TestNeutralEqual_VarHead(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Var: 0}, Sp: nil}
+	n2 := Neutral{Head: Head{Var: 0}, Sp: nil}
+	if !NeutralEqual(n1, n2) {
+		t.Error("Same var head should be equal")
+	}
+}
+
+func TestNeutralEqual_VarHead_Different(t *testing.T) {
+	t.Parallel()
+	n1 := Neutral{Head: Head{Var: 0}, Sp: nil}
+	n2 := Neutral{Head: Head{Var: 1}, Sp: nil}
+	if NeutralEqual(n1, n2) {
+		t.Error("Different var heads should not be equal")
+	}
+}
