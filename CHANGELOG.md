@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CLI docstring accuracy** (`cmd/hottgo/main.go`)
+  - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
+
+- **REPL error handling** (`cmd/hottgo/main.go`)
+  - Added `scanner.Err()` check after REPL loop to report I/O errors instead of silently ignoring them
+
 ### Added
+- **CLI test coverage** (`cmd/hottgo/main_test.go` - new)
+  - doCheck tests: valid file, missing file, parse error, type error, empty file
+  - doEval tests: valid expressions, parse errors
+  - doSynth tests: valid expressions, parse errors, type errors
+  - REPL tests: :eval, :synth, :quit commands, plain expressions, empty lines, EOF handling
+  - Version flag handling
+
 - **Comprehensive test coverage** (8 new/extended test files, ~3150 lines)
   - **hypergraph/algorithms_test.go** (new): GreedyHittingSet, EnumerateMinimalTransversals, GreedyColoring with correctness verification, edge cases, cutoffs
   - **hypergraph/transforms_test.go** (new): Dual (round-trip, incidence preservation), TwoSection (clique formation, deduplication), LineGraph (intersection detection, star/chain structures)
