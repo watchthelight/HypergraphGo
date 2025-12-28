@@ -955,3 +955,412 @@ func TestEvalCubical_NilHandling(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// Phase 6: Composition Tests
+// =============================================================================
+
+func TestEvalComp_FaceTrue(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	got := EvalComp(aClosure, VFaceTop{}, tubeClosure, base)
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "tube" {
+			t.Errorf("got %q, want tube", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+func TestEvalComp_FaceFalse(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	got := EvalComp(aClosure, VFaceBot{}, tubeClosure, base)
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "base" {
+			t.Errorf("got %q, want base", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+func TestEvalComp_Stuck(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	got := EvalComp(aClosure, VFaceEq{ILevel: 0, IsOne: false}, tubeClosure, base)
+	if _, ok := got.(VComp); !ok {
+		t.Errorf("got %T, want VComp", got)
+	}
+}
+
+func TestEvalHComp(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+	a := VSort{Level: 0}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	t.Run("face true", func(t *testing.T) {
+		got := EvalHComp(a, VFaceTop{}, tubeClosure, base)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "tube" {
+				t.Errorf("got %q, want tube", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("face false", func(t *testing.T) {
+		got := EvalHComp(a, VFaceBot{}, tubeClosure, base)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "base" {
+				t.Errorf("got %q, want base", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("stuck", func(t *testing.T) {
+		got := EvalHComp(a, VFaceEq{ILevel: 0, IsOne: false}, tubeClosure, base)
+		if _, ok := got.(VHComp); !ok {
+			t.Errorf("got %T, want VHComp", got)
+		}
+	})
+}
+
+func TestEvalFill(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	got := EvalFill(aClosure, VFaceTop{}, tubeClosure, base)
+	if _, ok := got.(VFill); !ok {
+		t.Errorf("got %T, want VFill", got)
+	}
+}
+
+// =============================================================================
+// Phase 7: Glue & Univalence Tests
+// =============================================================================
+
+func TestEvalGlue(t *testing.T) {
+	a := VSort{Level: 0}
+	tVal := VNeutral{N: Neutral{Head: Head{Glob: "T"}, Sp: nil}}
+	equiv := VNeutral{N: Neutral{Head: Head{Glob: "e"}, Sp: nil}}
+
+	t.Run("top branch", func(t *testing.T) {
+		branches := []VGlueBranch{{Phi: VFaceTop{}, T: tVal, Equiv: equiv}}
+		got := EvalGlue(a, branches)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "T" {
+				t.Errorf("got %q, want T", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("no branches", func(t *testing.T) {
+		got := EvalGlue(VSort{Level: 42}, []VGlueBranch{})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 42 {
+				t.Errorf("got level %d, want 42", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("filters bot", func(t *testing.T) {
+		branches := []VGlueBranch{{Phi: VFaceBot{}, T: tVal, Equiv: equiv}}
+		got := EvalGlue(a, branches)
+		if _, ok := got.(VSort); !ok {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("stuck", func(t *testing.T) {
+		branches := []VGlueBranch{{Phi: VFaceEq{ILevel: 0, IsOne: false}, T: tVal, Equiv: equiv}}
+		got := EvalGlue(a, branches)
+		if _, ok := got.(VGlue); !ok {
+			t.Errorf("got %T, want VGlue", got)
+		}
+	})
+}
+
+func TestEvalGlueElem(t *testing.T) {
+	term := VNeutral{N: Neutral{Head: Head{Glob: "t"}, Sp: nil}}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	t.Run("top branch", func(t *testing.T) {
+		branches := []VGlueElemBranch{{Phi: VFaceTop{}, Term: term}}
+		got := EvalGlueElem(branches, base)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "t" {
+				t.Errorf("got %q, want t", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("filters bot", func(t *testing.T) {
+		branches := []VGlueElemBranch{{Phi: VFaceBot{}, Term: term}}
+		got := EvalGlueElem(branches, base)
+		if ge, ok := got.(VGlueElem); ok {
+			if len(ge.System) != 0 {
+				t.Errorf("got %d branches, want 0", len(ge.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlueElem", got)
+		}
+	})
+}
+
+func TestEvalUnglue(t *testing.T) {
+	ty := VSort{Level: 0}
+	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
+
+	t.Run("reduces", func(t *testing.T) {
+		glueElem := VGlueElem{System: nil, Base: base}
+		got := EvalUnglue(ty, glueElem)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "base" {
+				t.Errorf("got %q, want base", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("stuck", func(t *testing.T) {
+		got := EvalUnglue(ty, VNeutral{N: Neutral{Head: Head{Glob: "g"}, Sp: nil}})
+		if _, ok := got.(VUnglue); !ok {
+			t.Errorf("got %T, want VUnglue", got)
+		}
+	})
+}
+
+func TestEvalUA(t *testing.T) {
+	a := VSort{Level: 0}
+	b := VSort{Level: 1}
+	equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
+
+	got := EvalUA(a, b, equiv)
+	if _, ok := got.(VUA); !ok {
+		t.Errorf("got %T, want VUA", got)
+	}
+}
+
+func TestEvalUABeta(t *testing.T) {
+	equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
+	arg := VNeutral{N: Neutral{Head: Head{Glob: "arg"}, Sp: nil}}
+
+	got := EvalUABeta(equiv, arg)
+	if _, ok := got.(VUABeta); !ok {
+		t.Errorf("got %T, want VUABeta", got)
+	}
+}
+
+func TestUAPathApply(t *testing.T) {
+	a := VSort{Level: 0}
+	b := VSort{Level: 1}
+	equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
+	ua := VUA{A: a, B: b, Equiv: equiv}
+
+	t.Run("i0", func(t *testing.T) {
+		got := UAPathApply(ua, VI0{})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 0 {
+				t.Errorf("got level %d, want 0", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("i1", func(t *testing.T) {
+		got := UAPathApply(ua, VI1{})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 1 {
+				t.Errorf("got level %d, want 1", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("ivar", func(t *testing.T) {
+		got := UAPathApply(ua, VIVar{Level: 5})
+		if glue, ok := got.(VGlue); ok {
+			if len(glue.System) != 1 {
+				t.Errorf("got %d branches, want 1", len(glue.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlue", got)
+		}
+	})
+}
+
+// =============================================================================
+// Phase 8: Cubical Reification Tests
+// =============================================================================
+
+func TestReifyCubicalAt_Interval(t *testing.T) {
+	t.Run("VI0", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VI0{})
+		if _, ok := got.(ast.I0); !ok {
+			t.Errorf("got %T, want ast.I0", got)
+		}
+	})
+
+	t.Run("VI1", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VI1{})
+		if _, ok := got.(ast.I1); !ok {
+			t.Errorf("got %T, want ast.I1", got)
+		}
+	})
+
+	t.Run("VIVar", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 3, VIVar{Level: 2})
+		if iv, ok := got.(ast.IVar); ok {
+			if iv.Ix != 0 {
+				t.Errorf("got ix=%d, want 0", iv.Ix)
+			}
+		} else {
+			t.Errorf("got %T, want ast.IVar", got)
+		}
+	})
+}
+
+func TestReifyCubicalAt_Path(t *testing.T) {
+	t.Run("VPath", func(t *testing.T) {
+		v := VPath{A: VSort{Level: 0}, X: VSort{Level: 0}, Y: VSort{Level: 0}}
+		got := ReifyCubicalAt(0, 0, v)
+		if _, ok := got.(ast.Path); !ok {
+			t.Errorf("got %T, want ast.Path", got)
+		}
+	})
+
+	t.Run("VPathP", func(t *testing.T) {
+		v := VPathP{A: &IClosure{Term: ast.Sort{U: 0}}, X: VSort{Level: 0}, Y: VSort{Level: 0}}
+		got := ReifyCubicalAt(0, 0, v)
+		if _, ok := got.(ast.PathP); !ok {
+			t.Errorf("got %T, want ast.PathP", got)
+		}
+	})
+
+	t.Run("VPathLam", func(t *testing.T) {
+		v := VPathLam{Body: &IClosure{Term: ast.Global{Name: "x"}}}
+		got := ReifyCubicalAt(0, 0, v)
+		if _, ok := got.(ast.PathLam); !ok {
+			t.Errorf("got %T, want ast.PathLam", got)
+		}
+	})
+}
+
+func TestReifyCubicalAt_FaceFormulas(t *testing.T) {
+	t.Run("VFaceTop", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VFaceTop{})
+		if _, ok := got.(ast.FaceTop); !ok {
+			t.Errorf("got %T, want ast.FaceTop", got)
+		}
+	})
+
+	t.Run("VFaceBot", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VFaceBot{})
+		if _, ok := got.(ast.FaceBot); !ok {
+			t.Errorf("got %T, want ast.FaceBot", got)
+		}
+	})
+
+	t.Run("VFaceAnd", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VFaceAnd{Left: VFaceTop{}, Right: VFaceBot{}})
+		if _, ok := got.(ast.FaceAnd); !ok {
+			t.Errorf("got %T, want ast.FaceAnd", got)
+		}
+	})
+
+	t.Run("VFaceOr", func(t *testing.T) {
+		got := ReifyCubicalAt(0, 0, VFaceOr{Left: VFaceTop{}, Right: VFaceBot{}})
+		if _, ok := got.(ast.FaceOr); !ok {
+			t.Errorf("got %T, want ast.FaceOr", got)
+		}
+	})
+}
+
+func TestReifyCubicalAt_Comp(t *testing.T) {
+	v := VComp{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceEq{ILevel: 0, IsOne: false},
+		Tube: &IClosure{Term: ast.Global{Name: "tube"}},
+		Base: VSort{Level: 0},
+	}
+	got := ReifyCubicalAt(0, 0, v)
+	if _, ok := got.(ast.Comp); !ok {
+		t.Errorf("got %T, want ast.Comp", got)
+	}
+}
+
+func TestReifyCubicalAt_Glue(t *testing.T) {
+	v := VGlue{A: VSort{Level: 0}, System: []VGlueBranch{
+		{Phi: VFaceTop{}, T: VSort{Level: 1}, Equiv: VSort{Level: 0}},
+	}}
+	got := ReifyCubicalAt(0, 0, v)
+	if _, ok := got.(ast.Glue); !ok {
+		t.Errorf("got %T, want ast.Glue", got)
+	}
+}
+
+func TestReifyCubicalAt_UA(t *testing.T) {
+	v := VUA{A: VSort{Level: 0}, B: VSort{Level: 1}, Equiv: VSort{Level: 0}}
+	got := ReifyCubicalAt(0, 0, v)
+	if _, ok := got.(ast.UA); !ok {
+		t.Errorf("got %T, want ast.UA", got)
+	}
+}
+
+func TestReifyFaceAt(t *testing.T) {
+	t.Run("VFaceTop", func(t *testing.T) {
+		got := reifyFaceAt(0, 0, VFaceTop{})
+		if _, ok := got.(ast.FaceTop); !ok {
+			t.Errorf("got %T, want ast.FaceTop", got)
+		}
+	})
+
+	t.Run("VFaceBot", func(t *testing.T) {
+		got := reifyFaceAt(0, 0, VFaceBot{})
+		if _, ok := got.(ast.FaceBot); !ok {
+			t.Errorf("got %T, want ast.FaceBot", got)
+		}
+	})
+
+	t.Run("VFaceEq", func(t *testing.T) {
+		got := reifyFaceAt(0, 2, VFaceEq{ILevel: 1, IsOne: false})
+		if fe, ok := got.(ast.FaceEq); ok {
+			if fe.IVar != 0 {
+				t.Errorf("got IVar=%d, want 0", fe.IVar)
+			}
+		} else {
+			t.Errorf("got %T, want ast.FaceEq", got)
+		}
+	})
+}
