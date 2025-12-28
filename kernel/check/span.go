@@ -12,6 +12,8 @@
 //   - Löh, A. et al. "A Tutorial Implementation of a Dependently Typed Lambda Calculus"
 package check
 
+import "strconv"
+
 // Pos represents a position in source code.
 type Pos struct {
 	Line   int // 1-indexed line number
@@ -59,29 +61,9 @@ func (s Span) String() string {
 func formatSpanRange(s Span) string {
 	if s.Start.Line == s.End.Line {
 		if s.Start.Column == s.End.Column {
-			return itoa(s.Start.Line) + ":" + itoa(s.Start.Column)
+			return strconv.Itoa(s.Start.Line) + ":" + strconv.Itoa(s.Start.Column)
 		}
-		return itoa(s.Start.Line) + ":" + itoa(s.Start.Column) + "-" + itoa(s.End.Column)
+		return strconv.Itoa(s.Start.Line) + ":" + strconv.Itoa(s.Start.Column) + "-" + strconv.Itoa(s.End.Column)
 	}
-	return itoa(s.Start.Line) + ":" + itoa(s.Start.Column) + "-" + itoa(s.End.Line) + ":" + itoa(s.End.Column)
-}
-
-// itoa converts an int to string without importing strconv
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	if n < 0 {
-		return "-" + itoa(-n)
-	}
-	digits := make([]byte, 0, 10)
-	for n > 0 {
-		digits = append(digits, byte('0'+n%10))
-		n /= 10
-	}
-	// reverse
-	for i, j := 0, len(digits)-1; i < j; i, j = i+1, j-1 {
-		digits[i], digits[j] = digits[j], digits[i]
-	}
-	return string(digits)
+	return strconv.Itoa(s.Start.Line) + ":" + strconv.Itoa(s.Start.Column) + "-" + strconv.Itoa(s.End.Line) + ":" + strconv.Itoa(s.End.Column)
 }

@@ -1,6 +1,8 @@
 package check
 
 import (
+	"strconv"
+
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
@@ -119,7 +121,7 @@ func errUnboundVar(span Span, ix int) *TypeError {
 	return &TypeError{
 		Span:    span,
 		Kind:    ErrUnboundVariable,
-		Message: "unbound variable with index " + itoa(ix),
+		Message: "unbound variable with index " + strconv.Itoa(ix),
 		Details: UnboundVariableDetails{Index: ix},
 	}
 }
