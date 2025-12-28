@@ -112,6 +112,216 @@ func TestTransformsAndIncidence(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// EdgeMembers Tests
+// ============================================================================
+
+func TestEdgeMembers_ExistingEdge(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B", "C"})
+
+	members := h.EdgeMembers("E1")
+
+	if len(members) != 3 {
+		t.Fatalf("EdgeMembers(E1)=%d members, want 3", len(members))
+	}
+
+	// Check that all expected vertices are present (order not guaranteed)
+	memberSet := make(map[string]bool)
+	for _, m := range members {
+		memberSet[m] = true
+	}
+	for _, v := range []string{"A", "B", "C"} {
+		if !memberSet[v] {
+			t.Fatalf("EdgeMembers missing %q", v)
+		}
+	}
+}
+
+func TestEdgeMembers_NonExistentEdge(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+
+	members := h.EdgeMembers("E2") // doesn't exist
+
+	if members != nil {
+		t.Fatalf("EdgeMembers(E2)=%v want nil for non-existent edge", members)
+	}
+}
+
+// ============================================================================
+// Copy Tests
+// ============================================================================
+
+func TestCopy_DeepCopySemantics(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"B", "C"})
+
+	copyH := h.Copy()
+
+	// Verify copy has same structure
+	if copyH.NumVertices() != h.NumVertices() {
+		t.Fatalf("Copy NumVertices=%d want %d", copyH.NumVertices(), h.NumVertices())
+	}
+	if copyH.NumEdges() != h.NumEdges() {
+		t.Fatalf("Copy NumEdges=%d want %d", copyH.NumEdges(), h.NumEdges())
+	}
+
+	// Verify all vertices exist in copy
+	for _, v := range h.Vertices() {
+		if !copyH.HasVertex(v) {
+			t.Fatalf("Copy missing vertex %v", v)
+		}
+	}
+
+	// Verify all edges exist in copy with same members
+	for _, id := range h.Edges() {
+		if !copyH.HasEdge(id) {
+			t.Fatalf("Copy missing edge %s", id)
+		}
+		origSize, _ := h.EdgeSize(id)
+		copySize, _ := copyH.EdgeSize(id)
+		if origSize != copySize {
+			t.Fatalf("Copy edge %s size=%d want %d", id, copySize, origSize)
+		}
+	}
+}
+
+func TestCopy_Independence(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+
+	copyH := h.Copy()
+
+	// Modify original
+	h.AddVertex("Z")
+	_ = h.AddEdge("E2", []string{"X", "Y"})
+
+	// Copy should be unaffected
+	if copyH.HasVertex("Z") {
+		t.Fatal("Copy was affected by adding vertex to original")
+	}
+	if copyH.HasEdge("E2") {
+		t.Fatal("Copy was affected by adding edge to original")
+	}
+	if copyH.NumVertices() != 2 {
+		t.Fatalf("Copy NumVertices=%d want 2", copyH.NumVertices())
+	}
+	if copyH.NumEdges() != 1 {
+		t.Fatalf("Copy NumEdges=%d want 1", copyH.NumEdges())
+	}
+}
+
+func TestCopy_EmptyHypergraph(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+
+	copyH := h.Copy()
+
+	if copyH.NumVertices() != 0 || copyH.NumEdges() != 0 {
+		t.Fatalf("Copy of empty=(V=%d,E=%d) want (0,0)", copyH.NumVertices(), copyH.NumEdges())
+	}
+}
+
+// ============================================================================
+// AddEdge with Duplicate Vertices Tests
+// ============================================================================
+
+func TestAddEdge_DuplicateVertices(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+
+	// Add edge with duplicate vertices in input
+	err := h.AddEdge("E1", []string{"A", "A", "B"})
+	if err != nil {
+		t.Fatalf("AddEdge with duplicates: %v", err)
+	}
+
+	// Edge should contain only unique vertices (set semantics)
+	size, ok := h.EdgeSize("E1")
+	if !ok {
+		t.Fatal("Edge E1 not found")
+	}
+	if size != 2 {
+		t.Fatalf("EdgeSize(E1)=%d want 2 (duplicates should be deduplicated)", size)
+	}
+
+	// Hypergraph should have only 2 vertices
+	if h.NumVertices() != 2 {
+		t.Fatalf("NumVertices=%d want 2", h.NumVertices())
+	}
+}
+
+func TestAddEdge_AllDuplicates(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+
+	// Add edge where all vertices are the same
+	err := h.AddEdge("E1", []string{"A", "A", "A"})
+	if err != nil {
+		t.Fatalf("AddEdge: %v", err)
+	}
+
+	// Edge should contain only 1 unique vertex
+	size, ok := h.EdgeSize("E1")
+	if !ok {
+		t.Fatal("Edge E1 not found")
+	}
+	if size != 1 {
+		t.Fatalf("EdgeSize(E1)=%d want 1", size)
+	}
+}
+
+// ============================================================================
+// VertexDegree and EdgeSize Edge Cases
+// ============================================================================
+
+func TestVertexDegree_NonExistentVertex(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+
+	degree := h.VertexDegree("Z") // doesn't exist
+
+	if degree != 0 {
+		t.Fatalf("VertexDegree(Z)=%d want 0 for non-existent vertex", degree)
+	}
+}
+
+func TestEdgeSize_NonExistentEdge(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+
+	size, ok := h.EdgeSize("E2") // doesn't exist
+
+	if ok {
+		t.Fatal("EdgeSize(E2) should return false for non-existent edge")
+	}
+	if size != 0 {
+		t.Fatalf("EdgeSize(E2)=%d want 0", size)
+	}
+}
+
+func TestVertexDegree_MultipleEdges(t *testing.T) {
+	t.Parallel()
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+	_ = h.AddEdge("E2", []string{"A", "C"})
+	_ = h.AddEdge("E3", []string{"A", "D"})
+
+	degree := h.VertexDegree("A")
+
+	if degree != 3 {
+		t.Fatalf("VertexDegree(A)=%d want 3", degree)
+	}
+}
+
 // Benchmark BFS over a deterministic sliding-window hypergraph.
 func BenchmarkBFS(b *testing.B) {
 	h := NewHypergraph[int]()
