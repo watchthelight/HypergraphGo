@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Changed
 - **CI/CD improvements** (`.github/workflows/`)
   - Updated `codecov/codecov-action` from v3 to v5 in `go.yml`
@@ -79,7 +80,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TestExtendNilTypePanics`: Validates nil type panic behavior
   - Coverage improved from 50% to 100%
 
+- **REPL robustness tests** (`cmd/hg/repl_test.go` - extended)
+  - `TestConfirmationFlagReset`: Verifies quit/new confirmation flags reset when other commands run
+  - `TestAtomicSave`: Verifies temp file cleanup after successful atomic save
+
 ### Fixed
+- **:quit safety mechanism losing unsaved state** (`cmd/hg/repl.go:83-89`)
+  - Previously cleared `modified` flag on first quit, losing track of unsaved changes
+  - Now uses separate `quitConfirmed` flag to track two-stage quit without losing state
+  - If user runs another command between two :quits, confirmation resets
+
+- **:new safety mechanism losing unsaved state** (`cmd/hg/repl.go:127-137`)
+  - Same fix as :quit: uses `newConfirmed` flag instead of clearing `modified`
+  - Confirmation resets if user runs other commands
+
+- **No signal handling for Ctrl+C in hg REPL** (`cmd/hg/repl.go:53-65`)
+  - Added SIGINT/SIGTERM handlers that warn about unsaved changes
+  - First Ctrl+C with unsaved changes shows warning
+  - Second Ctrl+C force exits with code 130
+
+- **Non-atomic file writes in hg** (`cmd/hg/io.go:19-42`)
+  - File saves now write to temp file first, then atomic rename
+  - Prevents data corruption on write failure or interrupt
+  - Temp file cleaned up on error
+
+- **Scanner buffer too small and errors unchecked in hg REPL** (`cmd/hg/repl.go:67-68, 89-91`)
+  - Increased buffer from 64KB to 1MB max line size
+  - Added `scanner.Err()` check after scan loop to report I/O errors
+
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
 

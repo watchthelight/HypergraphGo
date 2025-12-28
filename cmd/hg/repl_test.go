@@ -62,9 +62,13 @@ func TestExecuteReplCommand_Quit(t *testing.T) {
 		if !strings.Contains(output, "Warning") {
 			t.Error("should show warning about unsaved changes")
 		}
-		// modified flag should be cleared to allow second quit
-		if state.modified {
-			t.Error("modified flag should be cleared after warning")
+		// quitConfirmed should be set to allow second quit
+		if !state.quitConfirmed {
+			t.Error("quitConfirmed should be set after warning")
+		}
+		// modified flag should remain true (data is still unsaved)
+		if !state.modified {
+			t.Error("modified flag should still be true")
 		}
 	})
 
@@ -755,6 +759,134 @@ func TestModifiedFlagBehavior(t *testing.T) {
 
 		if state.modified {
 			t.Error("load should clear modified flag")
+		}
+	})
+}
+
+// TestConfirmationFlagReset tests that confirmation flags are reset by other commands.
+func TestConfirmationFlagReset(t *testing.T) {
+	t.Run("quit_confirmation_reset_by_other_command", func(t *testing.T) {
+		state := newTestReplState(t)
+		state.modified = true
+
+		// First :quit sets quitConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, ":quit")
+		})
+
+		if !state.quitConfirmed {
+			t.Fatal("quitConfirmed should be set after first :quit")
+		}
+
+		// Running another command should reset quitConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, ":info")
+		})
+
+		if state.quitConfirmed {
+			t.Error("quitConfirmed should be reset after running :info")
+		}
+
+		// Now :quit should warn again
+		output := captureStdout(t, func() {
+			err := executeReplCommand(state, ":quit")
+			if err != nil {
+				t.Errorf("quit should not error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Warning") {
+			t.Error("should show warning again after reset")
+		}
+	})
+
+	t.Run("new_confirmation_reset_by_other_command", func(t *testing.T) {
+		state := newTestReplState(t)
+		state.modified = true
+
+		// First :new sets newConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, ":new")
+		})
+
+		if !state.newConfirmed {
+			t.Fatal("newConfirmed should be set after first :new")
+		}
+
+		// Running another command should reset newConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, "vertices")
+		})
+
+		if state.newConfirmed {
+			t.Error("newConfirmed should be reset after running vertices")
+		}
+
+		// Now :new should warn again
+		output := captureStdout(t, func() {
+			err := executeReplCommand(state, ":new")
+			if err != nil {
+				t.Errorf("new should not error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Warning") {
+			t.Error("should show warning again after reset")
+		}
+	})
+
+	t.Run("quit_then_new_resets_quit_confirmation", func(t *testing.T) {
+		state := newTestReplState(t)
+		state.modified = true
+
+		// :quit sets quitConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, ":quit")
+		})
+
+		// :new should reset quitConfirmed and set newConfirmed
+		captureStdout(t, func() {
+			executeReplCommand(state, ":new")
+		})
+
+		if state.quitConfirmed {
+			t.Error("quitConfirmed should be reset by :new")
+		}
+		if !state.newConfirmed {
+			t.Error("newConfirmed should be set by :new")
+		}
+	})
+}
+
+// TestAtomicSave tests that saves are atomic.
+func TestAtomicSave(t *testing.T) {
+	t.Run("no_temp_file_left_on_success", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "save.json")
+
+		state := newTestReplState(t)
+		state.file = path
+
+		captureStdout(t, func() {
+			err := executeReplCommand(state, ":save")
+			if err != nil {
+				t.Fatalf(":save failed: %v", err)
+			}
+		})
+
+		// Check that temp file was cleaned up
+		tmpPath := path + ".tmp"
+		if _, err := loadGraph(tmpPath); err == nil {
+			t.Error("temp file should not exist after successful save")
+		}
+
+		// Verify the actual file exists and is valid
+		loaded, err := loadGraph(path)
+		if err != nil {
+			t.Fatalf("failed to load saved graph: %v", err)
+		}
+		if loaded.NumVertices() != 3 {
+			t.Errorf("saved graph should have 3 vertices")
 		}
 	})
 }
