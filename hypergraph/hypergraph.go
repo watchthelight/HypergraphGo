@@ -141,3 +141,15 @@ func (h *Hypergraph[V]) EdgeSize(id string) (int, bool) {
 	}
 	return 0, false
 }
+
+// EdgeMembers returns the members of an edge.
+func (h *Hypergraph[V]) EdgeMembers(id string) []V {
+	if edge, exists := h.edges[id]; exists {
+		members := make([]V, 0, len(edge.Set))
+		for v := range edge.Set {
+			members = append(members, v)
+		}
+		return members
+	}
+	return nil
+}
