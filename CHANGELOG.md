@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **CI/CD improvements** (`.github/workflows/`)
+  - Updated `codecov/codecov-action` from v3 to v5 in `go.yml`
+  - Fixed `publish-deb` job in `release.yml` to download release artifacts before pushing to Cloudsmith
+  - Added race detection and cubical tests to `ci-linux.yml`
+  - Added cubical tests to `ci-windows.yml`
+
+### Added
+- **Dependabot configuration** (`.github/dependabot.yml`)
+  - Weekly updates for GitHub Actions (`ci` prefix)
+  - Weekly updates for Go modules (`deps` prefix)
+
+- **Expanded Makefile targets**
+  - `build` - Build the hg binary to `bin/hg`
+  - `clean` - Remove build artifacts
+  - `test` - Run tests
+  - `test-race` - Run tests with race detection
+  - `test-cubical` - Run cubical feature tests
+  - `coverage` - Generate HTML coverage report
+  - `help` - List available targets
+  - Added `.PHONY` declarations for all targets
+
 ### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
