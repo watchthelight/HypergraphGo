@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Comprehensive test coverage** (8 new/extended test files, ~3150 lines)
+- **Comprehensive test coverage** (15 new/extended test files, ~6600 lines)
+  - **cmd/hg/io_test.go** (new): loadGraph/saveGraph with valid files, missing files, invalid JSON, round-trip verification
+  - **cmd/hg/commands_test.go** (new): All 14 CLI commands (info, new, validate, add-vertex, remove-vertex, has-vertex, add-edge, remove-edge, has-edge, vertices, edges, degree, edge-size, copy) with flag parsing, error paths, output verification
+  - **cmd/hg/main_test.go** (new): Subcommand routing, usage output, help command entries, global flags documentation
+  - **cmd/hg/repl_test.go** (new): REPL state machine, :load/:save/:new/:info/:quit/:help commands, modified flag behavior, unsaved changes warnings
+  - **cmd/hg/transforms_test.go** (new): dual, two-section, line-graph commands with output validation, edge cases
+  - **cmd/hg/algorithms_test.go** (new): hitting-set, transversals, coloring, incidence commands with correctness checks
+  - **cmd/hg/traversal_test.go** (new): bfs, dfs, components commands with connectivity verification
   - **hypergraph/algorithms_test.go** (new): GreedyHittingSet, EnumerateMinimalTransversals, GreedyColoring with correctness verification, edge cases, cutoffs
   - **hypergraph/transforms_test.go** (new): Dual (round-trip, incidence preservation), TwoSection (clique formation, deduplication), LineGraph (intersection detection, star/chain structures)
   - **hypergraph/incidence_test.go** (new): IncidenceMatrix COO format, index stability, bounds checking, reconstruction, row/column sums
