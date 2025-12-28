@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Primal method** (`hypergraph/transforms.go`)
+  - Added `Primal()` method as synonym for `TwoSection()` (was documented but not implemented)
+
+### Fixed
+- **GreedyHittingSet determinism** (`hypergraph/algorithms.go`)
+  - Fixed non-deterministic results due to map iteration order
+  - Now sorts vertices before iteration for reproducible results
+
+### Changed
+- **Removed unused sentinel errors** (`hypergraph/errors.go`)
+  - Removed `ErrUnknownEdge` and `ErrUnknownVertex` - these were defined but never used
+  - The API design uses silent no-ops for missing items (consistent with existing behavior)
+
+### Tests
+- **Hypergraph test coverage** (`hypergraph/hypergraph_test.go`, `hypergraph/algorithms_test.go`)
+  - Added `TestEdgeMembers_ExistingEdge`, `TestEdgeMembers_NonExistentEdge`
+  - Added `TestCopy_DeepCopySemantics`, `TestCopy_Independence`, `TestCopy_EmptyHypergraph`
+  - Added `TestAddEdge_DuplicateVertices`, `TestAddEdge_AllDuplicates`
+  - Added `TestVertexDegree_NonExistentVertex`, `TestEdgeSize_NonExistentEdge`, `TestVertexDegree_MultipleEdges`
+  - Added `TestGreedyHittingSet_Deterministic` - verifies deterministic output
+  - Coverage improved to 97.5%
+
 ### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
