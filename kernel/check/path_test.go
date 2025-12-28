@@ -1241,3 +1241,291 @@ func TestFillTypeCheck(t *testing.T) {
 		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
 	}
 }
+
+// --- Face Formula Edge Case Tests ---
+
+// TestFaceIsBot_Bot verifies that FaceBot is detected as bottom.
+func TestFaceIsBot_Bot(t *testing.T) {
+	if !faceIsBot(ast.FaceBot{}) {
+		t.Error("faceIsBot(FaceBot) = false, want true")
+	}
+}
+
+// TestFaceIsBot_Top verifies that FaceTop is not bottom.
+func TestFaceIsBot_Top(t *testing.T) {
+	if faceIsBot(ast.FaceTop{}) {
+		t.Error("faceIsBot(FaceTop) = true, want false")
+	}
+}
+
+// TestFaceIsBot_EqNeverBot verifies that FaceEq is never bottom alone.
+func TestFaceIsBot_EqNeverBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceEq{IVar: 0, IsOne: true},  // (i = 1)
+		ast.FaceEq{IVar: 0, IsOne: false}, // (i = 0)
+		ast.FaceEq{IVar: 5, IsOne: true},  // (j = 1)
+	}
+	for i, face := range tests {
+		if faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot(%v) = true, want false", i, face)
+		}
+	}
+}
+
+// TestFaceIsBot_NestedAndContradiction tests (i=0) ∧ ((j=1) ∧ (i=1)).
+func TestFaceIsBot_NestedAndContradiction(t *testing.T) {
+	// (i=0) ∧ ((j=1) ∧ (i=1)) should be ⊥
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: inner,
+	}
+	if !faceIsBot(outer) {
+		t.Error("faceIsBot((i=0) ∧ ((j=1) ∧ (i=1))) = false, want true")
+	}
+}
+
+// TestFaceIsBot_ThreeVariableNoContradiction tests (i=0) ∧ (j=1) ∧ (k=0).
+func TestFaceIsBot_ThreeVariableNoContradiction(t *testing.T) {
+	// (i=0) ∧ ((j=1) ∧ (k=0)) - no contradiction
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+		Right: ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: inner,
+	}
+	if faceIsBot(outer) {
+		t.Error("faceIsBot((i=0) ∧ ((j=1) ∧ (k=0))) = true, want false")
+	}
+}
+
+// TestFaceIsBot_OrOfBots verifies that ⊥ ∨ ⊥ = ⊥.
+func TestFaceIsBot_OrOfBots(t *testing.T) {
+	or := ast.FaceOr{
+		Left:  ast.FaceBot{},
+		Right: ast.FaceBot{},
+	}
+	if !faceIsBot(or) {
+		t.Error("faceIsBot(⊥ ∨ ⊥) = false, want true")
+	}
+}
+
+// TestFaceIsBot_OrWithNonBot verifies that φ ∨ ⊥ ≠ ⊥.
+func TestFaceIsBot_OrWithNonBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceTop{}},
+		ast.FaceOr{Left: ast.FaceEq{IVar: 0, IsOne: true}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceEq{IVar: 0, IsOne: false}},
+	}
+	for i, face := range tests {
+		if faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot = true, want false", i)
+		}
+	}
+}
+
+// TestFaceIsBot_OrOfContradictions verifies (⊥) ∨ (⊥) from contradictions.
+func TestFaceIsBot_OrOfContradictions(t *testing.T) {
+	// ((i=0) ∧ (i=1)) ∨ ((j=0) ∧ (j=1))
+	left := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 0, IsOne: true},
+	}
+	right := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	or := ast.FaceOr{Left: left, Right: right}
+	if !faceIsBot(or) {
+		t.Error("faceIsBot(contradictory ∨ contradictory) = false, want true")
+	}
+}
+
+// TestFaceIsBot_AndWithBot verifies φ ∧ ⊥ = ⊥.
+func TestFaceIsBot_AndWithBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceAnd{Left: ast.FaceBot{}, Right: ast.FaceTop{}},
+		ast.FaceAnd{Left: ast.FaceEq{IVar: 0, IsOne: true}, Right: ast.FaceBot{}},
+		ast.FaceAnd{Left: ast.FaceBot{}, Right: ast.FaceEq{IVar: 0, IsOne: false}},
+	}
+	for i, face := range tests {
+		if !faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot(φ ∧ ⊥) = false, want true", i)
+		}
+	}
+}
+
+// TestFaceIsBot_DeeplyNested tests a deeply nested contradiction.
+func TestFaceIsBot_DeeplyNested(t *testing.T) {
+	// Build: ((i=0) ∧ ((j=0) ∧ ((k=0) ∧ (i=1))))
+	innermost := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	middle := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+		Right: innermost,
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: middle,
+	}
+	if !faceIsBot(outer) {
+		t.Error("faceIsBot(deeply nested contradiction) = false, want true")
+	}
+}
+
+// --- isContradictoryFaceAnd Tests ---
+
+// TestIsContradictoryFaceAnd_DirectContradiction tests (i=0) ∧ (i=1).
+func TestIsContradictoryFaceAnd_DirectContradiction(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	if !isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (i=1)) = false, want true")
+	}
+}
+
+// TestIsContradictoryFaceAnd_DifferentVariables tests (i=0) ∧ (j=1).
+func TestIsContradictoryFaceAnd_DifferentVariables(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+	}
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (j=1)) = true, want false")
+	}
+}
+
+// TestIsContradictoryFaceAnd_SameConstraint tests (i=0) ∧ (i=0).
+func TestIsContradictoryFaceAnd_SameConstraint(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+	}
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (i=0)) = true, want false")
+	}
+}
+
+// TestIsContradictoryFaceAnd_TripleNested tests ((i=0) ∧ (j=0)) ∧ (i=1).
+func TestIsContradictoryFaceAnd_TripleNested(t *testing.T) {
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+	}
+	outer := ast.FaceAnd{
+		Left:  inner,
+		Right: ast.FaceEq{IVar: 0, IsOne: true}, // (i=1)
+	}
+	if !isContradictoryFaceAnd(outer) {
+		t.Error("isContradictoryFaceAnd(((i=0) ∧ (j=0)) ∧ (i=1)) = false, want true")
+	}
+}
+
+// TestIsContradictoryFaceAnd_WithTop tests ⊤ ∧ (i=0).
+func TestIsContradictoryFaceAnd_WithTop(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceTop{},
+		Right: ast.FaceEq{IVar: 0, IsOne: false},
+	}
+	// FaceTop doesn't contribute constraints, so no contradiction
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd(⊤ ∧ (i=0)) = true, want false")
+	}
+}
+
+// --- collectFaceEqs Tests ---
+
+// TestCollectFaceEqs_SingleEq tests collecting from a single FaceEq.
+func TestCollectFaceEqs_SingleEq(t *testing.T) {
+	face := ast.FaceEq{IVar: 0, IsOne: true}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 1 {
+		t.Fatalf("collectFaceEqs(FaceEq) length = %d, want 1", len(eqs))
+	}
+	if eqs[0].IVar != 0 || eqs[0].IsOne != true {
+		t.Errorf("collectFaceEqs(FaceEq) = %v, want [{0 true}]", eqs)
+	}
+}
+
+// TestCollectFaceEqs_AndOfTwo tests collecting from (i=0) ∧ (j=1).
+func TestCollectFaceEqs_AndOfTwo(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 2 {
+		t.Fatalf("collectFaceEqs length = %d, want 2", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_DeeplyNested tests collecting from nested ands.
+func TestCollectFaceEqs_DeeplyNested(t *testing.T) {
+	// ((i=0) ∧ (j=1)) ∧ ((k=0) ∧ (l=1))
+	left := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	right := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 2, IsOne: false},
+		Right: ast.FaceEq{IVar: 3, IsOne: true},
+	}
+	face := ast.FaceAnd{Left: left, Right: right}
+
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 4 {
+		t.Fatalf("collectFaceEqs length = %d, want 4", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_OrDoesNotCollect verifies Or doesn't collect.
+func TestCollectFaceEqs_OrDoesNotCollect(t *testing.T) {
+	face := ast.FaceOr{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceOr) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_TopReturnsEmpty verifies Top returns empty.
+func TestCollectFaceEqs_TopReturnsEmpty(t *testing.T) {
+	eqs := collectFaceEqs(ast.FaceTop{})
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceTop) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_BotReturnsEmpty verifies Bot returns empty.
+func TestCollectFaceEqs_BotReturnsEmpty(t *testing.T) {
+	eqs := collectFaceEqs(ast.FaceBot{})
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceBot) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_AndWithTopAndBot tests mixed constraints.
+func TestCollectFaceEqs_AndWithTopAndBot(t *testing.T) {
+	// (i=0) ∧ ⊤ - should only collect the FaceEq
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceTop{},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 1 {
+		t.Errorf("collectFaceEqs((i=0) ∧ ⊤) length = %d, want 1", len(eqs))
+	}
+}
