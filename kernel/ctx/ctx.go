@@ -30,7 +30,12 @@ func (c Ctx) LookupVar(ix int) (ast.Term, bool) {
 }
 
 // Extend adds a new binding to the context.
+// Extend modifies the context in place, hence pointer receiver.
+// Other methods return values or are read-only, hence value receivers.
 func (c *Ctx) Extend(name string, ty ast.Term) {
+	if ty == nil {
+		panic("ctx.Extend: nil type")
+	}
 	c.Tele = append(c.Tele, Binding{Name: name, Ty: ty})
 }
 
