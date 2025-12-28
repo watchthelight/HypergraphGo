@@ -2,6 +2,8 @@ package eval
 
 import (
 	"testing"
+
+	"github.com/watchthelight/HypergraphGo/internal/ast"
 )
 
 // =============================================================================
@@ -148,5 +150,222 @@ func TestIEnv_Lookup_NilReceiver(t *testing.T) {
 	}
 	if v.Level != 0 {
 		t.Errorf("VIVar.Level = %d, want 0", v.Level)
+	}
+}
+
+// =============================================================================
+// Phase 3: Face Formula Tests
+// =============================================================================
+
+func TestIsFaceTrue(t *testing.T) {
+	tests := []struct {
+		name string
+		face FaceValue
+		want bool
+	}{
+		{"VFaceTop", VFaceTop{}, true},
+		{"VFaceBot", VFaceBot{}, false},
+		{"VFaceEq", VFaceEq{ILevel: 0, IsOne: false}, false},
+		{"VFaceAnd", VFaceAnd{Left: VFaceTop{}, Right: VFaceTop{}}, false},
+		{"VFaceOr", VFaceOr{Left: VFaceBot{}, Right: VFaceTop{}}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsFaceTrue(tt.face)
+			if got != tt.want {
+				t.Errorf("IsFaceTrue(%T) = %v, want %v", tt.face, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsFaceFalse(t *testing.T) {
+	tests := []struct {
+		name string
+		face FaceValue
+		want bool
+	}{
+		{"VFaceBot", VFaceBot{}, true},
+		{"VFaceTop", VFaceTop{}, false},
+		{"VFaceEq", VFaceEq{ILevel: 0, IsOne: true}, false},
+		{"VFaceAnd", VFaceAnd{Left: VFaceBot{}, Right: VFaceBot{}}, false},
+		{"VFaceOr", VFaceOr{Left: VFaceBot{}, Right: VFaceBot{}}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsFaceFalse(tt.face)
+			if got != tt.want {
+				t.Errorf("IsFaceFalse(%T) = %v, want %v", tt.face, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSimplifyFaceAnd(t *testing.T) {
+	eq0 := VFaceEq{ILevel: 0, IsOne: false} // (i=0)
+	eq1 := VFaceEq{ILevel: 0, IsOne: true}  // (i=1)
+	eqJ := VFaceEq{ILevel: 1, IsOne: false} // (j=0)
+
+	tests := []struct {
+		name    string
+		left    FaceValue
+		right   FaceValue
+		wantTyp string
+	}{
+		{"Bot AND X = Bot", VFaceBot{}, eq0, "VFaceBot"},
+		{"X AND Bot = Bot", eq0, VFaceBot{}, "VFaceBot"},
+		{"Top AND X = X", VFaceTop{}, eq0, "VFaceEq"},
+		{"X AND Top = X", eq0, VFaceTop{}, "VFaceEq"},
+		{"(i=0) AND (i=1) = Bot", eq0, eq1, "VFaceBot"},
+		{"(i=0) AND (j=0) = And", eq0, eqJ, "VFaceAnd"},
+		{"Top AND Top = Top", VFaceTop{}, VFaceTop{}, "VFaceTop"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := simplifyFaceAnd(tt.left, tt.right)
+			switch tt.wantTyp {
+			case "VFaceBot":
+				if _, ok := got.(VFaceBot); !ok {
+					t.Errorf("got %T, want VFaceBot", got)
+				}
+			case "VFaceTop":
+				if _, ok := got.(VFaceTop); !ok {
+					t.Errorf("got %T, want VFaceTop", got)
+				}
+			case "VFaceEq":
+				if _, ok := got.(VFaceEq); !ok {
+					t.Errorf("got %T, want VFaceEq", got)
+				}
+			case "VFaceAnd":
+				if _, ok := got.(VFaceAnd); !ok {
+					t.Errorf("got %T, want VFaceAnd", got)
+				}
+			}
+		})
+	}
+}
+
+func TestSimplifyFaceOr(t *testing.T) {
+	eq0 := VFaceEq{ILevel: 0, IsOne: false} // (i=0)
+	eq1 := VFaceEq{ILevel: 0, IsOne: true}  // (i=1)
+	eqJ := VFaceEq{ILevel: 1, IsOne: false} // (j=0)
+
+	tests := []struct {
+		name    string
+		left    FaceValue
+		right   FaceValue
+		wantTyp string
+	}{
+		{"Top OR X = Top", VFaceTop{}, eq0, "VFaceTop"},
+		{"X OR Top = Top", eq0, VFaceTop{}, "VFaceTop"},
+		{"Bot OR X = X", VFaceBot{}, eq0, "VFaceEq"},
+		{"X OR Bot = X", eq0, VFaceBot{}, "VFaceEq"},
+		{"(i=0) OR (i=1) = Top", eq0, eq1, "VFaceTop"},
+		{"(i=0) OR (j=0) = Or", eq0, eqJ, "VFaceOr"},
+		{"Bot OR Bot = Bot", VFaceBot{}, VFaceBot{}, "VFaceBot"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := simplifyFaceOr(tt.left, tt.right)
+			switch tt.wantTyp {
+			case "VFaceBot":
+				if _, ok := got.(VFaceBot); !ok {
+					t.Errorf("got %T, want VFaceBot", got)
+				}
+			case "VFaceTop":
+				if _, ok := got.(VFaceTop); !ok {
+					t.Errorf("got %T, want VFaceTop", got)
+				}
+			case "VFaceEq":
+				if _, ok := got.(VFaceEq); !ok {
+					t.Errorf("got %T, want VFaceEq", got)
+				}
+			case "VFaceOr":
+				if _, ok := got.(VFaceOr); !ok {
+					t.Errorf("got %T, want VFaceOr", got)
+				}
+			}
+		})
+	}
+}
+
+func TestEvalFaceEq(t *testing.T) {
+	tests := []struct {
+		name    string
+		iVal    Value
+		ivar    int
+		isOne   bool
+		ienvLen int
+		wantTyp string
+	}{
+		// VI0 cases
+		{"VI0 with isOne=false -> Top", VI0{}, 0, false, 1, "VFaceTop"},
+		{"VI0 with isOne=true -> Bot", VI0{}, 0, true, 1, "VFaceBot"},
+		// VI1 cases
+		{"VI1 with isOne=true -> Top", VI1{}, 0, true, 1, "VFaceTop"},
+		{"VI1 with isOne=false -> Bot", VI1{}, 0, false, 1, "VFaceBot"},
+		// VIVar case
+		{"VIVar -> VFaceEq", VIVar{Level: 2}, 0, true, 3, "VFaceEq"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := evalFaceEq(tt.iVal, tt.ivar, tt.isOne, tt.ienvLen)
+			switch tt.wantTyp {
+			case "VFaceTop":
+				if _, ok := got.(VFaceTop); !ok {
+					t.Errorf("got %T, want VFaceTop", got)
+				}
+			case "VFaceBot":
+				if _, ok := got.(VFaceBot); !ok {
+					t.Errorf("got %T, want VFaceBot", got)
+				}
+			case "VFaceEq":
+				if _, ok := got.(VFaceEq); !ok {
+					t.Errorf("got %T, want VFaceEq", got)
+				}
+			}
+		})
+	}
+}
+
+func TestEvalFace(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VI0{}) // index 0 -> VI0
+
+	tests := []struct {
+		name    string
+		face    ast.Face
+		wantTyp string
+	}{
+		{"nil -> Bot", nil, "VFaceBot"},
+		{"FaceTop", ast.FaceTop{}, "VFaceTop"},
+		{"FaceBot", ast.FaceBot{}, "VFaceBot"},
+		{"FaceEq (i=0) with i=VI0 -> Top", ast.FaceEq{IVar: 0, IsOne: false}, "VFaceTop"},
+		{"FaceEq (i=1) with i=VI0 -> Bot", ast.FaceEq{IVar: 0, IsOne: true}, "VFaceBot"},
+		{"FaceAnd Top Top -> Top", ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceTop{}}, "VFaceTop"},
+		{"FaceAnd Top Bot -> Bot", ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}}, "VFaceBot"},
+		{"FaceOr Bot Top -> Top", ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceTop{}}, "VFaceTop"},
+		{"FaceOr Bot Bot -> Bot", ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceBot{}}, "VFaceBot"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := evalFace(env, ienv, tt.face)
+			switch tt.wantTyp {
+			case "VFaceTop":
+				if _, ok := got.(VFaceTop); !ok {
+					t.Errorf("got %T, want VFaceTop", got)
+				}
+			case "VFaceBot":
+				if _, ok := got.(VFaceBot); !ok {
+					t.Errorf("got %T, want VFaceBot", got)
+				}
+			}
+		})
 	}
 }
