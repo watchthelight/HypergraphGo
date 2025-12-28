@@ -39,6 +39,50 @@ func sort(level int) ast.Term {
 	return ast.Sort{U: ast.Level(level)}
 }
 
+// Cubical test helper constructors
+
+// Interval constructors
+func i0() ast.Term  { return ast.I0{} }
+func i1() ast.Term  { return ast.I1{} }
+func ivar(ix int) ast.Term { return ast.IVar{Ix: ix} }
+
+// Path constructors
+func path(a, x, y ast.Term) ast.Term {
+	return ast.Path{A: a, X: x, Y: y}
+}
+
+func pathP(a, x, y ast.Term) ast.Term {
+	return ast.PathP{A: a, X: x, Y: y}
+}
+
+func pathLam(body ast.Term) ast.Term {
+	return ast.PathLam{Binder: "_", Body: body}
+}
+
+func pathApp(p, r ast.Term) ast.Term {
+	return ast.PathApp{P: p, R: r}
+}
+
+func transport(a, e ast.Term) ast.Term {
+	return ast.Transport{A: a, E: e}
+}
+
+// Face constructors
+func faceTop() ast.Face { return ast.FaceTop{} }
+func faceBot() ast.Face { return ast.FaceBot{} }
+
+func faceEq(ivarIx int, isOne bool) ast.Face {
+	return ast.FaceEq{IVar: ivarIx, IsOne: isOne}
+}
+
+func faceAnd(l, r ast.Face) ast.Face {
+	return ast.FaceAnd{Left: l, Right: r}
+}
+
+func faceOr(l, r ast.Face) ast.Face {
+	return ast.FaceOr{Left: l, Right: r}
+}
+
 // nf normalizes a term using NbE and returns its string representation
 func nf(t ast.Term) string {
 	return NormalizeNBE(t)
