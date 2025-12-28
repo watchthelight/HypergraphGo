@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Comprehensive test coverage** (8 new/extended test files, ~3150 lines)
+- **Comprehensive test coverage** (9 new/extended test files, ~3850 lines)
   - **hypergraph/algorithms_test.go** (new): GreedyHittingSet, EnumerateMinimalTransversals, GreedyColoring with correctness verification, edge cases, cutoffs
   - **hypergraph/transforms_test.go** (new): Dual (round-trip, incidence preservation), TwoSection (clique formation, deduplication), LineGraph (intersection detection, star/chain structures)
   - **hypergraph/incidence_test.go** (new): IncidenceMatrix COO format, index stability, bounds checking, reconstruction, row/column sums
@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **kernel/check/errors_test.go** (new): All error constructors, TypeError formatting, ErrorDetails interface, complex type mismatches, Span edge cases
   - **internal/eval/recursor_test.go** (new): Recursor registry (register, lookup, clear, overwrite), RecursorInfo/ConstructorInfo structures, concurrent access safety
   - **internal/ast/print_test.go** (new): Sprint for all term types, empty binder handling, collectSpine, nested structures, output verification
+  - **internal/eval/nbe_cubical_test.go** (extended): Edge case tests for cubical evaluation - unknown term types, variable/interval out-of-bounds lookup, face formula deep nesting, PathApply edge cases (VUA endpoints, stuck values), transport with interval-using body, composition fallback to transport, Glue/GlueElem branch filtering, reification edge cases (high levels, unknown types), neutral reification with spine (fst/snd/J/@), J eliminator evaluation, System branches, alpha equality, isConstantFamily, closure capture
 
 - **Hypergraph CLI (hg)** (`cmd/hg/` - Full implementation)
   - Subcommand-based CLI for hypergraph operations
