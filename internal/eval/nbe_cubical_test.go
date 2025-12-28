@@ -590,3 +590,368 @@ func TestIsConstantFamily(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Phase 5: EvalCubical Main Tests
+// =============================================================================
+
+func TestEvalCubical_Interval(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("Interval type", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.Interval{})
+		if g, ok := got.(VGlobal); ok {
+			if g.Name != "I" {
+				t.Errorf("got %q, want I", g.Name)
+			}
+		} else {
+			t.Errorf("got %T, want VGlobal", got)
+		}
+	})
+
+	t.Run("I0", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.I0{})
+		if _, ok := got.(VI0); !ok {
+			t.Errorf("got %T, want VI0", got)
+		}
+	})
+
+	t.Run("I1", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.I1{})
+		if _, ok := got.(VI1); !ok {
+			t.Errorf("got %T, want VI1", got)
+		}
+	})
+
+	t.Run("IVar lookup", func(t *testing.T) {
+		ienvWithVar := EmptyIEnv().Extend(VI0{})
+		got := EvalCubical(env, ienvWithVar, ast.IVar{Ix: 0})
+		if _, ok := got.(VI0); !ok {
+			t.Errorf("got %T, want VI0", got)
+		}
+	})
+}
+
+func TestEvalCubical_Path(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("Path type", func(t *testing.T) {
+		term := ast.Path{
+			A: ast.Sort{U: 0},
+			X: ast.Global{Name: "x"},
+			Y: ast.Global{Name: "y"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if p, ok := got.(VPath); ok {
+			if _, ok := p.A.(VSort); !ok {
+				t.Errorf("A is %T, want VSort", p.A)
+			}
+		} else {
+			t.Errorf("got %T, want VPath", got)
+		}
+	})
+
+	t.Run("PathP type", func(t *testing.T) {
+		term := ast.PathP{
+			A: ast.Sort{U: 0},
+			X: ast.Global{Name: "x"},
+			Y: ast.Global{Name: "y"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VPathP); !ok {
+			t.Errorf("got %T, want VPathP", got)
+		}
+	})
+
+	t.Run("PathLam", func(t *testing.T) {
+		term := ast.PathLam{Binder: "i", Body: ast.Global{Name: "x"}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VPathLam); !ok {
+			t.Errorf("got %T, want VPathLam", got)
+		}
+	})
+
+	t.Run("PathApp", func(t *testing.T) {
+		// (<i> x) @ i0 -> x
+		term := ast.PathApp{
+			P: ast.PathLam{Binder: "i", Body: ast.Global{Name: "x"}},
+			R: ast.I0{},
+		}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "x" {
+				t.Errorf("got global %q, want x", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with x", got)
+		}
+	})
+}
+
+func TestEvalCubical_Transport(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("constant family", func(t *testing.T) {
+		// transport (λi. Type₀) x -> x
+		term := ast.Transport{
+			A: ast.Sort{U: 0},
+			E: ast.Global{Name: "x"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "x" {
+				t.Errorf("got global %q, want x", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral (identity transport)", got)
+		}
+	})
+}
+
+func TestEvalCubical_FaceFormulas(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VI0{}) // i -> VI0
+
+	t.Run("FaceTop", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.FaceTop{})
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+
+	t.Run("FaceBot", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.FaceBot{})
+		if _, ok := got.(VFaceBot); !ok {
+			t.Errorf("got %T, want VFaceBot", got)
+		}
+	})
+
+	t.Run("FaceEq resolved", func(t *testing.T) {
+		// (i=0) where i=VI0 -> Top
+		got := EvalCubical(env, ienv, ast.FaceEq{IVar: 0, IsOne: false})
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+
+	t.Run("FaceAnd", func(t *testing.T) {
+		term := ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceTop{}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+
+	t.Run("FaceOr", func(t *testing.T) {
+		term := ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceTop{}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+}
+
+func TestEvalCubical_Partial(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.Partial{
+		Phi: ast.FaceTop{},
+		A:   ast.Sort{U: 0},
+	}
+	got := EvalCubical(env, ienv, term)
+	if p, ok := got.(VPartial); ok {
+		if _, ok := p.Phi.(VFaceTop); !ok {
+			t.Errorf("Phi is %T, want VFaceTop", p.Phi)
+		}
+		if _, ok := p.A.(VSort); !ok {
+			t.Errorf("A is %T, want VSort", p.A)
+		}
+	} else {
+		t.Errorf("got %T, want VPartial", got)
+	}
+}
+
+func TestEvalCubical_System(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.System{
+		Branches: []ast.SystemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Global{Name: "x"}},
+			{Phi: ast.FaceBot{}, Term: ast.Global{Name: "y"}},
+		},
+	}
+	got := EvalCubical(env, ienv, term)
+	if s, ok := got.(VSystem); ok {
+		if len(s.Branches) != 2 {
+			t.Errorf("got %d branches, want 2", len(s.Branches))
+		}
+	} else {
+		t.Errorf("got %T, want VSystem", got)
+	}
+}
+
+func TestEvalCubical_StandardTerms(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("Var lookup", func(t *testing.T) {
+		envWithVar := env.Extend(VSort{Level: 42})
+		got := EvalCubical(envWithVar, ienv, ast.Var{Ix: 0})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 42 {
+				t.Errorf("got level %d, want 42", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("Global", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.Global{Name: "x"})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "x" {
+				t.Errorf("got %q, want x", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("Sort", func(t *testing.T) {
+		got := EvalCubical(env, ienv, ast.Sort{U: 5})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 5 {
+				t.Errorf("got level %d, want 5", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("Lam", func(t *testing.T) {
+		term := ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VLam); !ok {
+			t.Errorf("got %T, want VLam", got)
+		}
+	})
+
+	t.Run("App beta", func(t *testing.T) {
+		// (λx.x) y -> y
+		term := ast.App{
+			T: ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}},
+			U: ast.Global{Name: "y"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "y" {
+				t.Errorf("got %q, want y", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral", got)
+		}
+	})
+
+	t.Run("Pair", func(t *testing.T) {
+		term := ast.Pair{Fst: ast.Global{Name: "a"}, Snd: ast.Global{Name: "b"}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VPair); !ok {
+			t.Errorf("got %T, want VPair", got)
+		}
+	})
+
+	t.Run("Fst", func(t *testing.T) {
+		term := ast.Fst{P: ast.Pair{Fst: ast.Global{Name: "a"}, Snd: ast.Global{Name: "b"}}}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "a" {
+				t.Errorf("got %q, want a", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with a", got)
+		}
+	})
+
+	t.Run("Snd", func(t *testing.T) {
+		term := ast.Snd{P: ast.Pair{Fst: ast.Global{Name: "a"}, Snd: ast.Global{Name: "b"}}}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "b" {
+				t.Errorf("got %q, want b", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with b", got)
+		}
+	})
+
+	t.Run("Pi", func(t *testing.T) {
+		term := ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VPi); !ok {
+			t.Errorf("got %T, want VPi", got)
+		}
+	})
+
+	t.Run("Sigma", func(t *testing.T) {
+		term := ast.Sigma{Binder: "x", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VSigma); !ok {
+			t.Errorf("got %T, want VSigma", got)
+		}
+	})
+
+	t.Run("Let", func(t *testing.T) {
+		// let x = Type₀ in x
+		term := ast.Let{Binder: "x", Val: ast.Sort{U: 0}, Body: ast.Var{Ix: 0}}
+		got := EvalCubical(env, ienv, term)
+		if s, ok := got.(VSort); ok {
+			if s.Level != 0 {
+				t.Errorf("got level %d, want 0", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("Id", func(t *testing.T) {
+		term := ast.Id{A: ast.Sort{U: 0}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VId); !ok {
+			t.Errorf("got %T, want VId", got)
+		}
+	})
+
+	t.Run("Refl", func(t *testing.T) {
+		term := ast.Refl{A: ast.Sort{U: 0}, X: ast.Global{Name: "x"}}
+		got := EvalCubical(env, ienv, term)
+		if _, ok := got.(VRefl); !ok {
+			t.Errorf("got %T, want VRefl", got)
+		}
+	})
+}
+
+func TestEvalCubical_NilHandling(t *testing.T) {
+	t.Run("nil env", func(t *testing.T) {
+		got := EvalCubical(nil, nil, ast.Sort{U: 0})
+		if _, ok := got.(VSort); !ok {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("nil term", func(t *testing.T) {
+		got := EvalCubical(nil, nil, nil)
+		// Should return error value (VGlobal with "error:" prefix)
+		if g, ok := got.(VGlobal); ok {
+			if g.Name != "error:nil term (cubical)" {
+				t.Errorf("got %q, want error:nil term (cubical)", g.Name)
+			}
+		} else {
+			t.Errorf("got %T, want VGlobal error", got)
+		}
+	})
+}
