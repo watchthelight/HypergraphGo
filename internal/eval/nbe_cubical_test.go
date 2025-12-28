@@ -1190,23 +1190,22 @@ func TestEvalUA(t *testing.T) {
 }
 
 func TestEvalUABeta(t *testing.T) {
-	t.Run("computes fst application on neutral", func(t *testing.T) {
-		// EvalUABeta(equiv, arg) = Apply(Fst(equiv), arg)
-		// When equiv is neutral, Fst(equiv) gives neutral "fst" [equiv]
-		// Then Apply(fst_neutral, arg) gives neutral "fst" [equiv, arg]
+	t.Run("returns VUABeta on neutral equiv", func(t *testing.T) {
+		// When equiv is neutral (stuck), return VUABeta to preserve structure
+		// This is semantically correct: we don't reduce transport through neutrals
 		equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
 		arg := VNeutral{N: Neutral{Head: Head{Glob: "arg"}, Sp: nil}}
 
 		got := EvalUABeta(equiv, arg)
-		n, ok := got.(VNeutral)
+		uab, ok := got.(VUABeta)
 		if !ok {
-			t.Fatalf("got %T, want VNeutral", got)
+			t.Fatalf("got %T, want VUABeta", got)
 		}
-		if n.N.Head.Glob != "fst" {
-			t.Errorf("head = %q, want fst", n.N.Head.Glob)
+		if _, ok := uab.Equiv.(VNeutral); !ok {
+			t.Errorf("Equiv = %T, want VNeutral", uab.Equiv)
 		}
-		if len(n.N.Sp) != 2 {
-			t.Errorf("spine length = %d, want 2", len(n.N.Sp))
+		if _, ok := uab.Arg.(VNeutral); !ok {
+			t.Errorf("Arg = %T, want VNeutral", uab.Arg)
 		}
 	})
 
@@ -1538,10 +1537,10 @@ func TestTryEvalCubical(t *testing.T) {
 			Equiv: typeU,
 			Arg:   typeU,
 		}, func(v Value) bool {
-			// EvalUABeta now computes: Apply(Fst(equiv), arg)
-			// Fst(VSort) = VNeutral{fst, [VSort]}, then Apply gives VNeutral
-			n, ok := v.(VNeutral)
-			return ok && n.N.Head.Glob == "fst"
+			// EvalUABeta returns VUABeta when equiv is not a pair (stuck term)
+			// VSort is not a VPair, so we get VUABeta preserving the structure
+			_, ok := v.(VUABeta)
+			return ok
 		}},
 	}
 

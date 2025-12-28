@@ -18,9 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - PathApply on VFill now computes: at i0 returns base, at i1 returns comp result
   - Stuck VFill only returned when face is not definitionally true
 
-- **EvalUABeta not computing transport rule** (`internal/eval/nbe_cubical.go:840-844`)
-  - Now properly computes: `transport (ua e) a = e.fst a`
-  - Extracts forward function via `Fst(equiv)` and applies to argument
+- **EvalUABeta not computing transport rule** (`internal/eval/nbe_cubical.go:870-880`)
+  - Now properly computes: `transport (ua e) a = e.fst a` when e is a concrete pair
+  - Returns `VUABeta{Equiv, Arg}` when equivalence is neutral (stuck term)
+  - Preserves semantic structure instead of reducing through Fst/Apply on neutrals
   - Enables transport along univalence paths to actually compute
 
 ### Changed

@@ -867,12 +867,16 @@ func EvalUA(a, b, equiv Value) Value {
 // EvalUABeta evaluates the transport computation: transport (ua e) a = e.fst a.
 // The equivalence e : Equiv A B has the form (fwd, proof) where fwd : A -> B.
 // This computation rule extracts the forward function and applies it to the argument.
+// When the equivalence is neutral (stuck), we return VUABeta to preserve the structure.
 func EvalUABeta(equiv, arg Value) Value {
-	// Extract the forward function from the equivalence (first projection)
-	fwd := Fst(equiv)
+	// Only reduce when the equivalence is a concrete pair
+	if pair, ok := equiv.(VPair); ok {
+		// Extract the forward function and apply it to the argument
+		return Apply(pair.Fst, arg)
+	}
 
-	// Apply the forward function to the argument
-	return Apply(fwd, arg)
+	// For neutral equivalences, return VUABeta (stuck value)
+	return VUABeta{Equiv: equiv, Arg: arg}
 }
 
 // UAPathApply applies ua to an interval argument.
