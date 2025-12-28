@@ -162,13 +162,35 @@ sudo apt install hypergraphgo
 
 ### Hypergraph CLI (`hg`)
 
+Full-featured CLI for hypergraph operations with 22 commands organized into categories:
+
 ```bash
-hg info -file example.json
-hg add-vertex -file example.json -v "A"
-hg add-edge -file example.json -id E1 -members "A,B,C"
-hg components -file example.json
-hg dual -in example.json -out dual.json
-hg section -in example.json -out section.json
+# Core operations
+hg new -o graph.json                           # Create empty hypergraph
+hg info -f graph.json                          # Display statistics
+hg add-vertex -f graph.json -v A               # Add vertex
+hg add-edge -f graph.json -id E1 -m A,B,C      # Add hyperedge
+hg vertices -f graph.json                      # List vertices
+hg edges -f graph.json                         # List edges with members
+
+# Transforms
+hg dual -f graph.json -o dual.json             # Compute dual hypergraph
+hg two-section -f graph.json -o section.json   # Compute 2-section graph
+hg line-graph -f graph.json -o line.json       # Compute line graph
+
+# Algorithms
+hg bfs -f graph.json -start A                  # Breadth-first search
+hg components -f graph.json                    # Connected components
+hg hitting-set -f graph.json                   # Greedy hitting set
+hg coloring -f graph.json                      # Vertex coloring
+
+# Interactive mode
+hg repl                                        # Start REPL
+hg repl -f graph.json                          # Load file into REPL
+
+# Help
+hg help                                        # Show all commands
+hg help <command>                              # Command-specific help
 ```
 
 ### HoTT CLI (`hottgo`)
