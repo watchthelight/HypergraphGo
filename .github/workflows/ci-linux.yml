@@ -41,8 +41,14 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Test (with coverage)
+      - name: Test with race detection
+        run: go test -race -v ./...
+
+      - name: Test with coverage
         run: go test ./... -count=1 -v -coverprofile=coverage.out
+
+      - name: Test cubical features
+        run: go test -v -tags cubical ./...
 
       - name: Coverage summary
         run: |
