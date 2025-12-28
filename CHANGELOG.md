@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Incorrect alpha-equality using string comparison** (`internal/eval/nbe_cubical.go:898`)
+  - Previously used `ast.Sprint(a) == ast.Sprint(b)` which is incorrect for alpha-equality
+  - Now uses proper structural comparison via `AlphaEq(a, b)` with de Bruijn indices
+  - New `alpha_eq.go` module handles all AST term types including cubical extensions
+
+- **EvalFill always returning stuck value** (`internal/eval/nbe_cubical.go:750-753`)
+  - Fill with face=⊤ now reduces to `VPathLam{Body: tube}` (path lambda over tube)
+  - PathApply on VFill now computes: at i0 returns base, at i1 returns comp result
+  - Stuck VFill only returned when face is not definitionally true
+
+- **EvalUABeta not computing transport rule** (`internal/eval/nbe_cubical.go:840-844`)
+  - Now properly computes: `transport (ua e) a = e.fst a`
+  - Extracts forward function via `Fst(equiv)` and applies to argument
+  - Enables transport along univalence paths to actually compute
+
+### Changed
+- **Refactored reifyNeutral to reduce code duplication** (`internal/eval/nbe.go`, `nbe_cubical.go`)
+  - Extracted `reifySpine` helper for applying spine arguments
+  - Extracted `reifyNeutralWithReifier` for shared fst/snd/J handling
+  - `reifyNeutralCubicalAt` now uses shared helper with cubical-specific "@" case
+  - Reduced ~80 lines of duplicated code
+
+### Added
+- **Alpha-equality module** (`internal/eval/alpha_eq.go` - new)
+  - `AlphaEq(a, b ast.Term) bool` for proper alpha-equality checking
+  - Handles all core term types: Var, Global, Sort, Lam, App, Pi, Sigma, Pair, Fst, Snd, Let, Id, Refl, J
+  - Handles all cubical term types: Interval, I0, I1, IVar, Path, PathP, PathLam, PathApp, Transport
+  - Handles face formulas: FaceTop, FaceBot, FaceEq, FaceAnd, FaceOr
+  - Handles partial types, composition, glue, and univalence terms
+  - Binder names are correctly ignored (de Bruijn indices used)
+
+- **Alpha-equality test coverage** (`internal/eval/alpha_eq_test.go` - new)
+  - Comprehensive tests for all term types
+  - Tests for binder name irrelevance
+  - Tests for structural differences
+
 ### Added
 - **Cubical type checker test coverage** (`kernel/check/ictx_test.go` - new, `kernel/check/path_test.go` - extended)
   - **ICtx tests**: Deep nesting (5/10 levels), defer cleanup, nested defers, boundary conditions (negative indices, exact boundaries), complex push/pop patterns (interleaved, double pop), context creation/destruction, immutability chain verification

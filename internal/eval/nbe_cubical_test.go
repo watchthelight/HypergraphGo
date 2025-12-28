@@ -1051,10 +1051,29 @@ func TestEvalFill(t *testing.T) {
 	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
 	base := VNeutral{N: Neutral{Head: Head{Glob: "base"}, Sp: nil}}
 
-	got := EvalFill(aClosure, VFaceTop{}, tubeClosure, base)
-	if _, ok := got.(VFill); !ok {
-		t.Errorf("got %T, want VFill", got)
-	}
+	t.Run("face true reduces to PathLam", func(t *testing.T) {
+		// When face is satisfied, fill reduces to a path lambda over the tube
+		got := EvalFill(aClosure, VFaceTop{}, tubeClosure, base)
+		if _, ok := got.(VPathLam); !ok {
+			t.Errorf("got %T, want VPathLam (face=true)", got)
+		}
+	})
+
+	t.Run("face false stays stuck", func(t *testing.T) {
+		// When face is not satisfied, fill stays stuck
+		got := EvalFill(aClosure, VFaceBot{}, tubeClosure, base)
+		if _, ok := got.(VFill); !ok {
+			t.Errorf("got %T, want VFill (face=false)", got)
+		}
+	})
+
+	t.Run("neutral face stays stuck", func(t *testing.T) {
+		// When face is neutral (not known to be true), fill stays stuck
+		got := EvalFill(aClosure, VFaceEq{ILevel: 0, IsOne: false}, tubeClosure, base)
+		if _, ok := got.(VFill); !ok {
+			t.Errorf("got %T, want VFill (face=neutral)", got)
+		}
+	})
 }
 
 // =============================================================================
@@ -1171,13 +1190,42 @@ func TestEvalUA(t *testing.T) {
 }
 
 func TestEvalUABeta(t *testing.T) {
-	equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
-	arg := VNeutral{N: Neutral{Head: Head{Glob: "arg"}, Sp: nil}}
+	t.Run("computes fst application on neutral", func(t *testing.T) {
+		// EvalUABeta(equiv, arg) = Apply(Fst(equiv), arg)
+		// When equiv is neutral, Fst(equiv) gives neutral "fst" [equiv]
+		// Then Apply(fst_neutral, arg) gives neutral "fst" [equiv, arg]
+		equiv := VNeutral{N: Neutral{Head: Head{Glob: "equiv"}, Sp: nil}}
+		arg := VNeutral{N: Neutral{Head: Head{Glob: "arg"}, Sp: nil}}
 
-	got := EvalUABeta(equiv, arg)
-	if _, ok := got.(VUABeta); !ok {
-		t.Errorf("got %T, want VUABeta", got)
-	}
+		got := EvalUABeta(equiv, arg)
+		n, ok := got.(VNeutral)
+		if !ok {
+			t.Fatalf("got %T, want VNeutral", got)
+		}
+		if n.N.Head.Glob != "fst" {
+			t.Errorf("head = %q, want fst", n.N.Head.Glob)
+		}
+		if len(n.N.Sp) != 2 {
+			t.Errorf("spine length = %d, want 2", len(n.N.Sp))
+		}
+	})
+
+	t.Run("computes with actual pair", func(t *testing.T) {
+		// When equiv is a pair, Fst extracts fwd, then Apply evaluates
+		fwd := VLam{Body: &Closure{Env: &Env{}, Term: ast.Var{Ix: 0}}}
+		equiv := VPair{Fst: fwd, Snd: VSort{Level: 0}}
+		arg := VSort{Level: 42}
+
+		got := EvalUABeta(equiv, arg)
+		// fwd is identity, so Apply(fwd, arg) = arg
+		s, ok := got.(VSort)
+		if !ok {
+			t.Fatalf("got %T, want VSort", got)
+		}
+		if s.Level != 42 {
+			t.Errorf("level = %d, want 42", s.Level)
+		}
+	})
 }
 
 func TestUAPathApply(t *testing.T) {
@@ -1490,8 +1538,10 @@ func TestTryEvalCubical(t *testing.T) {
 			Equiv: typeU,
 			Arg:   typeU,
 		}, func(v Value) bool {
-			_, ok := v.(VUABeta)
-			return ok
+			// EvalUABeta now computes: Apply(Fst(equiv), arg)
+			// Fst(VSort) = VNeutral{fst, [VSort]}, then Apply gives VNeutral
+			n, ok := v.(VNeutral)
+			return ok && n.N.Head.Glob == "fst"
 		}},
 	}
 

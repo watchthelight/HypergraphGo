@@ -553,6 +553,23 @@ func PathApply(p Value, r Value) Value {
 		// UA applied to interval: (ua e) @ r
 		return UAPathApply(pv, r)
 
+	case VFill:
+		// Fill applied to interval endpoint:
+		//   fill^i A [φ ↦ u] a₀ @ i0 = a₀
+		//   fill^i A [φ ↦ u] a₀ @ i1 = comp^i A [φ ↦ u] a₀
+		switch r.(type) {
+		case VI0:
+			// At i0: return base
+			return pv.Base
+		case VI1:
+			// At i1: return comp result
+			return EvalComp(pv.A, pv.Phi, pv.Tube, pv.Base)
+		default:
+			// Neutral interval - stuck
+			head := Head{Glob: "@"}
+			return VNeutral{N: Neutral{Head: head, Sp: []Value{p, r}}}
+		}
+
 	case VNeutral:
 		// Stuck path application
 		head := Head{Glob: "@"}
@@ -743,12 +760,24 @@ func EvalHComp(a Value, phi FaceValue, tubeClosure *IClosure, base Value) Value 
 }
 
 // EvalFill evaluates the filler: fill^i A [φ ↦ u] a₀.
-// For now, we keep fill stuck since it requires additional interval variable tracking.
-// In a full implementation, fill is defined as:
+// Fill produces a path-like value that can be applied to an interval.
+// The computation rules are handled in PathApply:
 //
-//	fill^i A [φ ↦ u] a₀ @ j = comp^i A[j∧i/i] [φ ∨ (j=0) ↦ ...] a₀
+//	fill^i A [φ ↦ u] a₀ @ i0 = a₀
+//	fill^i A [φ ↦ u] a₀ @ i1 = comp^i A [φ ↦ u] a₀
+//
+// If the face is satisfied (φ = ⊤), we can reduce immediately:
+//
+//	fill^i A [1 ↦ u] a₀ = <j> u[j/i]
 func EvalFill(aClosure *IClosure, phi FaceValue, tubeClosure *IClosure, base Value) Value {
-	// Fill is always stuck for now - requires more sophisticated interval handling
+	// If face is satisfied, fill reduces to a path lambda over the tube
+	if IsFaceTrue(phi) {
+		// fill^i A [1 ↦ u] a₀ = <j> u[j/i]
+		// Return a path lambda that applies the tube at the given interval
+		return VPathLam{Body: tubeClosure}
+	}
+
+	// Otherwise, return stuck fill (will be reduced in PathApply when applied to i0/i1)
 	return VFill{A: aClosure, Phi: phi, Tube: tubeClosure, Base: base}
 }
 
@@ -836,11 +865,14 @@ func EvalUA(a, b, equiv Value) Value {
 }
 
 // EvalUABeta evaluates the transport computation: transport (ua e) a = e.fst a.
-// This represents applying the function part of the equivalence to the argument.
+// The equivalence e : Equiv A B has the form (fwd, proof) where fwd : A -> B.
+// This computation rule extracts the forward function and applies it to the argument.
 func EvalUABeta(equiv, arg Value) Value {
-	// In a full implementation, we would extract fst from equiv and apply it
-	// For now, keep as VUABeta to represent the computation result
-	return VUABeta{Equiv: equiv, Arg: arg}
+	// Extract the forward function from the equivalence (first projection)
+	fwd := Fst(equiv)
+
+	// Apply the forward function to the argument
+	return Apply(fwd, arg)
 }
 
 // UAPathApply applies ua to an interval argument.
@@ -894,9 +926,9 @@ func isConstantFamily(c *IClosure) bool {
 }
 
 // alphaEqCubical checks alpha-equality of cubical terms.
-// For now, uses simple structural equality.
+// Uses proper structural comparison via de Bruijn indices.
 func alphaEqCubical(a, b ast.Term) bool {
-	return ast.Sprint(a) == ast.Sprint(b)
+	return AlphaEq(a, b)
 }
 
 // --- Cubical Reification ---
@@ -1144,87 +1176,22 @@ func reifyFaceAt(level int, ilevel int, f FaceValue) ast.Face {
 }
 
 // reifyNeutralCubicalAt converts a Neutral to an ast.Term with cubical support.
+// Uses the shared reifyNeutralWithReifier helper with cubical-specific extra cases.
 func reifyNeutralCubicalAt(level int, ilevel int, n Neutral) ast.Term {
-	var head ast.Term
+	reifier := func(v Value) ast.Term { return ReifyCubicalAt(level, ilevel, v) }
 
-	if n.Head.Glob == "" {
-		// Variable: convert from level to de Bruijn index
-		ix := level - n.Head.Var - 1
-		if ix < 0 {
-			ix = n.Head.Var
+	// Handle cubical-specific "@" (path application)
+	extraCases := func(glob string, sp []Value) (ast.Term, bool) {
+		if glob == "@" && len(sp) >= 2 {
+			p := ReifyCubicalAt(level, ilevel, sp[0])
+			r := ReifyCubicalAt(level, ilevel, sp[1])
+			base := ast.PathApp{P: p, R: r}
+			return reifySpine(base, sp[2:], reifier), true
 		}
-		head = ast.Var{Ix: ix}
-	} else {
-		switch n.Head.Glob {
-		case "fst":
-			if len(n.Sp) >= 1 {
-				arg := ReifyCubicalAt(level, ilevel, n.Sp[0])
-				base := ast.Fst{P: arg}
-				var result ast.Term = base
-				for _, spArg := range n.Sp[1:] {
-					argTerm := ReifyCubicalAt(level, ilevel, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		case "snd":
-			if len(n.Sp) >= 1 {
-				arg := ReifyCubicalAt(level, ilevel, n.Sp[0])
-				base := ast.Snd{P: arg}
-				var result ast.Term = base
-				for _, spArg := range n.Sp[1:] {
-					argTerm := ReifyCubicalAt(level, ilevel, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		case "@":
-			// Path application
-			if len(n.Sp) >= 2 {
-				p := ReifyCubicalAt(level, ilevel, n.Sp[0])
-				r := ReifyCubicalAt(level, ilevel, n.Sp[1])
-				base := ast.PathApp{P: p, R: r}
-				var result ast.Term = base
-				for _, spArg := range n.Sp[2:] {
-					argTerm := ReifyCubicalAt(level, ilevel, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		case "J":
-			// Stuck J: spine is [a, c, d, x, y, p]
-			if len(n.Sp) >= 6 {
-				a := ReifyCubicalAt(level, ilevel, n.Sp[0])
-				c := ReifyCubicalAt(level, ilevel, n.Sp[1])
-				d := ReifyCubicalAt(level, ilevel, n.Sp[2])
-				x := ReifyCubicalAt(level, ilevel, n.Sp[3])
-				y := ReifyCubicalAt(level, ilevel, n.Sp[4])
-				p := ReifyCubicalAt(level, ilevel, n.Sp[5])
-				base := ast.J{A: a, C: c, D: d, X: x, Y: y, P: p}
-				// Handle any additional spine arguments (if J result is applied)
-				var result ast.Term = base
-				for _, spArg := range n.Sp[6:] {
-					argTerm := ReifyCubicalAt(level, ilevel, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		default:
-			head = ast.Global{Name: n.Head.Glob}
-		}
+		return nil, false
 	}
 
-	result := head
-	for _, arg := range n.Sp {
-		argTerm := ReifyCubicalAt(level, ilevel, arg)
-		result = ast.App{T: result, U: argTerm}
-	}
-
-	return result
+	return reifyNeutralWithReifier(level, n, reifier, extraCases)
 }
 
 // tryEvalCubical is the extension hook for Eval in cubical builds.
