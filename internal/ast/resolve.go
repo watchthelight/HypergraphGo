@@ -123,6 +123,56 @@ func Resolve(globals Globals, sc scope, r RTerm) (Term, error) {
 			return nil, err
 		}
 		return Let{Binder: t.Binder, Ann: ann, Val: val, Body: body}, nil
+	case RId:
+		A, err := Resolve(globals, sc, t.A)
+		if err != nil {
+			return nil, err
+		}
+		X, err := Resolve(globals, sc, t.X)
+		if err != nil {
+			return nil, err
+		}
+		Y, err := Resolve(globals, sc, t.Y)
+		if err != nil {
+			return nil, err
+		}
+		return Id{A: A, X: X, Y: Y}, nil
+	case RRefl:
+		A, err := Resolve(globals, sc, t.A)
+		if err != nil {
+			return nil, err
+		}
+		X, err := Resolve(globals, sc, t.X)
+		if err != nil {
+			return nil, err
+		}
+		return Refl{A: A, X: X}, nil
+	case RJ:
+		A, err := Resolve(globals, sc, t.A)
+		if err != nil {
+			return nil, err
+		}
+		C, err := Resolve(globals, sc, t.C)
+		if err != nil {
+			return nil, err
+		}
+		D, err := Resolve(globals, sc, t.D)
+		if err != nil {
+			return nil, err
+		}
+		X, err := Resolve(globals, sc, t.X)
+		if err != nil {
+			return nil, err
+		}
+		Y, err := Resolve(globals, sc, t.Y)
+		if err != nil {
+			return nil, err
+		}
+		P, err := Resolve(globals, sc, t.P)
+		if err != nil {
+			return nil, err
+		}
+		return J{A: A, C: C, D: D, X: X, Y: Y, P: P}, nil
 	default:
 		return nil, fmt.Errorf("resolve: unknown raw term %T", t)
 	}

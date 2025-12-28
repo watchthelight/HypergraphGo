@@ -54,3 +54,32 @@ type RLet struct {
 	Ann, Val, Body RTerm
 }                     // Ann may be nil
 func (RLet) isRTerm() {}
+
+// RId is the raw identity type: Id A x y
+type RId struct {
+	A RTerm // Type
+	X RTerm // Left endpoint
+	Y RTerm // Right endpoint
+}
+
+func (RId) isRTerm() {}
+
+// RRefl is the raw reflexivity constructor: refl A x
+type RRefl struct {
+	A RTerm // Type
+	X RTerm // The term being proven equal to itself
+}
+
+func (RRefl) isRTerm() {}
+
+// RJ is the raw identity eliminator (path induction): J A C d x y p
+type RJ struct {
+	A RTerm // Type
+	C RTerm // Motive
+	D RTerm // Base case
+	X RTerm // Left endpoint
+	Y RTerm // Right endpoint
+	P RTerm // Proof
+}
+
+func (RJ) isRTerm() {}
