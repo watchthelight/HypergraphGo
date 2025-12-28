@@ -1364,3 +1364,356 @@ func TestReifyFaceAt(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================
+// Phase 9: Extension Hook Tests
+// ============================================================
+
+// TestTryEvalCubical tests the extension hook that evaluates cubical AST terms.
+// This hook is called from the main Eval function when it encounters cubical terms.
+func TestTryEvalCubical(t *testing.T) {
+	env := &Env{}
+
+	// Simple type for testing
+	typeU := ast.Sort{U: 0}
+	termV := ast.Var{Ix: 0}
+
+	tests := []struct {
+		name    string
+		term    ast.Term
+		checkFn func(Value) bool
+	}{
+		{"Interval", ast.Interval{}, func(v Value) bool {
+			g, ok := v.(VGlobal)
+			return ok && g.Name == "I"
+		}},
+		{"I0", ast.I0{}, func(v Value) bool { _, ok := v.(VI0); return ok }},
+		{"I1", ast.I1{}, func(v Value) bool { _, ok := v.(VI1); return ok }},
+		{"IVar", ast.IVar{Ix: 0}, func(v Value) bool {
+			iv, ok := v.(VIVar)
+			return ok && iv.Level == 0
+		}},
+		{"Path", ast.Path{A: typeU, X: termV, Y: termV}, func(v Value) bool {
+			_, ok := v.(VPath)
+			return ok
+		}},
+		{"PathP", ast.PathP{A: typeU, X: termV, Y: termV}, func(v Value) bool {
+			_, ok := v.(VPathP)
+			return ok
+		}},
+		{"PathLam", ast.PathLam{Binder: "i", Body: typeU}, func(v Value) bool {
+			_, ok := v.(VPathLam)
+			return ok
+		}},
+		{"FaceTop", ast.FaceTop{}, func(v Value) bool { _, ok := v.(VFaceTop); return ok }},
+		{"FaceBot", ast.FaceBot{}, func(v Value) bool { _, ok := v.(VFaceBot); return ok }},
+		{"FaceEq", ast.FaceEq{IVar: 0, IsOne: true}, func(v Value) bool {
+			fe, ok := v.(VFaceEq)
+			return ok && fe.IsOne
+		}},
+		{"FaceAnd_TopTop", ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceTop{}}, func(v Value) bool {
+			_, ok := v.(VFaceTop)
+			return ok
+		}},
+		{"FaceOr_BotBot", ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceBot{}}, func(v Value) bool {
+			_, ok := v.(VFaceBot)
+			return ok
+		}},
+		{"Partial", ast.Partial{Phi: ast.FaceTop{}, A: typeU}, func(v Value) bool {
+			_, ok := v.(VPartial)
+			return ok
+		}},
+		{"System", ast.System{Branches: []ast.SystemBranch{
+			{Phi: ast.FaceTop{}, Term: typeU},
+		}}, func(v Value) bool {
+			s, ok := v.(VSystem)
+			return ok && len(s.Branches) == 1
+		}},
+		{"Comp", ast.Comp{
+			IBinder: "i",
+			A:       typeU,
+			Phi:     ast.FaceBot{},
+			Tube:    typeU,
+			Base:    typeU,
+		}, func(v Value) bool {
+			// With FaceBot and constant type, transport simplifies to element
+			_, ok := v.(VSort)
+			return ok
+		}},
+		{"HComp", ast.HComp{
+			A:    typeU,
+			Phi:  ast.FaceBot{},
+			Tube: typeU,
+			Base: typeU,
+		}, func(v Value) bool {
+			// With FaceBot, hcomp returns base
+			_, ok := v.(VSort)
+			return ok
+		}},
+		{"Fill", ast.Fill{
+			IBinder: "i",
+			A:       typeU,
+			Phi:     ast.FaceBot{},
+			Tube:    typeU,
+			Base:    typeU,
+		}, func(v Value) bool {
+			_, ok := v.(VFill)
+			return ok
+		}},
+		{"Glue_Empty", ast.Glue{A: typeU, System: nil}, func(v Value) bool {
+			// Empty system -> base type
+			_, ok := v.(VSort)
+			return ok
+		}},
+		{"GlueElem_Empty", ast.GlueElem{System: nil, Base: typeU}, func(v Value) bool {
+			// Empty system -> VGlueElem (not simplified at eval time)
+			_, ok := v.(VGlueElem)
+			return ok
+		}},
+		{"Unglue", ast.Unglue{
+			Ty: ast.Glue{A: typeU, System: nil},
+			G:  typeU,
+		}, func(v Value) bool {
+			// Should return VUnglue since it's not a VGlueElem
+			_, ok := v.(VUnglue)
+			return ok
+		}},
+		{"UA", ast.UA{
+			A:     typeU,
+			B:     typeU,
+			Equiv: typeU,
+		}, func(v Value) bool {
+			_, ok := v.(VUA)
+			return ok
+		}},
+		{"UABeta", ast.UABeta{
+			Equiv: typeU,
+			Arg:   typeU,
+		}, func(v Value) bool {
+			_, ok := v.(VUABeta)
+			return ok
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, handled := tryEvalCubical(env, tt.term)
+			if !handled {
+				t.Errorf("tryEvalCubical did not handle %s", tt.name)
+				return
+			}
+			if !tt.checkFn(val) {
+				t.Errorf("tryEvalCubical(%s) returned unexpected value type: %T", tt.name, val)
+			}
+		})
+	}
+
+	// Test that non-cubical terms are not handled
+	t.Run("NonCubical_NotHandled", func(t *testing.T) {
+		_, handled := tryEvalCubical(env, ast.Sort{U: 0})
+		if handled {
+			t.Error("tryEvalCubical should not handle non-cubical terms")
+		}
+	})
+}
+
+// TestTryReifyCubical tests the extension hook that reifies cubical values to AST.
+// This hook is called from the main reifyAt function when it encounters cubical values.
+func TestTryReifyCubical(t *testing.T) {
+	level := 0
+
+	// Simple values for testing
+	typeV := VSort{Level: 0}
+	typeT := ast.Sort{U: 0}
+
+	tests := []struct {
+		name    string
+		value   Value
+		checkFn func(ast.Term) bool
+	}{
+		{"VI0", VI0{}, func(t ast.Term) bool { _, ok := t.(ast.I0); return ok }},
+		{"VI1", VI1{}, func(t ast.Term) bool { _, ok := t.(ast.I1); return ok }},
+		{"VIVar", VIVar{Level: 0}, func(t ast.Term) bool {
+			iv, ok := t.(ast.IVar)
+			return ok && iv.Ix == 0
+		}},
+		{"VPath", VPath{A: typeV, X: typeV, Y: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.Path)
+			return ok
+		}},
+		{"VPathP", VPathP{
+			A: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			X: typeV,
+			Y: typeV,
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.PathP)
+			return ok
+		}},
+		{"VPathLam", VPathLam{
+			Body: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.PathLam)
+			return ok
+		}},
+		{"VTransport", VTransport{
+			A: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			E: typeV,
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.Transport)
+			return ok
+		}},
+		{"VFaceTop", VFaceTop{}, func(t ast.Term) bool { _, ok := t.(ast.FaceTop); return ok }},
+		{"VFaceBot", VFaceBot{}, func(t ast.Term) bool { _, ok := t.(ast.FaceBot); return ok }},
+		{"VFaceEq", VFaceEq{ILevel: 0, IsOne: true}, func(t ast.Term) bool {
+			fe, ok := t.(ast.FaceEq)
+			return ok && fe.IsOne
+		}},
+		{"VFaceAnd", VFaceAnd{Left: VFaceTop{}, Right: VFaceTop{}}, func(t ast.Term) bool {
+			_, ok := t.(ast.FaceAnd)
+			return ok
+		}},
+		{"VFaceOr", VFaceOr{Left: VFaceBot{}, Right: VFaceBot{}}, func(t ast.Term) bool {
+			_, ok := t.(ast.FaceOr)
+			return ok
+		}},
+		{"VPartial", VPartial{Phi: VFaceTop{}, A: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.Partial)
+			return ok
+		}},
+		{"VSystem", VSystem{Branches: []VSystemBranch{
+			{Phi: VFaceTop{}, Term: typeV},
+		}}, func(t ast.Term) bool {
+			s, ok := t.(ast.System)
+			return ok && len(s.Branches) == 1
+		}},
+		{"VComp", VComp{
+			A:    &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			Phi:  VFaceBot{},
+			Tube: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			Base: typeV,
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.Comp)
+			return ok
+		}},
+		{"VHComp", VHComp{
+			A:    typeV,
+			Phi:  VFaceBot{},
+			Tube: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			Base: typeV,
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.HComp)
+			return ok
+		}},
+		{"VFill", VFill{
+			A:    &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			Phi:  VFaceBot{},
+			Tube: &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: typeT},
+			Base: typeV,
+		}, func(t ast.Term) bool {
+			_, ok := t.(ast.Fill)
+			return ok
+		}},
+		{"VGlue", VGlue{A: typeV, System: nil}, func(t ast.Term) bool {
+			_, ok := t.(ast.Glue)
+			return ok
+		}},
+		{"VGlueElem", VGlueElem{System: nil, Base: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.GlueElem)
+			return ok
+		}},
+		{"VUnglue", VUnglue{Ty: typeV, G: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.Unglue)
+			return ok
+		}},
+		{"VUA", VUA{A: typeV, B: typeV, Equiv: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.UA)
+			return ok
+		}},
+		{"VUABeta", VUABeta{Equiv: typeV, Arg: typeV}, func(t ast.Term) bool {
+			_, ok := t.(ast.UABeta)
+			return ok
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			term, handled := tryReifyCubical(level, tt.value)
+			if !handled {
+				t.Errorf("tryReifyCubical did not handle %s", tt.name)
+				return
+			}
+			if !tt.checkFn(term) {
+				t.Errorf("tryReifyCubical(%s) returned unexpected term type: %T", tt.name, term)
+			}
+		})
+	}
+
+	// Test that non-cubical values are not handled
+	t.Run("NonCubical_NotHandled", func(t *testing.T) {
+		_, handled := tryReifyCubical(level, VSort{Level: 0})
+		if handled {
+			t.Error("tryReifyCubical should not handle non-cubical values")
+		}
+	})
+}
+
+// TestPathApply_ViaEval tests PathApply through the eval path.
+func TestPathApply_ViaEval(t *testing.T) {
+	env := &Env{}
+	typeU := ast.Sort{U: 0}
+
+	// Test path application via tryEvalCubical
+	t.Run("PathApp_I0", func(t *testing.T) {
+		// <i> Type0 @ i0 -> Type0
+		term := ast.PathApp{
+			P: ast.PathLam{Binder: "i", Body: typeU},
+			R: ast.I0{},
+		}
+		val, handled := tryEvalCubical(env, term)
+		if !handled {
+			t.Error("PathApp not handled")
+			return
+		}
+		if _, ok := val.(VSort); !ok {
+			t.Errorf("got %T, want VSort", val)
+		}
+	})
+
+	t.Run("PathApp_I1", func(t *testing.T) {
+		// <i> Type0 @ i1 -> Type0
+		term := ast.PathApp{
+			P: ast.PathLam{Binder: "i", Body: typeU},
+			R: ast.I1{},
+		}
+		val, handled := tryEvalCubical(env, term)
+		if !handled {
+			t.Error("PathApp not handled")
+			return
+		}
+		if _, ok := val.(VSort); !ok {
+			t.Errorf("got %T, want VSort", val)
+		}
+	})
+}
+
+// TestTransport_ViaEval tests Transport through the eval path.
+func TestTransport_ViaEval(t *testing.T) {
+	env := &Env{}
+	typeU := ast.Sort{U: 0}
+
+	// Transport over constant type should return element unchanged
+	t.Run("Transport_Constant", func(t *testing.T) {
+		term := ast.Transport{
+			A: typeU, // Constant type family
+			E: typeU,
+		}
+		val, handled := tryEvalCubical(env, term)
+		if !handled {
+			t.Error("Transport not handled")
+			return
+		}
+		if _, ok := val.(VSort); !ok {
+			t.Errorf("got %T, want VSort (transport over constant)", val)
+		}
+	})
+}
