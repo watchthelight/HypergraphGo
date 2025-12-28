@@ -424,3 +424,67 @@ func isValidColoring[V cmp.Ordered](h *Hypergraph[V], coloring map[V]int) bool {
 	}
 	return true
 }
+
+// ============================================================================
+// Benchmarks
+// ============================================================================
+
+func BenchmarkGreedyHittingSet(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 500 vertices with varied edges
+	for i := 0; i < 200; i++ {
+		members := []int{i % 500, (i * 3 + 1) % 500, (i * 7 + 2) % 500}
+		_ = h.AddEdge("E"+algIntToStr(i), members)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.GreedyHittingSet()
+	}
+}
+
+func BenchmarkEnumerateTransversals(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Small graph for transversal enumeration (exponential complexity)
+	for i := 0; i < 6; i++ {
+		_ = h.AddEdge("E"+algIntToStr(i), []int{i * 2, i*2 + 1})
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = h.EnumerateMinimalTransversals(1000, time.Hour)
+	}
+}
+
+func BenchmarkGreedyColoring(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 200 vertices with 400 edges
+	for i := 0; i < 400; i++ {
+		members := []int{i % 200, (i + 1) % 200, (i + 2) % 200}
+		_ = h.AddEdge("E"+algIntToStr(i), members)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.GreedyColoring()
+	}
+}
+
+// Helper for benchmark edge IDs
+func algIntToStr(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	if i < 0 {
+		return "-" + algIntToStr(-i)
+	}
+	var digits []byte
+	for i > 0 {
+		digits = append([]byte{byte('0' + i%10)}, digits...)
+		i /= 10
+	}
+	return string(digits)
+}

@@ -255,3 +255,38 @@ func TestIncidenceMatrix_NoDuplicates(t *testing.T) {
 		seen[pair] = true
 	}
 }
+
+// ============================================================================
+// Benchmarks
+// ============================================================================
+
+func BenchmarkIncidenceMatrix(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 100 vertices with 200 edges
+	for i := 0; i < 200; i++ {
+		members := []int{i % 100, (i + 1) % 100, (i + 2) % 100}
+		_ = h.AddEdge("E"+incIntToStr(i), members)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = h.IncidenceMatrix()
+	}
+}
+
+// Helper for benchmark edge IDs
+func incIntToStr(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	if i < 0 {
+		return "-" + incIntToStr(-i)
+	}
+	var digits []byte
+	for i > 0 {
+		digits = append([]byte{byte('0' + i%10)}, digits...)
+		i /= 10
+	}
+	return string(digits)
+}

@@ -321,3 +321,59 @@ func TestLoadJSON_VertexCreatedByEdge(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================================
+// Benchmarks
+// ============================================================================
+
+func BenchmarkSaveJSON(b *testing.B) {
+	h := NewHypergraph[int]()
+	// Create 500 vertices with 1000 edges
+	for i := 0; i < 1000; i++ {
+		members := []int{i % 500, (i + 1) % 500, (i + 2) % 500}
+		_ = h.AddEdge("E"+serializeIntToStr(i), members)
+	}
+
+	var buf bytes.Buffer
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		_ = h.SaveJSON(&buf)
+	}
+}
+
+func BenchmarkLoadJSON(b *testing.B) {
+	// First create and save a graph
+	h := NewHypergraph[int]()
+	for i := 0; i < 1000; i++ {
+		members := []int{i % 500, (i + 1) % 500, (i + 2) % 500}
+		_ = h.AddEdge("E"+serializeIntToStr(i), members)
+	}
+	var buf bytes.Buffer
+	_ = h.SaveJSON(&buf)
+	jsonData := buf.Bytes()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		reader := bytes.NewReader(jsonData)
+		_, _ = LoadJSON[int](reader)
+	}
+}
+
+// Helper for benchmark edge IDs
+func serializeIntToStr(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	if i < 0 {
+		return "-" + serializeIntToStr(-i)
+	}
+	var digits []byte
+	for i > 0 {
+		digits = append([]byte{byte('0' + i%10)}, digits...)
+		i /= 10
+	}
+	return string(digits)
+}
