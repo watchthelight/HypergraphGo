@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"slices"
 	"strconv"
 )
 
@@ -15,13 +16,14 @@ func Sprint(t Term) string {
 func collectSpine(t Term) (fun Term, args []Term) {
 	for {
 		if app, ok := t.(App); ok {
-			args = append([]Term{app.U}, args...)
+			args = append(args, app.U)
 			t = app.T
 		} else {
 			fun = t
 			break
 		}
 	}
+	slices.Reverse(args)
 	return
 }
 

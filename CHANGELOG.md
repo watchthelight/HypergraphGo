@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `help` - List available targets
   - Added `.PHONY` declarations for all targets
 
+- **Raw identity types** (`internal/ast/raw.go`, `internal/ast/resolve.go`)
+  - RId, RRefl, RJ raw term types for identity types
+  - Resolver cases to convert raw identity terms to core terms
+  - Test coverage in `internal/ast/raw_test.go`
+
+### Fixed
+- **collectSpine O(n^2) performance** (`internal/ast/print.go`)
+  - Fixed slice prepending that caused quadratic time complexity
+  - Now collects forward and reverses at end for O(n) performance
+
 ### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
