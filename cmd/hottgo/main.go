@@ -171,4 +171,8 @@ func repl() {
 		}
 		fmt.Printf("%s\n", parser.FormatTerm(ty))
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "error reading input: %v\n", err)
+	}
 }
