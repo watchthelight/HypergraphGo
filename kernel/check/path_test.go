@@ -1972,3 +1972,234 @@ func TestComp_ResultTypeIsAAtI1(t *testing.T) {
 		t.Errorf("Expected Type1, got %v", ty)
 	}
 }
+
+// --- Glue/UA Edge Case Tests ---
+
+// TestGlue_EmptySystem tests Glue with empty system.
+func TestGlue_EmptySystem(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Glue Type0 [] should be equivalent to Type0
+	glue := ast.Glue{
+		A:      ast.Sort{U: 0},
+		System: nil,
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue empty system failed: %v", err)
+	}
+
+	// Type of Glue Type0 [] is Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlue_MultipleBranches tests Glue with multiple face branches.
+func TestGlue_MultipleBranches(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Glue Type0 [(i=0) ↦ (Type0, e), (i=1) ↦ (Type0, e)]
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+			{
+				Phi:   ast.FaceEq{IVar: 0, IsOne: true}, // (i=1)
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+		},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue multiple branches failed: %v", err)
+	}
+
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlue_WithBotFace tests Glue with FaceBot branch (should be ignored).
+func TestGlue_WithBotFace(t *testing.T) {
+	c := NewChecker(nil)
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Glue Type0 [⊥ ↦ (Type0, e)] - branch is never active
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceBot{},
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+		},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue with bot face failed: %v", err)
+	}
+
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlueElem_BasicEval tests GlueElem evaluation.
+func TestGlueElem_BasicEval(t *testing.T) {
+	// glue Type0 [] should reduce to Type0
+	glueElem := ast.GlueElem{
+		Base:   ast.Sort{U: 0},
+		System: nil,
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glueElem)
+
+	// Should preserve the base
+	if result == nil {
+		t.Error("GlueElem evaluation returned nil")
+	}
+}
+
+// TestUnglue_AfterGlueElem tests unglue (glue x []) = x.
+func TestUnglue_AfterGlueElem(t *testing.T) {
+	// unglue (glue x []) should reduce to x
+	glueElem := ast.GlueElem{
+		Base:   ast.Sort{U: 0},
+		System: nil,
+	}
+	glueTy := ast.Glue{
+		A:      ast.Sort{U: 0},
+		System: nil,
+	}
+	unglue := ast.Unglue{
+		Ty: glueTy,
+		G:  glueElem,
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), unglue)
+
+	// Should reduce to Type0 (the base)
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T", result)
+	}
+}
+
+// TestUA_EndpointI0 tests that (ua A B e) @ i0 = A.
+func TestUA_EndpointI0(t *testing.T) {
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 1},
+		Equiv: ast.Global{Name: "e"},
+	}
+
+	papp := ast.PathApp{P: ua, R: ast.I0{}}
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// At i0, should be A = Type0
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("ua @ i0: expected VSort{0}, got %T", result)
+	}
+}
+
+// TestUA_EndpointI1 tests that (ua A B e) @ i1 = B.
+func TestUA_EndpointI1(t *testing.T) {
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 1},
+		Equiv: ast.Global{Name: "e"},
+	}
+
+	papp := ast.PathApp{P: ua, R: ast.I1{}}
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// At i1, should be B = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("ua @ i1: expected VSort{1}, got %T", result)
+	}
+}
+
+// TestUA_TypeCheck tests ua type checking produces Path.
+func TestUA_TypeCheck(t *testing.T) {
+	c := NewChecker(nil)
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}}) // e as placeholder
+
+	// ua Type0 Type0 e : Path Type1 Type0 Type0
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 0},
+		Equiv: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), ua)
+	if err != nil {
+		t.Fatalf("UA type check failed: %v", err)
+	}
+
+	// Should be Path or PathP type (UA produces a path between types)
+	switch ty.(type) {
+	case ast.Path, ast.PathP:
+		// OK
+	default:
+		t.Errorf("Expected Path or PathP type, got %T", ty)
+	}
+}
+
+// TestGlue_TopFaceSatisfied tests that Glue with ⊤ reduces.
+func TestGlue_TopFaceSatisfied(t *testing.T) {
+	// Glue Type0 [⊤ ↦ (Type1, e)] should reduce to Type1 when face is ⊤
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceTop{},
+				T:     ast.Sort{U: 1},
+				Equiv: ast.Global{Name: "e"},
+			},
+		},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glue)
+
+	// When face is ⊤, should reduce to T = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{1}, got %T", result)
+	}
+}
+
+// TestGlue_BotFaceStuck tests that Glue with ⊥ doesn't reduce via that branch.
+func TestGlue_BotFaceStuck(t *testing.T) {
+	// Glue Type0 [⊥ ↦ (Type1, e)] - branch is never taken
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceBot{},
+				T:     ast.Sort{U: 1},
+				Equiv: ast.Global{Name: "e"},
+			},
+		},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glue)
+
+	// When face is ⊥, should NOT reduce to Type1, stays as VGlue or Type0
+	if sort, ok := result.(eval.VSort); ok && sort.Level == 1 {
+		t.Error("Glue with ⊥ face should not reduce via that branch")
+	}
+}
