@@ -6,16 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/watchthelight/HypergraphGo/hypergraph"
 )
 
 type replState struct {
-	hg       *hypergraph.Hypergraph[string]
-	file     string
-	modified bool
+	hg            *hypergraph.Hypergraph[string]
+	file          string
+	modified      bool
+	quitConfirmed bool
+	newConfirmed  bool
 }
 
 var errQuit = errors.New("quit")
@@ -47,7 +51,21 @@ func cmdREPL(args []string) error {
 }
 
 func replLoop(state *replState) error {
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		if state.modified {
+			fmt.Println("\nWarning: Unsaved changes. Press Ctrl+C again to force exit.")
+			<-sigChan
+		}
+		os.Exit(130) // Standard SIGINT exit code
+	}()
+
 	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // Allow up to 1MB lines
 
 	for {
 		fmt.Print("hg> ")
@@ -68,6 +86,10 @@ func replLoop(state *replState) error {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("input error: %w", err)
+	}
+
 	return nil
 }
 
@@ -79,11 +101,19 @@ func executeReplCommand(state *replState, line string) error {
 	cmd := parts[0]
 	args := parts[1:]
 
+	// Reset confirmation flags for unrelated commands
+	if cmd != ":quit" && cmd != ":q" {
+		state.quitConfirmed = false
+	}
+	if cmd != ":new" {
+		state.newConfirmed = false
+	}
+
 	switch cmd {
 	case ":quit", ":q":
-		if state.modified {
+		if state.modified && !state.quitConfirmed {
 			fmt.Println("Warning: unsaved changes. Use :save or :quit again to exit.")
-			state.modified = false
+			state.quitConfirmed = true
 			return nil
 		}
 		return errQuit
@@ -123,14 +153,15 @@ func executeReplCommand(state *replState, line string) error {
 		return nil
 
 	case ":new":
-		if state.modified {
+		if state.modified && !state.newConfirmed {
 			fmt.Println("Warning: unsaved changes. Use :save first or :new again.")
-			state.modified = false
+			state.newConfirmed = true
 			return nil
 		}
 		state.hg = hypergraph.NewHypergraph[string]()
 		state.file = ""
 		state.modified = false
+		state.newConfirmed = false
 		fmt.Println("Created empty hypergraph.")
 		return nil
 
