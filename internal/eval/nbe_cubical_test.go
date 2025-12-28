@@ -369,3 +369,224 @@ func TestEvalFace(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Phase 4: Path Operation Tests
+// =============================================================================
+
+func TestPathApply_PathLam(t *testing.T) {
+	// Create a path lambda: <i> x where x is a global
+	// When applied to i0 or i1, it should return x
+	env := &Env{}
+	ienv := EmptyIEnv()
+	body := ast.Global{Name: "x"}
+	pathLamVal := VPathLam{Body: &IClosure{Env: env, IEnv: ienv, Term: body}}
+
+	tests := []struct {
+		name    string
+		r       Value
+		wantTyp string
+	}{
+		{"PathLam @ i0", VI0{}, "VNeutral"},
+		{"PathLam @ i1", VI1{}, "VNeutral"},
+		{"PathLam @ ivar", VIVar{Level: 0}, "VNeutral"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := PathApply(pathLamVal, tt.r)
+			// All should produce VNeutral with global "x"
+			if n, ok := got.(VNeutral); ok {
+				if n.N.Head.Glob != "x" {
+					t.Errorf("got global %q, want x", n.N.Head.Glob)
+				}
+			} else {
+				t.Errorf("got %T, want VNeutral", got)
+			}
+		})
+	}
+}
+
+func TestPathApply_PathP_Endpoints(t *testing.T) {
+	xVal := VNeutral{N: Neutral{Head: Head{Glob: "x"}, Sp: nil}}
+	yVal := VNeutral{N: Neutral{Head: Head{Glob: "y"}, Sp: nil}}
+	aVal := VSort{Level: 0}
+
+	pathP := VPathP{
+		A: &IClosure{Env: nil, IEnv: nil, Term: ast.Sort{U: 0}},
+		X: xVal,
+		Y: yVal,
+	}
+
+	t.Run("PathP @ i0 -> X", func(t *testing.T) {
+		got := PathApply(pathP, VI0{})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "x" {
+				t.Errorf("got %q, want x", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with x", got)
+		}
+	})
+
+	t.Run("PathP @ i1 -> Y", func(t *testing.T) {
+		got := PathApply(pathP, VI1{})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "y" {
+				t.Errorf("got %q, want y", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with y", got)
+		}
+	})
+
+	t.Run("PathP @ ivar -> stuck", func(t *testing.T) {
+		got := PathApply(pathP, VIVar{Level: 0})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "@" {
+				t.Errorf("got head %q, want @", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want stuck VNeutral", got)
+		}
+	})
+
+	_ = aVal // silence unused warning
+}
+
+func TestPathApply_Path_Endpoints(t *testing.T) {
+	xVal := VNeutral{N: Neutral{Head: Head{Glob: "x"}, Sp: nil}}
+	yVal := VNeutral{N: Neutral{Head: Head{Glob: "y"}, Sp: nil}}
+
+	pathVal := VPath{
+		A: VSort{Level: 0},
+		X: xVal,
+		Y: yVal,
+	}
+
+	t.Run("Path @ i0 -> X", func(t *testing.T) {
+		got := PathApply(pathVal, VI0{})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "x" {
+				t.Errorf("got %q, want x", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with x", got)
+		}
+	})
+
+	t.Run("Path @ i1 -> Y", func(t *testing.T) {
+		got := PathApply(pathVal, VI1{})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "y" {
+				t.Errorf("got %q, want y", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with y", got)
+		}
+	})
+
+	t.Run("Path @ ivar -> stuck", func(t *testing.T) {
+		got := PathApply(pathVal, VIVar{Level: 0})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "@" {
+				t.Errorf("got head %q, want @", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want stuck VNeutral", got)
+		}
+	})
+}
+
+func TestPathApply_Neutral(t *testing.T) {
+	// Stuck path application: neutral @ r -> stuck
+	neutralPath := VNeutral{N: Neutral{Head: Head{Glob: "p"}, Sp: nil}}
+	got := PathApply(neutralPath, VI0{})
+
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "@" {
+			t.Errorf("got head %q, want @", n.N.Head.Glob)
+		}
+		if len(n.N.Sp) != 2 {
+			t.Errorf("got spine length %d, want 2", len(n.N.Sp))
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+func TestPathApply_NonPath(t *testing.T) {
+	// Non-path value @ r -> stuck
+	nonPath := VSort{Level: 0}
+	got := PathApply(nonPath, VI0{})
+
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "@" {
+			t.Errorf("got head %q, want @", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+func TestEvalTransport_Constant(t *testing.T) {
+	// transport (λi. A) e -> e when A is constant
+	// Create a closure where the body doesn't use the interval variable
+	env := &Env{}
+	ienv := EmptyIEnv()
+	body := ast.Sort{U: 0} // Type₀, constant in i
+
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: body}
+	eVal := VNeutral{N: Neutral{Head: Head{Glob: "x"}, Sp: nil}}
+
+	got := EvalTransport(aClosure, eVal)
+
+	// Should return e unchanged (identity transport)
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "x" {
+			t.Errorf("got %q, want x", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral (identity transport)", got)
+	}
+}
+
+func TestEvalTransport_NonConstant(t *testing.T) {
+	// transport (λi. ...) e -> stuck VTransport when body uses interval
+	env := &Env{}
+	ienv := EmptyIEnv()
+	// Body that uses the interval variable: IVar at index 0
+	body := ast.IVar{Ix: 0}
+
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: body}
+	eVal := VNeutral{N: Neutral{Head: Head{Glob: "x"}, Sp: nil}}
+
+	got := EvalTransport(aClosure, eVal)
+
+	// Should return stuck VTransport
+	if _, ok := got.(VTransport); !ok {
+		t.Errorf("got %T, want VTransport (stuck)", got)
+	}
+}
+
+func TestIsConstantFamily(t *testing.T) {
+	tests := []struct {
+		name string
+		body ast.Term
+		want bool
+	}{
+		{"constant Sort", ast.Sort{U: 0}, true},
+		{"constant Global", ast.Global{Name: "A"}, true},
+		{"uses interval IVar{0}", ast.IVar{Ix: 0}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			closure := &IClosure{Env: &Env{}, IEnv: EmptyIEnv(), Term: tt.body}
+			got := isConstantFamily(closure)
+			if got != tt.want {
+				t.Errorf("isConstantFamily = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
