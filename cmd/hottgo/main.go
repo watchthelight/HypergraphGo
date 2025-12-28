@@ -6,7 +6,7 @@
 //	hottgo --check FILE        Type-check a file of S-expression terms
 //	hottgo --eval EXPR         Evaluate an S-expression term
 //	hottgo --synth EXPR        Synthesize the type of an S-expression term
-//	hottgo                     Start interactive REPL (TODO)
+//	hottgo                     Start interactive REPL
 package main
 
 import (
