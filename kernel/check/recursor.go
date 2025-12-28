@@ -600,8 +600,28 @@ func buildCaseType(indName string, args []PiArg, numRecursive int, pBaseIdx int,
 	return result
 }
 
-// GenerateRecursorTypeSimple generates a simpler recursor type without complex index manipulation.
-// This is an alternative implementation that's easier to understand but may have subtle bugs.
+// GenerateRecursorTypeSimple generates a recursor (eliminator) type for an inductive definition.
+//
+// A recursor encodes the induction principle for an inductive type, allowing
+// dependent elimination (proving properties) and recursion (defining functions).
+// The generated type has the form:
+//
+//	elimT : (P : T → Type) → case₁ → ... → caseₙ → (t : T) → P t
+//
+// where each caseᵢ corresponds to a constructor with appropriate induction hypotheses
+// for recursive arguments.
+//
+// For example, the recursor for Nat (with zero and succ) has type:
+//
+//	natElim : (P : Nat → Type)
+//	        → P zero                           ; base case
+//	        → ((n : Nat) → P n → P (succ n))   ; step case with IH
+//	        → (n : Nat) → P n
+//
+// This function provides hand-crafted types for common inductives (Nat, Bool) for
+// clarity and correctness, falling back to GenerateRecursorType for other inductives.
+//
+// See also: GenerateRecursorType for the general algorithm handling indexed types.
 func GenerateRecursorTypeSimple(ind *Inductive) ast.Term {
 	// For now, use hand-crafted types for common cases
 	switch ind.Name {
