@@ -1529,3 +1529,216 @@ func TestCollectFaceEqs_AndWithTopAndBot(t *testing.T) {
 		t.Errorf("collectFaceEqs((i=0) ∧ ⊤) length = %d, want 1", len(eqs))
 	}
 }
+
+// --- Path Type Edge Case Tests ---
+
+// TestPathLam_NestedIVar tests PathLam with nested interval variables.
+func TestPathLam_NestedIVar(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> <j> Type0 should synthesize PathP type with nested path
+	innerLam := ast.PathLam{
+		Binder: "j",
+		Body:   ast.Sort{U: 0},
+	}
+	outerLam := ast.PathLam{
+		Binder: "i",
+		Body:   innerLam,
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), outerLam)
+	if err != nil {
+		t.Fatalf("Nested PathLam synthesis failed: %v", err)
+	}
+
+	// Outer type should be PathP
+	if _, ok := ty.(ast.PathP); !ok {
+		t.Errorf("Expected PathP type for outer, got %T", ty)
+	}
+}
+
+// TestPathApp_NestedPathLam tests PathApp on nested PathLam.
+func TestPathApp_NestedPathLam(t *testing.T) {
+	// (<i> <j> Type0) @ i0 should reduce to <j> Type0
+	innerLam := ast.PathLam{
+		Binder: "j",
+		Body:   ast.Sort{U: 0},
+	}
+	outerLam := ast.PathLam{
+		Binder: "i",
+		Body:   innerLam,
+	}
+	papp := ast.PathApp{
+		P: outerLam,
+		R: ast.I0{},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// Should reduce to VPathLam
+	if _, ok := result.(eval.VPathLam); !ok {
+		t.Errorf("Expected VPathLam, got %T", result)
+	}
+}
+
+// TestPathApp_AtIVar tests PathApp at an interval variable.
+func TestPathApp_AtIVar(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Push interval variable for IVar{0}
+	pop := c.PushIVar()
+	defer pop()
+
+	// <i> Type0 @ j where j is an interval variable
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Sort{U: 0},
+	}
+	papp := ast.PathApp{
+		P: plam,
+		R: ast.IVar{Ix: 0}, // j
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), papp)
+	if err != nil {
+		t.Fatalf("PathApp at IVar failed: %v", err)
+	}
+
+	// Result type should be Sort (the type family at that point)
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestPathP_WithTypeFamily tests PathP with non-constant type family.
+func TestPathP_WithTypeFamily(t *testing.T) {
+	c := NewChecker(nil)
+
+	// PathP (λi. Sort i) Type0 Type1 is not well-formed for our simple model,
+	// but PathP with constant family should work
+	pathp := ast.PathP{
+		A: ast.Sort{U: 0}, // Constant family
+		X: ast.Var{Ix: 0}, // x : Type0
+		Y: ast.Var{Ix: 0}, // x : Type0
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), pathp)
+	if err != nil {
+		t.Fatalf("PathP synthesis failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort, got %T", ty)
+	}
+}
+
+// TestPathLam_EndpointsMatch tests that PathLam endpoints are correctly computed.
+func TestPathLam_EndpointsMatch(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> x where x : Type0
+	// Endpoints should both be x (constant path)
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Var{Ix: 0},
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), plam)
+	if err != nil {
+		t.Fatalf("PathLam synthesis failed: %v", err)
+	}
+
+	pathp, ok := ty.(ast.PathP)
+	if !ok {
+		t.Fatalf("Expected PathP type, got %T", ty)
+	}
+
+	// Both endpoints should be Var{0} (normalized)
+	if _, ok := pathp.X.(ast.Var); !ok {
+		t.Errorf("Expected left endpoint Var, got %T", pathp.X)
+	}
+	if _, ok := pathp.Y.(ast.Var); !ok {
+		t.Errorf("Expected right endpoint Var, got %T", pathp.Y)
+	}
+}
+
+// TestPathApp_BetaReduces tests that PathApp beta-reduces correctly.
+func TestPathApp_BetaReduces(t *testing.T) {
+	// (<i> IVar{0}) @ i0 should reduce to I0
+	// where the body uses the interval variable
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.IVar{Ix: 0}, // The interval variable itself
+	}
+
+	// Apply at i0
+	papp0 := ast.PathApp{P: plam, R: ast.I0{}}
+	result0 := eval.EvalCubical(nil, eval.EmptyIEnv(), papp0)
+	if _, ok := result0.(eval.VI0); !ok {
+		t.Errorf("(<i> i) @ i0 expected VI0, got %T", result0)
+	}
+
+	// Apply at i1
+	papp1 := ast.PathApp{P: plam, R: ast.I1{}}
+	result1 := eval.EvalCubical(nil, eval.EmptyIEnv(), papp1)
+	if _, ok := result1.(eval.VI1); !ok {
+		t.Errorf("(<i> i) @ i1 expected VI1, got %T", result1)
+	}
+}
+
+// TestPath_SameEndpoints tests Path A x x.
+func TestPath_SameEndpoints(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Path Type0 x x where x : Type0
+	path := ast.Path{
+		A: ast.Sort{U: 0},
+		X: ast.Var{Ix: 0},
+		Y: ast.Var{Ix: 0},
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), path)
+	if err != nil {
+		t.Fatalf("Path same endpoints failed: %v", err)
+	}
+
+	// Should be Sort 1 (Path Type0 x x : Type1)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestPathLam_ConstantBody tests that constant body produces refl-like path.
+func TestPathLam_ConstantBody(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> zero where zero is a global
+	c.Globals().AddAxiom("Nat", ast.Sort{U: 0})
+	c.Globals().AddDefinition("zero", ast.Global{Name: "Nat"}, ast.Global{Name: "z"}, Transparent)
+
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Global{Name: "zero"},
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), plam)
+	if err != nil {
+		t.Fatalf("Constant PathLam failed: %v", err)
+	}
+
+	pathp, ok := ty.(ast.PathP)
+	if !ok {
+		t.Fatalf("Expected PathP, got %T", ty)
+	}
+
+	// Endpoints should both be "zero"
+	if g, ok := pathp.X.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("Expected left endpoint Global{zero}, got %v", pathp.X)
+	}
+	if g, ok := pathp.Y.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("Expected right endpoint Global{zero}, got %v", pathp.Y)
+	}
+}
