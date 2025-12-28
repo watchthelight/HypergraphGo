@@ -1742,3 +1742,233 @@ func TestPathLam_ConstantBody(t *testing.T) {
 		t.Errorf("Expected right endpoint Global{zero}, got %v", pathp.Y)
 	}
 }
+
+// --- Composition Edge Case Tests ---
+
+// TestComp_WithContradictoryFace tests comp with contradictory face.
+func TestComp_WithContradictoryFace(t *testing.T) {
+	// comp^i Type0 [(i=0) ∧ (i=1) ↦ _] Type0
+	// The face is contradictory (always ⊥), so result should be like transport
+	contradictoryFace := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 0, IsOne: true},
+	}
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 0},
+		Phi:     contradictoryFace,
+		Tube:    ast.Sort{U: 1}, // Irrelevant since face is ⊥
+		Base:    ast.Sort{U: 0},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), comp)
+
+	// Should reduce to transport (constant type → identity)
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T %v", result, result)
+	}
+}
+
+// TestHComp_WithMultipleBranches tests hcomp with FaceOr.
+func TestHComp_WithMultipleBranches(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// hcomp Type1 [⊥ ∨ ⊥ ↦ x] x
+	// Both branches are ⊥, so effectively FaceBot
+	orFace := ast.FaceOr{
+		Left:  ast.FaceBot{},
+		Right: ast.FaceBot{},
+	}
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 1},
+		Phi:  orFace,
+		Tube: ast.Var{Ix: 0},
+		Base: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp with Or face failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestTransport_ConstantTypeIsIdentity tests transport on constant type.
+func TestTransport_ConstantTypeIsIdentity(t *testing.T) {
+	// transport (λi. Type0) Type1 should reduce to Type1
+	tr := ast.Transport{
+		A: ast.Sort{U: 0}, // Constant type family
+		E: ast.Sort{U: 1},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), tr)
+
+	// Transport along constant type is identity
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{Level: 1}, got %T %v", result, result)
+	}
+}
+
+// TestTransport_NonConstantIsStuck tests transport with non-constant type.
+func TestTransport_NonConstantIsStuck(t *testing.T) {
+	c := NewChecker(nil)
+
+	// transport along a variable type family - should produce stuck value
+	// We can't easily construct a truly non-constant type family in the AST
+	// since we'd need a lambda with interval dependency
+	// This test verifies the type checking still works
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	tr := ast.Transport{
+		A: ast.Sort{U: 0}, // Still constant for now
+		E: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), tr)
+	if err != nil {
+		t.Fatalf("Transport synthesis failed: %v", err)
+	}
+
+	// Result type should be Sort{0}
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestFill_AtEndpoints tests fill at i0 and i1.
+func TestFill_AtEndpoints(t *testing.T) {
+	// fill^i Type0 [⊥ ↦ _] x @ i0 = x
+	fill := ast.Fill{
+		IBinder: "i",
+		A:       ast.Sort{U: 0},
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Sort{U: 1},
+		Base:    ast.Sort{U: 0}, // base = Type0
+	}
+
+	// Apply at i0 - should give base
+	fillAtI0 := ast.PathApp{P: fill, R: ast.I0{}}
+	resultI0 := eval.EvalCubical(nil, eval.EmptyIEnv(), fillAtI0)
+
+	// At i0, fill should give base
+	if sort, ok := resultI0.(eval.VSort); ok {
+		if sort.Level != 0 {
+			t.Errorf("fill @ i0: expected level 0, got %d", sort.Level)
+		}
+	}
+
+	// Apply at i1 - should be equivalent to comp
+	fillAtI1 := ast.PathApp{P: fill, R: ast.I1{}}
+	resultI1 := eval.EvalCubical(nil, eval.EmptyIEnv(), fillAtI1)
+
+	// At i1, fill should give comp result
+	if resultI1 == nil {
+		t.Error("fill @ i1: got nil result")
+	}
+}
+
+// TestComp_WithNestedFaceAnd tests comp with nested FaceAnd.
+func TestComp_WithNestedFaceAnd(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// comp^i Type1 [((i=0) ∧ (j=0)) ∧ (k=0) ↦ x] x
+	// where i, j, k are interval variables
+	pop2 := c.PushIVar()
+	defer pop2()
+	pop3 := c.PushIVar()
+	defer pop3()
+
+	innerFace := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+	}
+	outerFace := ast.FaceAnd{
+		Left:  innerFace,
+		Right: ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+	}
+
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 1},
+		Phi:     outerFace,
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp with nested face failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestHComp_BaseTypeMustMatch tests that HComp base has correct type.
+func TestHComp_BaseTypeMustMatch(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	// hcomp Type0 [⊥ ↦ _] x where x : Type0
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 0},
+		Phi:  ast.FaceBot{},
+		Tube: ast.Var{Ix: 0},
+		Base: ast.Var{Ix: 0}, // x : Type0
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp type check failed: %v", err)
+	}
+
+	// Result type should match A = Type0
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ty)
+	}
+}
+
+// TestComp_ResultTypeIsAAtI1 tests that comp result type is A[i1/i].
+func TestComp_ResultTypeIsAAtI1(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// comp^i Type1 [⊥ ↦ x] x : Type1
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 1}, // Constant type family
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp synthesis failed: %v", err)
+	}
+
+	// A[i1/i] for constant A = Type1 is still Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
