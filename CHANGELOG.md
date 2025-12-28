@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cubical AST and parser test coverage** (3 new test files, ~1050 lines)
+  - **internal/ast/term_cubical_test.go** (new): Comprehensive AST construction tests
+    - Interval types: `Interval`, `I0`, `I1`, `IVar` with field access and equality
+    - Path types: `Path`, `PathP` with nested terms and type families
+    - Path operations: `PathLam`, `PathApp` with various interval arguments
+    - Transport: `Transport` construction with type families
+    - Composition: `Comp`, `HComp`, `Fill` with all fields
+    - Face formulas: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr` with complex nesting
+    - Partial/System: `Partial`, `System` with multiple branches
+    - Glue types: `Glue`, `GlueElem`, `Unglue` with branches
+    - Univalence: `UA`, `UABeta` construction
+    - Interface verification: All 24 cubical types implement `Term`, all 5 face types implement `Face`
+  - **internal/ast/print_cubical_test.go** (new): Sprint output verification
+    - All interval types: `I`, `i0`, `i1`, `i{n}`
+    - Path printing: `(Path ...)`, `(PathP ...)`
+    - Path operations: `(<i> body)`, `(P @ R)` with angle bracket syntax
+    - Face formulas: `⊤`, `⊥`, `(i{n} = 0/1)`, `(φ ∧ ψ)`, `(φ ∨ ψ)`
+    - Partial/System: `(Partial φ A)`, `[φ ↦ t, ...]`
+    - Compositions: `(comp^i ...)`, `(hcomp ...)`, `(fill^i ...)`
+    - Glue types: `(Glue A [...])`, `(glue [...] base)`, `(unglue g)`
+    - Univalence: `(ua A B e)`, `(ua-β e a)`
+  - **internal/parser/sexpr_cubical_test.go** (new): Parser and round-trip tests
+    - Atom parsing: `I`, `Interval`, `i0`, `i1`
+    - Form parsing: `(IVar n)`, `(Path ...)`, `(PathP ...)`, `(PathLam ...)`, `(PathApp ...)`, `(Transport ...)`
+    - Error cases: malformed inputs, missing arguments
+    - Round-trip: parse → format → parse consistency verification
+    - `cubicalTermEqual` helper for cubical AST comparison
+
+- **Utility and integration test coverage** (new and extended test files)
+  - **hypergraph/traversal_test.go** (new): BFS/DFS/ConnectedComponents tests - empty graph, single vertex, linear chain, cycle detection, disconnected components, large hyperedges, visit order verification, benchmarks (BenchmarkBFS_Large, BenchmarkDFS_Large, BenchmarkConnectedComponents)
+  - **hypergraph/serialize_test.go** (new): SaveJSON/LoadJSON round-trips, deterministic output verification, error cases (invalid JSON, empty edges, null fields), benchmarks (BenchmarkSaveJSON, BenchmarkLoadJSON)
+  - **internal/eval/pretty_test.go** (new): SprintValue/SprintNeutral for all Value types (VSort, VGlobal, VPair, VLam, VPi, VSigma, VId, VRefl, VNeutral), PrettyValue/PrettyNeutral output, DebugValue formatting, ValueEqual/NeutralEqual structural equality tests
+  - **kernel/ctx/ctx_test.go** (extended): Len, Drop, edge cases (negative index, empty context, boundary index), Extend with multiple types and duplicate names
+  - **hypergraph/algorithms_test.go** (extended): Benchmarks for GreedyHittingSet, EnumerateTransversals, GreedyColoring
+  - **hypergraph/incidence_test.go** (extended): BenchmarkIncidenceMatrix
+
 ### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
@@ -55,6 +92,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hypergraph EdgeMembers method** (`hypergraph/hypergraph.go`)
   - New public method to retrieve member vertices of an edge by ID
   - Returns nil if edge doesn't exist
+
+- **Comprehensive package documentation** (doc.go files)
+  - `kernel/subst/doc.go`: De Bruijn substitution package with TAPL references
+  - `kernel/ctx/doc.go`: Typing context and telescope documentation
+  - `internal/ast/doc.go`: AST term hierarchy and cubical extensions
+  - `internal/eval/doc.go`: NbE pipeline, closures, neutral terms, recursors
+  - `internal/parser/grammar.go`: Complete BNF grammar specification
+
+- **Enhanced function documentation** (`kernel/check/`)
+  - `positivity.go`: Expanded docs for OccursIn and IsRecursiveArg
+  - `recursor.go`: Expanded docs for GenerateRecursorTypeSimple with examples
+
+- **HoTT examples** (`examples/`)
+  - `examples/typecheck/main.go`: Type synthesis, checking, error handling
+  - `examples/cubical/main.go`: Paths, transport, interval operations
+  - `examples/inductive/main.go`: Nat, Bool, eliminators, computation
+
+- **API reference** (`docs/API.md`)
+  - High-level overview of kernel packages
+  - Quick start guide with code examples
+  - Core types reference (Term, Value, Env)
+  - Type checking and evaluation APIs
+  - Parser grammar summary
+  - Built-in types documentation
 
 ## [1.6.1] - 2025-12-24
 
