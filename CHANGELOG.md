@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Nil type validation in ctx.Extend** (`kernel/ctx/ctx.go`)
+  - Added nil check that panics with "ctx.Extend: nil type" message
+  - Catches programming errors early before they propagate
+
+- **Removed custom itoa reimplementation** (`kernel/check/span.go`, `kernel/check/errors.go`)
+  - Replaced 18-line custom `itoa` function with `strconv.Itoa`
+  - Uses standard library instead of reimplementing integer-to-string conversion
+  - Import added: `"strconv"` in both files
+
+### Tests
+- **Comprehensive kernel/ctx test coverage** (`kernel/ctx/ctx_test.go`)
+  - `TestLen`: Empty context, single Extend, multiple Extends
+  - `TestDrop`: Empty context, restores previous state, value semantics verification
+  - `TestLookupVarNegativeIndex`: Negative index returns false
+  - `TestLookupVarEmptyContext`: Empty context returns false for any index
+  - `TestChainedExtendDrop`: Build up and drop one at a time, drop from empty stays empty
+  - `TestExtendNilTypePanics`: Validates nil type panic behavior
+  - Coverage improved from 50% to 100%
+
+### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
 
