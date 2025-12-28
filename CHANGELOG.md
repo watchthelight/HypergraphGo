@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Hypergraph CLI (hg)** (`cmd/hg/` - Full implementation)
+  - Subcommand-based CLI for hypergraph operations
+  - **Core commands**: `info`, `new`, `validate`, `add-vertex`, `remove-vertex`,
+    `has-vertex`, `add-edge`, `remove-edge`, `has-edge`, `vertices`, `edges`,
+    `degree`, `edge-size`, `copy`
+  - **Transform commands**: `dual`, `two-section`, `line-graph`
+  - **Traversal commands**: `bfs`, `dfs`, `components`
+  - **Algorithm commands**: `hitting-set`, `transversals`, `coloring`, `incidence`
+  - **Interactive REPL mode**: Load/save files, all operations available interactively
+  - **Per-command help**: `hg help <command>` for detailed usage
+  - Uses `internal/version` for consistent version output
+
+- **Hypergraph EdgeMembers method** (`hypergraph/hypergraph.go`)
+  - New public method to retrieve member vertices of an edge by ID
+  - Returns nil if edge doesn't exist
+
 ## [1.6.1] - 2025-12-24
 
 ### Fixed
