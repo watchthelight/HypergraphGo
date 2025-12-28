@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cubical type checker test coverage** (`kernel/check/ictx_test.go` - new, `kernel/check/path_test.go` - extended)
+  - **ICtx tests**: Deep nesting (5/10 levels), defer cleanup, nested defers, boundary conditions (negative indices, exact boundaries), complex push/pop patterns (interleaved, double pop), context creation/destruction, immutability chain verification
+  - **Face formula tests**: faceIsBot edge cases (nested contradictions, three variables, Or of bots, Or of contradictions, And with bot, deeply nested), isContradictoryFaceAnd (different variables, same constraint, triple nested, with FaceTop), collectFaceEqs (deeply nested, Or doesn't collect, Top/Bot return empty, mixed constraints)
+  - **Path type tests**: Nested PathLam with multiple interval variables, PathApp on nested PathLam, PathApp at IVar, PathP with constant type family, PathLam endpoint computation, PathApp beta reduction at i0/i1, Path with same endpoints, PathLam constant body
+  - **Composition tests**: Comp with contradictory face, HComp with FaceOr, Transport constant type identity, Transport non-constant stuck, Fill at i0/i1 endpoints, Comp with nested FaceAnd, HComp base type verification, Comp result type A[i1/i]
+  - **Glue/UA tests**: Glue empty system, multiple branches, FaceBot branch, GlueElem evaluation, Unglue round-trip, UA endpoints at i0/i1, UA type checking, Glue with FaceTop reduces, Glue with FaceBot doesn't reduce
+
+- **MCP server configuration** (`.mcp.json` - new)
+  - GitHub MCP server for PR/issue management from Claude Code
+  - Project-scoped configuration for team sharing
+
 ### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
