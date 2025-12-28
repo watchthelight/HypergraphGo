@@ -111,6 +111,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          gh release download ${{ github.ref_name }} \
+            --pattern '*.deb' \
+            --dir dist/
+          ls -la dist/
+
       - name: Install Cloudsmith CLI
         run: |
           python3 -m pip install --upgrade pip
