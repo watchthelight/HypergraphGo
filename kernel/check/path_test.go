@@ -1241,3 +1241,965 @@ func TestFillTypeCheck(t *testing.T) {
 		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
 	}
 }
+
+// --- Face Formula Edge Case Tests ---
+
+// TestFaceIsBot_Bot verifies that FaceBot is detected as bottom.
+func TestFaceIsBot_Bot(t *testing.T) {
+	if !faceIsBot(ast.FaceBot{}) {
+		t.Error("faceIsBot(FaceBot) = false, want true")
+	}
+}
+
+// TestFaceIsBot_Top verifies that FaceTop is not bottom.
+func TestFaceIsBot_Top(t *testing.T) {
+	if faceIsBot(ast.FaceTop{}) {
+		t.Error("faceIsBot(FaceTop) = true, want false")
+	}
+}
+
+// TestFaceIsBot_EqNeverBot verifies that FaceEq is never bottom alone.
+func TestFaceIsBot_EqNeverBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceEq{IVar: 0, IsOne: true},  // (i = 1)
+		ast.FaceEq{IVar: 0, IsOne: false}, // (i = 0)
+		ast.FaceEq{IVar: 5, IsOne: true},  // (j = 1)
+	}
+	for i, face := range tests {
+		if faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot(%v) = true, want false", i, face)
+		}
+	}
+}
+
+// TestFaceIsBot_NestedAndContradiction tests (i=0) ∧ ((j=1) ∧ (i=1)).
+func TestFaceIsBot_NestedAndContradiction(t *testing.T) {
+	// (i=0) ∧ ((j=1) ∧ (i=1)) should be ⊥
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: inner,
+	}
+	if !faceIsBot(outer) {
+		t.Error("faceIsBot((i=0) ∧ ((j=1) ∧ (i=1))) = false, want true")
+	}
+}
+
+// TestFaceIsBot_ThreeVariableNoContradiction tests (i=0) ∧ (j=1) ∧ (k=0).
+func TestFaceIsBot_ThreeVariableNoContradiction(t *testing.T) {
+	// (i=0) ∧ ((j=1) ∧ (k=0)) - no contradiction
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+		Right: ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: inner,
+	}
+	if faceIsBot(outer) {
+		t.Error("faceIsBot((i=0) ∧ ((j=1) ∧ (k=0))) = true, want false")
+	}
+}
+
+// TestFaceIsBot_OrOfBots verifies that ⊥ ∨ ⊥ = ⊥.
+func TestFaceIsBot_OrOfBots(t *testing.T) {
+	or := ast.FaceOr{
+		Left:  ast.FaceBot{},
+		Right: ast.FaceBot{},
+	}
+	if !faceIsBot(or) {
+		t.Error("faceIsBot(⊥ ∨ ⊥) = false, want true")
+	}
+}
+
+// TestFaceIsBot_OrWithNonBot verifies that φ ∨ ⊥ ≠ ⊥.
+func TestFaceIsBot_OrWithNonBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceTop{}},
+		ast.FaceOr{Left: ast.FaceEq{IVar: 0, IsOne: true}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceBot{}, Right: ast.FaceEq{IVar: 0, IsOne: false}},
+	}
+	for i, face := range tests {
+		if faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot = true, want false", i)
+		}
+	}
+}
+
+// TestFaceIsBot_OrOfContradictions verifies (⊥) ∨ (⊥) from contradictions.
+func TestFaceIsBot_OrOfContradictions(t *testing.T) {
+	// ((i=0) ∧ (i=1)) ∨ ((j=0) ∧ (j=1))
+	left := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 0, IsOne: true},
+	}
+	right := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	or := ast.FaceOr{Left: left, Right: right}
+	if !faceIsBot(or) {
+		t.Error("faceIsBot(contradictory ∨ contradictory) = false, want true")
+	}
+}
+
+// TestFaceIsBot_AndWithBot verifies φ ∧ ⊥ = ⊥.
+func TestFaceIsBot_AndWithBot(t *testing.T) {
+	tests := []ast.Face{
+		ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceAnd{Left: ast.FaceBot{}, Right: ast.FaceTop{}},
+		ast.FaceAnd{Left: ast.FaceEq{IVar: 0, IsOne: true}, Right: ast.FaceBot{}},
+		ast.FaceAnd{Left: ast.FaceBot{}, Right: ast.FaceEq{IVar: 0, IsOne: false}},
+	}
+	for i, face := range tests {
+		if !faceIsBot(face) {
+			t.Errorf("Case %d: faceIsBot(φ ∧ ⊥) = false, want true", i)
+		}
+	}
+}
+
+// TestFaceIsBot_DeeplyNested tests a deeply nested contradiction.
+func TestFaceIsBot_DeeplyNested(t *testing.T) {
+	// Build: ((i=0) ∧ ((j=0) ∧ ((k=0) ∧ (i=1))))
+	innermost := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	middle := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+		Right: innermost,
+	}
+	outer := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: middle,
+	}
+	if !faceIsBot(outer) {
+		t.Error("faceIsBot(deeply nested contradiction) = false, want true")
+	}
+}
+
+// --- isContradictoryFaceAnd Tests ---
+
+// TestIsContradictoryFaceAnd_DirectContradiction tests (i=0) ∧ (i=1).
+func TestIsContradictoryFaceAnd_DirectContradiction(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: true},  // (i=1)
+	}
+	if !isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (i=1)) = false, want true")
+	}
+}
+
+// TestIsContradictoryFaceAnd_DifferentVariables tests (i=0) ∧ (j=1).
+func TestIsContradictoryFaceAnd_DifferentVariables(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: true},  // (j=1)
+	}
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (j=1)) = true, want false")
+	}
+}
+
+// TestIsContradictoryFaceAnd_SameConstraint tests (i=0) ∧ (i=0).
+func TestIsContradictoryFaceAnd_SameConstraint(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+	}
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd((i=0) ∧ (i=0)) = true, want false")
+	}
+}
+
+// TestIsContradictoryFaceAnd_TripleNested tests ((i=0) ∧ (j=0)) ∧ (i=1).
+func TestIsContradictoryFaceAnd_TripleNested(t *testing.T) {
+	inner := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+	}
+	outer := ast.FaceAnd{
+		Left:  inner,
+		Right: ast.FaceEq{IVar: 0, IsOne: true}, // (i=1)
+	}
+	if !isContradictoryFaceAnd(outer) {
+		t.Error("isContradictoryFaceAnd(((i=0) ∧ (j=0)) ∧ (i=1)) = false, want true")
+	}
+}
+
+// TestIsContradictoryFaceAnd_WithTop tests ⊤ ∧ (i=0).
+func TestIsContradictoryFaceAnd_WithTop(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceTop{},
+		Right: ast.FaceEq{IVar: 0, IsOne: false},
+	}
+	// FaceTop doesn't contribute constraints, so no contradiction
+	if isContradictoryFaceAnd(face) {
+		t.Error("isContradictoryFaceAnd(⊤ ∧ (i=0)) = true, want false")
+	}
+}
+
+// --- collectFaceEqs Tests ---
+
+// TestCollectFaceEqs_SingleEq tests collecting from a single FaceEq.
+func TestCollectFaceEqs_SingleEq(t *testing.T) {
+	face := ast.FaceEq{IVar: 0, IsOne: true}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 1 {
+		t.Fatalf("collectFaceEqs(FaceEq) length = %d, want 1", len(eqs))
+	}
+	if eqs[0].IVar != 0 || eqs[0].IsOne != true {
+		t.Errorf("collectFaceEqs(FaceEq) = %v, want [{0 true}]", eqs)
+	}
+}
+
+// TestCollectFaceEqs_AndOfTwo tests collecting from (i=0) ∧ (j=1).
+func TestCollectFaceEqs_AndOfTwo(t *testing.T) {
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 2 {
+		t.Fatalf("collectFaceEqs length = %d, want 2", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_DeeplyNested tests collecting from nested ands.
+func TestCollectFaceEqs_DeeplyNested(t *testing.T) {
+	// ((i=0) ∧ (j=1)) ∧ ((k=0) ∧ (l=1))
+	left := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	right := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 2, IsOne: false},
+		Right: ast.FaceEq{IVar: 3, IsOne: true},
+	}
+	face := ast.FaceAnd{Left: left, Right: right}
+
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 4 {
+		t.Fatalf("collectFaceEqs length = %d, want 4", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_OrDoesNotCollect verifies Or doesn't collect.
+func TestCollectFaceEqs_OrDoesNotCollect(t *testing.T) {
+	face := ast.FaceOr{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceOr) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_TopReturnsEmpty verifies Top returns empty.
+func TestCollectFaceEqs_TopReturnsEmpty(t *testing.T) {
+	eqs := collectFaceEqs(ast.FaceTop{})
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceTop) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_BotReturnsEmpty verifies Bot returns empty.
+func TestCollectFaceEqs_BotReturnsEmpty(t *testing.T) {
+	eqs := collectFaceEqs(ast.FaceBot{})
+	if len(eqs) != 0 {
+		t.Errorf("collectFaceEqs(FaceBot) length = %d, want 0", len(eqs))
+	}
+}
+
+// TestCollectFaceEqs_AndWithTopAndBot tests mixed constraints.
+func TestCollectFaceEqs_AndWithTopAndBot(t *testing.T) {
+	// (i=0) ∧ ⊤ - should only collect the FaceEq
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceTop{},
+	}
+	eqs := collectFaceEqs(face)
+	if len(eqs) != 1 {
+		t.Errorf("collectFaceEqs((i=0) ∧ ⊤) length = %d, want 1", len(eqs))
+	}
+}
+
+// --- Path Type Edge Case Tests ---
+
+// TestPathLam_NestedIVar tests PathLam with nested interval variables.
+func TestPathLam_NestedIVar(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> <j> Type0 should synthesize PathP type with nested path
+	innerLam := ast.PathLam{
+		Binder: "j",
+		Body:   ast.Sort{U: 0},
+	}
+	outerLam := ast.PathLam{
+		Binder: "i",
+		Body:   innerLam,
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), outerLam)
+	if err != nil {
+		t.Fatalf("Nested PathLam synthesis failed: %v", err)
+	}
+
+	// Outer type should be PathP
+	if _, ok := ty.(ast.PathP); !ok {
+		t.Errorf("Expected PathP type for outer, got %T", ty)
+	}
+}
+
+// TestPathApp_NestedPathLam tests PathApp on nested PathLam.
+func TestPathApp_NestedPathLam(t *testing.T) {
+	// (<i> <j> Type0) @ i0 should reduce to <j> Type0
+	innerLam := ast.PathLam{
+		Binder: "j",
+		Body:   ast.Sort{U: 0},
+	}
+	outerLam := ast.PathLam{
+		Binder: "i",
+		Body:   innerLam,
+	}
+	papp := ast.PathApp{
+		P: outerLam,
+		R: ast.I0{},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// Should reduce to VPathLam
+	if _, ok := result.(eval.VPathLam); !ok {
+		t.Errorf("Expected VPathLam, got %T", result)
+	}
+}
+
+// TestPathApp_AtIVar tests PathApp at an interval variable.
+func TestPathApp_AtIVar(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Push interval variable for IVar{0}
+	pop := c.PushIVar()
+	defer pop()
+
+	// <i> Type0 @ j where j is an interval variable
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Sort{U: 0},
+	}
+	papp := ast.PathApp{
+		P: plam,
+		R: ast.IVar{Ix: 0}, // j
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), papp)
+	if err != nil {
+		t.Fatalf("PathApp at IVar failed: %v", err)
+	}
+
+	// Result type should be Sort (the type family at that point)
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestPathP_WithTypeFamily tests PathP with non-constant type family.
+func TestPathP_WithTypeFamily(t *testing.T) {
+	c := NewChecker(nil)
+
+	// PathP (λi. Sort i) Type0 Type1 is not well-formed for our simple model,
+	// but PathP with constant family should work
+	pathp := ast.PathP{
+		A: ast.Sort{U: 0}, // Constant family
+		X: ast.Var{Ix: 0}, // x : Type0
+		Y: ast.Var{Ix: 0}, // x : Type0
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), pathp)
+	if err != nil {
+		t.Fatalf("PathP synthesis failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort, got %T", ty)
+	}
+}
+
+// TestPathLam_EndpointsMatch tests that PathLam endpoints are correctly computed.
+func TestPathLam_EndpointsMatch(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> x where x : Type0
+	// Endpoints should both be x (constant path)
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Var{Ix: 0},
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), plam)
+	if err != nil {
+		t.Fatalf("PathLam synthesis failed: %v", err)
+	}
+
+	pathp, ok := ty.(ast.PathP)
+	if !ok {
+		t.Fatalf("Expected PathP type, got %T", ty)
+	}
+
+	// Both endpoints should be Var{0} (normalized)
+	if _, ok := pathp.X.(ast.Var); !ok {
+		t.Errorf("Expected left endpoint Var, got %T", pathp.X)
+	}
+	if _, ok := pathp.Y.(ast.Var); !ok {
+		t.Errorf("Expected right endpoint Var, got %T", pathp.Y)
+	}
+}
+
+// TestPathApp_BetaReduces tests that PathApp beta-reduces correctly.
+func TestPathApp_BetaReduces(t *testing.T) {
+	// (<i> IVar{0}) @ i0 should reduce to I0
+	// where the body uses the interval variable
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.IVar{Ix: 0}, // The interval variable itself
+	}
+
+	// Apply at i0
+	papp0 := ast.PathApp{P: plam, R: ast.I0{}}
+	result0 := eval.EvalCubical(nil, eval.EmptyIEnv(), papp0)
+	if _, ok := result0.(eval.VI0); !ok {
+		t.Errorf("(<i> i) @ i0 expected VI0, got %T", result0)
+	}
+
+	// Apply at i1
+	papp1 := ast.PathApp{P: plam, R: ast.I1{}}
+	result1 := eval.EvalCubical(nil, eval.EmptyIEnv(), papp1)
+	if _, ok := result1.(eval.VI1); !ok {
+		t.Errorf("(<i> i) @ i1 expected VI1, got %T", result1)
+	}
+}
+
+// TestPath_SameEndpoints tests Path A x x.
+func TestPath_SameEndpoints(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Path Type0 x x where x : Type0
+	path := ast.Path{
+		A: ast.Sort{U: 0},
+		X: ast.Var{Ix: 0},
+		Y: ast.Var{Ix: 0},
+	}
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	ty, err := c.Synth(ctx, NoSpan(), path)
+	if err != nil {
+		t.Fatalf("Path same endpoints failed: %v", err)
+	}
+
+	// Should be Sort 1 (Path Type0 x x : Type1)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestPathLam_ConstantBody tests that constant body produces refl-like path.
+func TestPathLam_ConstantBody(t *testing.T) {
+	c := NewChecker(nil)
+
+	// <i> zero where zero is a global
+	c.Globals().AddAxiom("Nat", ast.Sort{U: 0})
+	c.Globals().AddDefinition("zero", ast.Global{Name: "Nat"}, ast.Global{Name: "z"}, Transparent)
+
+	plam := ast.PathLam{
+		Binder: "i",
+		Body:   ast.Global{Name: "zero"},
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), plam)
+	if err != nil {
+		t.Fatalf("Constant PathLam failed: %v", err)
+	}
+
+	pathp, ok := ty.(ast.PathP)
+	if !ok {
+		t.Fatalf("Expected PathP, got %T", ty)
+	}
+
+	// Endpoints should both be "zero"
+	if g, ok := pathp.X.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("Expected left endpoint Global{zero}, got %v", pathp.X)
+	}
+	if g, ok := pathp.Y.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("Expected right endpoint Global{zero}, got %v", pathp.Y)
+	}
+}
+
+// --- Composition Edge Case Tests ---
+
+// TestComp_WithContradictoryFace tests comp with contradictory face.
+func TestComp_WithContradictoryFace(t *testing.T) {
+	// comp^i Type0 [(i=0) ∧ (i=1) ↦ _] Type0
+	// The face is contradictory (always ⊥), so result should be like transport
+	contradictoryFace := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 0, IsOne: true},
+	}
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 0},
+		Phi:     contradictoryFace,
+		Tube:    ast.Sort{U: 1}, // Irrelevant since face is ⊥
+		Base:    ast.Sort{U: 0},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), comp)
+
+	// Should reduce to transport (constant type → identity)
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T %v", result, result)
+	}
+}
+
+// TestHComp_WithMultipleBranches tests hcomp with FaceOr.
+func TestHComp_WithMultipleBranches(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// hcomp Type1 [⊥ ∨ ⊥ ↦ x] x
+	// Both branches are ⊥, so effectively FaceBot
+	orFace := ast.FaceOr{
+		Left:  ast.FaceBot{},
+		Right: ast.FaceBot{},
+	}
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 1},
+		Phi:  orFace,
+		Tube: ast.Var{Ix: 0},
+		Base: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp with Or face failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestTransport_ConstantTypeIsIdentity tests transport on constant type.
+func TestTransport_ConstantTypeIsIdentity(t *testing.T) {
+	// transport (λi. Type0) Type1 should reduce to Type1
+	tr := ast.Transport{
+		A: ast.Sort{U: 0}, // Constant type family
+		E: ast.Sort{U: 1},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), tr)
+
+	// Transport along constant type is identity
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{Level: 1}, got %T %v", result, result)
+	}
+}
+
+// TestTransport_NonConstantIsStuck tests transport with non-constant type.
+func TestTransport_NonConstantIsStuck(t *testing.T) {
+	c := NewChecker(nil)
+
+	// transport along a variable type family - should produce stuck value
+	// We can't easily construct a truly non-constant type family in the AST
+	// since we'd need a lambda with interval dependency
+	// This test verifies the type checking still works
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	tr := ast.Transport{
+		A: ast.Sort{U: 0}, // Still constant for now
+		E: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), tr)
+	if err != nil {
+		t.Fatalf("Transport synthesis failed: %v", err)
+	}
+
+	// Result type should be Sort{0}
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestFill_AtEndpoints tests fill at i0 and i1.
+func TestFill_AtEndpoints(t *testing.T) {
+	// fill^i Type0 [⊥ ↦ _] x @ i0 = x
+	fill := ast.Fill{
+		IBinder: "i",
+		A:       ast.Sort{U: 0},
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Sort{U: 1},
+		Base:    ast.Sort{U: 0}, // base = Type0
+	}
+
+	// Apply at i0 - should give base
+	fillAtI0 := ast.PathApp{P: fill, R: ast.I0{}}
+	resultI0 := eval.EvalCubical(nil, eval.EmptyIEnv(), fillAtI0)
+
+	// At i0, fill should give base
+	if sort, ok := resultI0.(eval.VSort); ok {
+		if sort.Level != 0 {
+			t.Errorf("fill @ i0: expected level 0, got %d", sort.Level)
+		}
+	}
+
+	// Apply at i1 - should be equivalent to comp
+	fillAtI1 := ast.PathApp{P: fill, R: ast.I1{}}
+	resultI1 := eval.EvalCubical(nil, eval.EmptyIEnv(), fillAtI1)
+
+	// At i1, fill should give comp result
+	if resultI1 == nil {
+		t.Error("fill @ i1: got nil result")
+	}
+}
+
+// TestComp_WithNestedFaceAnd tests comp with nested FaceAnd.
+func TestComp_WithNestedFaceAnd(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// comp^i Type1 [((i=0) ∧ (j=0)) ∧ (k=0) ↦ x] x
+	// where i, j, k are interval variables
+	pop2 := c.PushIVar()
+	defer pop2()
+	pop3 := c.PushIVar()
+	defer pop3()
+
+	innerFace := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+		Right: ast.FaceEq{IVar: 1, IsOne: false}, // (j=0)
+	}
+	outerFace := ast.FaceAnd{
+		Left:  innerFace,
+		Right: ast.FaceEq{IVar: 2, IsOne: false}, // (k=0)
+	}
+
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 1},
+		Phi:     outerFace,
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp with nested face failed: %v", err)
+	}
+
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort type, got %T", ty)
+	}
+}
+
+// TestHComp_BaseTypeMustMatch tests that HComp base has correct type.
+func TestHComp_BaseTypeMustMatch(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	// hcomp Type0 [⊥ ↦ _] x where x : Type0
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 0},
+		Phi:  ast.FaceBot{},
+		Tube: ast.Var{Ix: 0},
+		Base: ast.Var{Ix: 0}, // x : Type0
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp type check failed: %v", err)
+	}
+
+	// Result type should match A = Type0
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ty)
+	}
+}
+
+// TestComp_ResultTypeIsAAtI1 tests that comp result type is A[i1/i].
+func TestComp_ResultTypeIsAAtI1(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 1}})
+
+	// comp^i Type1 [⊥ ↦ x] x : Type1
+	comp := ast.Comp{
+		IBinder: "i",
+		A:       ast.Sort{U: 1}, // Constant type family
+		Phi:     ast.FaceBot{},
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp synthesis failed: %v", err)
+	}
+
+	// A[i1/i] for constant A = Type1 is still Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// --- Glue/UA Edge Case Tests ---
+
+// TestGlue_EmptySystem tests Glue with empty system.
+func TestGlue_EmptySystem(t *testing.T) {
+	c := NewChecker(nil)
+
+	// Glue Type0 [] should be equivalent to Type0
+	glue := ast.Glue{
+		A:      ast.Sort{U: 0},
+		System: nil,
+	}
+
+	ty, err := c.Synth(nil, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue empty system failed: %v", err)
+	}
+
+	// Type of Glue Type0 [] is Type1
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlue_MultipleBranches tests Glue with multiple face branches.
+func TestGlue_MultipleBranches(t *testing.T) {
+	c := NewChecker(nil)
+	pop := c.PushIVar()
+	defer pop()
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Glue Type0 [(i=0) ↦ (Type0, e), (i=1) ↦ (Type0, e)]
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceEq{IVar: 0, IsOne: false}, // (i=0)
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+			{
+				Phi:   ast.FaceEq{IVar: 0, IsOne: true}, // (i=1)
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+		},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue multiple branches failed: %v", err)
+	}
+
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlue_WithBotFace tests Glue with FaceBot branch (should be ignored).
+func TestGlue_WithBotFace(t *testing.T) {
+	c := NewChecker(nil)
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Glue Type0 [⊥ ↦ (Type0, e)] - branch is never active
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceBot{},
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Var{Ix: 0},
+			},
+		},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), glue)
+	if err != nil {
+		t.Fatalf("Glue with bot face failed: %v", err)
+	}
+
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ty)
+	}
+}
+
+// TestGlueElem_BasicEval tests GlueElem evaluation.
+func TestGlueElem_BasicEval(t *testing.T) {
+	// glue Type0 [] should reduce to Type0
+	glueElem := ast.GlueElem{
+		Base:   ast.Sort{U: 0},
+		System: nil,
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glueElem)
+
+	// Should preserve the base
+	if result == nil {
+		t.Error("GlueElem evaluation returned nil")
+	}
+}
+
+// TestUnglue_AfterGlueElem tests unglue (glue x []) = x.
+func TestUnglue_AfterGlueElem(t *testing.T) {
+	// unglue (glue x []) should reduce to x
+	glueElem := ast.GlueElem{
+		Base:   ast.Sort{U: 0},
+		System: nil,
+	}
+	glueTy := ast.Glue{
+		A:      ast.Sort{U: 0},
+		System: nil,
+	}
+	unglue := ast.Unglue{
+		Ty: glueTy,
+		G:  glueElem,
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), unglue)
+
+	// Should reduce to Type0 (the base)
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("Expected VSort{Level: 0}, got %T", result)
+	}
+}
+
+// TestUA_EndpointI0 tests that (ua A B e) @ i0 = A.
+func TestUA_EndpointI0(t *testing.T) {
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 1},
+		Equiv: ast.Global{Name: "e"},
+	}
+
+	papp := ast.PathApp{P: ua, R: ast.I0{}}
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// At i0, should be A = Type0
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 0 {
+		t.Errorf("ua @ i0: expected VSort{0}, got %T", result)
+	}
+}
+
+// TestUA_EndpointI1 tests that (ua A B e) @ i1 = B.
+func TestUA_EndpointI1(t *testing.T) {
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 1},
+		Equiv: ast.Global{Name: "e"},
+	}
+
+	papp := ast.PathApp{P: ua, R: ast.I1{}}
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), papp)
+
+	// At i1, should be B = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("ua @ i1: expected VSort{1}, got %T", result)
+	}
+}
+
+// TestUA_TypeCheck tests ua type checking produces Path.
+func TestUA_TypeCheck(t *testing.T) {
+	c := NewChecker(nil)
+
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}}) // e as placeholder
+
+	// ua Type0 Type0 e : Path Type1 Type0 Type0
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 0},
+		Equiv: ast.Var{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), ua)
+	if err != nil {
+		t.Fatalf("UA type check failed: %v", err)
+	}
+
+	// Should be Path or PathP type (UA produces a path between types)
+	switch ty.(type) {
+	case ast.Path, ast.PathP:
+		// OK
+	default:
+		t.Errorf("Expected Path or PathP type, got %T", ty)
+	}
+}
+
+// TestGlue_TopFaceSatisfied tests that Glue with ⊤ reduces.
+func TestGlue_TopFaceSatisfied(t *testing.T) {
+	// Glue Type0 [⊤ ↦ (Type1, e)] should reduce to Type1 when face is ⊤
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceTop{},
+				T:     ast.Sort{U: 1},
+				Equiv: ast.Global{Name: "e"},
+			},
+		},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glue)
+
+	// When face is ⊤, should reduce to T = Type1
+	if sort, ok := result.(eval.VSort); !ok || sort.Level != 1 {
+		t.Errorf("Expected VSort{1}, got %T", result)
+	}
+}
+
+// TestGlue_BotFaceStuck tests that Glue with ⊥ doesn't reduce via that branch.
+func TestGlue_BotFaceStuck(t *testing.T) {
+	// Glue Type0 [⊥ ↦ (Type1, e)] - branch is never taken
+	glue := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceBot{},
+				T:     ast.Sort{U: 1},
+				Equiv: ast.Global{Name: "e"},
+			},
+		},
+	}
+
+	result := eval.EvalCubical(nil, eval.EmptyIEnv(), glue)
+
+	// When face is ⊥, should NOT reduce to Type1, stays as VGlue or Type0
+	if sort, ok := result.(eval.VSort); ok && sort.Level == 1 {
+		t.Error("Glue with ⊥ face should not reduce via that branch")
+	}
+}

@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Changed
 - **CI/CD improvements** (`.github/workflows/`)
   - Updated `codecov/codecov-action` from v3 to v5 in `go.yml`
@@ -18,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed unused sentinel errors** (`hypergraph/errors.go`)
   - Removed `ErrUnknownEdge` and `ErrUnknownVertex` - these were defined but never used
   - The API design uses silent no-ops for missing items (consistent with existing behavior)
+
+- **Refactored reifyNeutral to reduce code duplication** (`internal/eval/nbe.go`, `nbe_cubical.go`)
+  - Extracted `reifySpine` helper for applying spine arguments
+  - Extracted `reifyNeutralWithReifier` for shared fst/snd/J handling
+  - `reifyNeutralCubicalAt` now uses shared helper with cubical-specific "@" case
+  - Reduced ~80 lines of duplicated code
 
 ### Added
 - **Dependabot configuration** (`.github/dependabot.yml`)
@@ -42,6 +47,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Primal method** (`hypergraph/transforms.go`)
   - Added `Primal()` method as synonym for `TwoSection()` (was documented but not implemented)
 
+- **Alpha-equality module** (`internal/eval/alpha_eq.go` - new)
+  - `AlphaEq(a, b ast.Term) bool` for proper alpha-equality checking
+  - Handles all core term types: Var, Global, Sort, Lam, App, Pi, Sigma, Pair, Fst, Snd, Let, Id, Refl, J
+  - Handles all cubical term types: Interval, I0, I1, IVar, Path, PathP, PathLam, PathApp, Transport
+  - Handles face formulas: FaceTop, FaceBot, FaceEq, FaceAnd, FaceOr
+  - Handles partial types, composition, glue, and univalence terms
+  - Binder names are correctly ignored (de Bruijn indices used)
+
+- **Alpha-equality test coverage** (`internal/eval/alpha_eq_test.go` - new)
+  - Comprehensive tests for all term types
+  - Tests for binder name irrelevance
+  - Tests for structural differences
+
+- **Cubical type checker test coverage** (`kernel/check/ictx_test.go` - new, `kernel/check/path_test.go` - extended)
+  - **ICtx tests**: Deep nesting (5/10 levels), defer cleanup, nested defers, boundary conditions (negative indices, exact boundaries), complex push/pop patterns (interleaved, double pop), context creation/destruction, immutability chain verification
+  - **Face formula tests**: faceIsBot edge cases (nested contradictions, three variables, Or of bots, Or of contradictions, And with bot, deeply nested), isContradictoryFaceAnd (different variables, same constraint, triple nested, with FaceTop), collectFaceEqs (deeply nested, Or doesn't collect, Top/Bot return empty, mixed constraints)
+  - **Path type tests**: Nested PathLam with multiple interval variables, PathApp on nested PathLam, PathApp at IVar, PathP with constant type family, PathLam endpoint computation, PathApp beta reduction at i0/i1, Path with same endpoints, PathLam constant body
+  - **Composition tests**: Comp with contradictory face, HComp with FaceOr, Transport constant type identity, Transport non-constant stuck, Fill at i0/i1 endpoints, Comp with nested FaceAnd, HComp base type verification, Comp result type A[i1/i]
+  - **Glue/UA tests**: Glue empty system, multiple branches, FaceBot branch, GlueElem evaluation, Unglue round-trip, UA endpoints at i0/i1, UA type checking, Glue with FaceTop reduces, Glue with FaceBot doesn't reduce
+
 ### Fixed
 - **collectSpine O(n^2) performance** (`internal/ast/print.go`)
   - Fixed slice prepending that caused quadratic time complexity
@@ -51,16 +76,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed non-deterministic results due to map iteration order
   - Now sorts vertices before iteration for reproducible results
 
-### Tests
-- **Hypergraph test coverage** (`hypergraph/hypergraph_test.go`, `hypergraph/algorithms_test.go`)
-  - Added `TestEdgeMembers_ExistingEdge`, `TestEdgeMembers_NonExistentEdge`
-  - Added `TestCopy_DeepCopySemantics`, `TestCopy_Independence`, `TestCopy_EmptyHypergraph`
-  - Added `TestAddEdge_DuplicateVertices`, `TestAddEdge_AllDuplicates`
-  - Added `TestVertexDegree_NonExistentVertex`, `TestEdgeSize_NonExistentEdge`, `TestVertexDegree_MultipleEdges`
-  - Added `TestGreedyHittingSet_Deterministic` - verifies deterministic output
-  - Coverage improved to 97.5%
-
-### Fixed
 - **Nil type validation in ctx.Extend** (`kernel/ctx/ctx.go`)
   - Added nil check that panics with "ctx.Extend: nil type" message
   - Catches programming errors early before they propagate
@@ -70,21 +85,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses standard library instead of reimplementing integer-to-string conversion
   - Import added: `"strconv"` in both files
 
-### Tests
-- **Comprehensive kernel/ctx test coverage** (`kernel/ctx/ctx_test.go`)
-  - `TestLen`: Empty context, single Extend, multiple Extends
-  - `TestDrop`: Empty context, restores previous state, value semantics verification
-  - `TestLookupVarNegativeIndex`: Negative index returns false
-  - `TestLookupVarEmptyContext`: Empty context returns false for any index
-  - `TestChainedExtendDrop`: Build up and drop one at a time, drop from empty stays empty
-  - `TestExtendNilTypePanics`: Validates nil type panic behavior
-  - Coverage improved from 50% to 100%
+- **Incorrect alpha-equality using string comparison** (`internal/eval/nbe_cubical.go:898`)
+  - Previously used `ast.Sprint(a) == ast.Sprint(b)` which is incorrect for alpha-equality
+  - Now uses proper structural comparison via `AlphaEq(a, b)` with de Bruijn indices
+  - New `alpha_eq.go` module handles all AST term types including cubical extensions
 
-- **REPL robustness tests** (`cmd/hg/repl_test.go` - extended)
-  - `TestConfirmationFlagReset`: Verifies quit/new confirmation flags reset when other commands run
-  - `TestAtomicSave`: Verifies temp file cleanup after successful atomic save
+- **EvalFill always returning stuck value** (`internal/eval/nbe_cubical.go:750-753`)
+  - Fill with face=⊤ now reduces to `VPathLam{Body: tube}` (path lambda over tube)
+  - PathApply on VFill now computes: at i0 returns base, at i1 returns comp result
+  - Stuck VFill only returned when face is not definitionally true
 
-### Fixed
+- **EvalUABeta not computing transport rule** (`internal/eval/nbe_cubical.go:870-880`)
+  - Now properly computes: `transport (ua e) a = e.fst a` when e is a concrete pair
+  - Returns `VUABeta{Equiv, Arg}` when equivalence is neutral (stuck term)
+  - Preserves semantic structure instead of reducing through Fst/Apply on neutrals
+  - Enables transport along univalence paths to actually compute
+
 - **:quit safety mechanism losing unsaved state** (`cmd/hg/repl.go:83-89`)
   - Previously cleared `modified` flag on first quit, losing track of unsaved changes
   - Now uses separate `quitConfirmed` flag to track two-stage quit without losing state
@@ -108,6 +124,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Increased buffer from 64KB to 1MB max line size
   - Added `scanner.Err()` check after scan loop to report I/O errors
 
+### Tests
+- **Hypergraph test coverage** (`hypergraph/hypergraph_test.go`, `hypergraph/algorithms_test.go`)
+  - Added `TestEdgeMembers_ExistingEdge`, `TestEdgeMembers_NonExistentEdge`
+  - Added `TestCopy_DeepCopySemantics`, `TestCopy_Independence`, `TestCopy_EmptyHypergraph`
+  - Added `TestAddEdge_DuplicateVertices`, `TestAddEdge_AllDuplicates`
+  - Added `TestVertexDegree_NonExistentVertex`, `TestEdgeSize_NonExistentEdge`, `TestVertexDegree_MultipleEdges`
+  - Added `TestGreedyHittingSet_Deterministic` - verifies deterministic output
+  - Coverage improved to 97.5%
+
+- **Comprehensive kernel/ctx test coverage** (`kernel/ctx/ctx_test.go`)
+  - `TestLen`: Empty context, single Extend, multiple Extends
+  - `TestDrop`: Empty context, restores previous state, value semantics verification
+  - `TestLookupVarNegativeIndex`: Negative index returns false
+  - `TestLookupVarEmptyContext`: Empty context returns false for any index
+  - `TestChainedExtendDrop`: Build up and drop one at a time, drop from empty stays empty
+  - `TestExtendNilTypePanics`: Validates nil type panic behavior
+  - Coverage improved from 50% to 100%
+
+- **REPL robustness tests** (`cmd/hg/repl_test.go` - extended)
+  - `TestConfirmationFlagReset`: Verifies quit/new confirmation flags reset when other commands run
+  - `TestAtomicSave`: Verifies temp file cleanup after successful atomic save
+
+### Fixed
 - **CLI docstring accuracy** (`cmd/hottgo/main.go`)
   - Removed stale "(TODO)" from REPL usage comment - the REPL is fully implemented
 

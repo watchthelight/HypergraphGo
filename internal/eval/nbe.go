@@ -564,83 +564,79 @@ func reifyAt(level int, v Value) ast.Term {
 	}
 }
 
+// reifySpine applies a slice of spine arguments as applications using the given reifier.
+func reifySpine(base ast.Term, sp []Value, reifier func(Value) ast.Term) ast.Term {
+	result := base
+	for _, arg := range sp {
+		argTerm := reifier(arg)
+		result = ast.App{T: result, U: argTerm}
+	}
+	return result
+}
+
+// reifyNeutralWithReifier is the core neutral reification logic.
+// It handles fst, snd, and J specially, delegating reification to the provided function.
+// The extraCases callback handles additional special cases (like "@" in cubical).
+func reifyNeutralWithReifier(
+	level int,
+	n Neutral,
+	reifier func(Value) ast.Term,
+	extraCases func(string, []Value) (ast.Term, bool),
+) ast.Term {
+	if n.Head.Glob == "" {
+		// Variable: convert from level to de Bruijn index
+		ix := level - n.Head.Var - 1
+		if ix < 0 {
+			ix = n.Head.Var
+		}
+		head := ast.Var{Ix: ix}
+		return reifySpine(head, n.Sp, reifier)
+	}
+
+	// Try extra cases first (for cubical-specific heads like "@")
+	if extraCases != nil {
+		if term, handled := extraCases(n.Head.Glob, n.Sp); handled {
+			return term
+		}
+	}
+
+	// Handle common special cases
+	switch n.Head.Glob {
+	case "fst":
+		if len(n.Sp) >= 1 {
+			arg := reifier(n.Sp[0])
+			base := ast.Fst{P: arg}
+			return reifySpine(base, n.Sp[1:], reifier)
+		}
+	case "snd":
+		if len(n.Sp) >= 1 {
+			arg := reifier(n.Sp[0])
+			base := ast.Snd{P: arg}
+			return reifySpine(base, n.Sp[1:], reifier)
+		}
+	case "J":
+		if len(n.Sp) >= 6 {
+			a := reifier(n.Sp[0])
+			c := reifier(n.Sp[1])
+			d := reifier(n.Sp[2])
+			x := reifier(n.Sp[3])
+			y := reifier(n.Sp[4])
+			p := reifier(n.Sp[5])
+			base := ast.J{A: a, C: c, D: d, X: x, Y: y, P: p}
+			return reifySpine(base, n.Sp[6:], reifier)
+		}
+	}
+
+	// Default: apply all spine arguments to the global head
+	head := ast.Global{Name: n.Head.Glob}
+	return reifySpine(head, n.Sp, reifier)
+}
+
 // reifyNeutralAt converts a Neutral back to an ast.Term at a given level.
 // For variables, converts from level-indexed to de Bruijn: index = level - varLevel - 1.
 func reifyNeutralAt(level int, n Neutral) ast.Term {
-	var head ast.Term
-
-	if n.Head.Glob == "" {
-		// Variable: convert from level to de Bruijn index
-		// A variable created at level L, when reified at level M, becomes index M-L-1
-		ix := level - n.Head.Var - 1
-		if ix < 0 {
-			// Free variable (created before reification started)
-			// Keep original index as fallback
-			ix = n.Head.Var
-		}
-		head = ast.Var{Ix: ix}
-	} else {
-		switch n.Head.Glob {
-		case "fst":
-			if len(n.Sp) >= 1 {
-				// First arg is the pair being projected
-				arg := reifyAt(level, n.Sp[0])
-				base := ast.Fst{P: arg}
-				// Apply remaining spine arguments (if projection result is a function)
-				var result ast.Term = base
-				for _, spArg := range n.Sp[1:] {
-					argTerm := reifyAt(level, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		case "snd":
-			if len(n.Sp) >= 1 {
-				// First arg is the pair being projected
-				arg := reifyAt(level, n.Sp[0])
-				base := ast.Snd{P: arg}
-				// Apply remaining spine arguments (if projection result is a function)
-				var result ast.Term = base
-				for _, spArg := range n.Sp[1:] {
-					argTerm := reifyAt(level, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		case "J":
-			// Stuck J: spine is [a, c, d, x, y, p]
-			if len(n.Sp) >= 6 {
-				a := reifyAt(level, n.Sp[0])
-				c := reifyAt(level, n.Sp[1])
-				d := reifyAt(level, n.Sp[2])
-				x := reifyAt(level, n.Sp[3])
-				y := reifyAt(level, n.Sp[4])
-				p := reifyAt(level, n.Sp[5])
-				base := ast.J{A: a, C: c, D: d, X: x, Y: y, P: p}
-				// Handle any additional spine arguments (if J result is applied)
-				var result ast.Term = base
-				for _, spArg := range n.Sp[6:] {
-					argTerm := reifyAt(level, spArg)
-					result = ast.App{T: result, U: argTerm}
-				}
-				return result
-			}
-			head = ast.Global{Name: n.Head.Glob}
-		default:
-			head = ast.Global{Name: n.Head.Glob}
-		}
-	}
-
-	// Apply spine arguments
-	result := head
-	for _, arg := range n.Sp {
-		argTerm := reifyAt(level, arg)
-		result = ast.App{T: result, U: argTerm}
-	}
-
-	return result
+	reifier := func(v Value) ast.Term { return reifyAt(level, v) }
+	return reifyNeutralWithReifier(level, n, reifier, nil)
 }
 
 // EvalNBE is a convenience function that evaluates and reifies a term using NbE.
