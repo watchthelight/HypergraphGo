@@ -19,11 +19,15 @@ func (h *Hypergraph[V]) GreedyHittingSet() []V {
 	for e := range h.edges {
 		remainingEdges[e] = struct{}{}
 	}
+	// Sort vertices for deterministic iteration order
+	vertices := h.Vertices()
+	slices.Sort(vertices)
+
 	for len(remainingEdges) > 0 {
 		// Find vertex with max degree in remaining
 		var bestV V
 		maxDeg := -1
-		for v := range h.vertices {
+		for _, v := range vertices {
 			deg := 0
 			for e := range h.vertexToEdges[v] {
 				if _, exists := remainingEdges[e]; exists {
