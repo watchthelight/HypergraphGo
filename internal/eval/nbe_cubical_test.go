@@ -1717,3 +1717,701 @@ func TestTransport_ViaEval(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// Phase 10: Edge Cases and Additional Coverage
+// =============================================================================
+
+// TestEvalCubical_UnknownTermType tests handling of unknown term types.
+func TestEvalCubical_UnknownTermType(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	// Create a mock term type that isn't handled by the switch
+	type mockTerm struct{ ast.Term }
+
+	got := EvalCubical(env, ienv, mockTerm{})
+	// Should return error value
+	if g, ok := got.(VGlobal); ok {
+		if g.Name != "error:unknown cubical term type" {
+			t.Errorf("got %q, want error:unknown cubical term type", g.Name)
+		}
+	} else {
+		t.Errorf("got %T, want VGlobal error", got)
+	}
+}
+
+// TestEvalCubical_VarOutOfBounds tests variable lookup when index is out of bounds.
+func TestEvalCubical_VarOutOfBounds(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	// Lookup variable at index 5 with empty environment
+	got := EvalCubical(env, ienv, ast.Var{Ix: 5})
+	// Should return VNeutral with variable head
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Var != 5 {
+			t.Errorf("got var %d, want 5", n.N.Head.Var)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+// TestEvalCubical_IVarOutOfBounds tests interval variable lookup when index is out of bounds.
+func TestEvalCubical_IVarOutOfBounds(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	// Lookup interval variable at index 10 with empty ienv
+	got := EvalCubical(env, ienv, ast.IVar{Ix: 10})
+	// Should return VIVar with the index
+	if iv, ok := got.(VIVar); ok {
+		if iv.Level != 10 {
+			t.Errorf("got level %d, want 10", iv.Level)
+		}
+	} else {
+		t.Errorf("got %T, want VIVar", got)
+	}
+}
+
+// TestIEnv_Extend_PreservesOrder tests that IEnv extension maintains correct order.
+func TestIEnv_Extend_PreservesOrder(t *testing.T) {
+	// Build environment in order: i0, then i1, then i0 again
+	ienv := EmptyIEnv().Extend(VI0{}).Extend(VI1{}).Extend(VI0{})
+
+	// Index 0 (most recent) should be VI0
+	if _, ok := ienv.Lookup(0).(VI0); !ok {
+		t.Errorf("index 0: got %T, want VI0", ienv.Lookup(0))
+	}
+
+	// Index 1 should be VI1
+	if _, ok := ienv.Lookup(1).(VI1); !ok {
+		t.Errorf("index 1: got %T, want VI1", ienv.Lookup(1))
+	}
+
+	// Index 2 should be VI0
+	if _, ok := ienv.Lookup(2).(VI0); !ok {
+		t.Errorf("index 2: got %T, want VI0", ienv.Lookup(2))
+	}
+}
+
+// TestEvalFaceEq_UnknownIntervalValue tests evalFaceEq with unknown interval types.
+func TestEvalFaceEq_UnknownIntervalValue(t *testing.T) {
+	// Use a VSort as an unknown interval value (shouldn't happen in practice)
+	got := evalFaceEq(VSort{Level: 0}, 2, true, 5)
+	// Should return VFaceEq with converted level
+	if fe, ok := got.(VFaceEq); ok {
+		// Level should be ienvLen - ivar - 1 = 5 - 2 - 1 = 2
+		if fe.ILevel != 2 {
+			t.Errorf("got level %d, want 2", fe.ILevel)
+		}
+		if !fe.IsOne {
+			t.Errorf("got isOne=%v, want true", fe.IsOne)
+		}
+	} else {
+		t.Errorf("got %T, want VFaceEq", got)
+	}
+}
+
+// TestSimplifyFaceAnd_DeepNesting tests face simplification with deeply nested expressions.
+func TestSimplifyFaceAnd_DeepNesting(t *testing.T) {
+	eq0 := VFaceEq{ILevel: 0, IsOne: false}
+	eq1 := VFaceEq{ILevel: 1, IsOne: true}
+
+	// ((i=0) ∧ (j=1)) ∧ ⊤ should simplify to (i=0) ∧ (j=1)
+	inner := simplifyFaceAnd(eq0, eq1)
+	got := simplifyFaceAnd(inner, VFaceTop{})
+
+	if and, ok := got.(VFaceAnd); ok {
+		if _, lok := and.Left.(VFaceEq); !lok {
+			t.Errorf("left: got %T, want VFaceEq", and.Left)
+		}
+		if _, rok := and.Right.(VFaceEq); !rok {
+			t.Errorf("right: got %T, want VFaceEq", and.Right)
+		}
+	} else {
+		t.Errorf("got %T, want VFaceAnd", got)
+	}
+}
+
+// TestSimplifyFaceOr_DeepNesting tests face simplification with deeply nested expressions.
+func TestSimplifyFaceOr_DeepNesting(t *testing.T) {
+	eq0 := VFaceEq{ILevel: 0, IsOne: false}
+	eq1 := VFaceEq{ILevel: 1, IsOne: true}
+
+	// ((i=0) ∨ (j=1)) ∨ ⊥ should simplify to (i=0) ∨ (j=1)
+	inner := simplifyFaceOr(eq0, eq1)
+	got := simplifyFaceOr(inner, VFaceBot{})
+
+	if or, ok := got.(VFaceOr); ok {
+		if _, lok := or.Left.(VFaceEq); !lok {
+			t.Errorf("left: got %T, want VFaceEq", or.Left)
+		}
+		if _, rok := or.Right.(VFaceEq); !rok {
+			t.Errorf("right: got %T, want VFaceEq", or.Right)
+		}
+	} else {
+		t.Errorf("got %T, want VFaceOr", got)
+	}
+}
+
+// TestEvalFace_NestedFormulas tests evalFace with complex nested formulas.
+func TestEvalFace_NestedFormulas(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VI0{}) // i0 at index 0
+
+	t.Run("nested And with resolved variable", func(t *testing.T) {
+		// ((i=0) ∧ ⊤) where i=VI0 -> Top ∧ Top -> Top
+		term := ast.FaceAnd{
+			Left:  ast.FaceEq{IVar: 0, IsOne: false},
+			Right: ast.FaceTop{},
+		}
+		got := evalFace(env, ienv, term)
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+
+	t.Run("nested Or with resolved variable", func(t *testing.T) {
+		// ((i=1) ∨ ⊤) where i=VI0 -> Bot ∨ Top -> Top
+		term := ast.FaceOr{
+			Left:  ast.FaceEq{IVar: 0, IsOne: true},
+			Right: ast.FaceTop{},
+		}
+		got := evalFace(env, ienv, term)
+		if _, ok := got.(VFaceTop); !ok {
+			t.Errorf("got %T, want VFaceTop", got)
+		}
+	})
+
+	t.Run("unknown face type returns Bot", func(t *testing.T) {
+		type unknownFace struct{ ast.Face }
+		got := evalFace(env, ienv, unknownFace{})
+		if _, ok := got.(VFaceBot); !ok {
+			t.Errorf("got %T, want VFaceBot", got)
+		}
+	})
+}
+
+// TestPathApply_EdgeCases tests PathApply with various edge cases.
+func TestPathApply_EdgeCases(t *testing.T) {
+	t.Run("VUA @ VI0 returns A", func(t *testing.T) {
+		ua := VUA{
+			A:     VSort{Level: 1},
+			B:     VSort{Level: 2},
+			Equiv: VSort{Level: 0},
+		}
+		got := PathApply(ua, VI0{})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 1 {
+				t.Errorf("got level %d, want 1", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("VUA @ VI1 returns B", func(t *testing.T) {
+		ua := VUA{
+			A:     VSort{Level: 1},
+			B:     VSort{Level: 2},
+			Equiv: VSort{Level: 0},
+		}
+		got := PathApply(ua, VI1{})
+		if s, ok := got.(VSort); ok {
+			if s.Level != 2 {
+				t.Errorf("got level %d, want 2", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("VUA @ VIVar returns Glue", func(t *testing.T) {
+		ua := VUA{
+			A:     VSort{Level: 1},
+			B:     VSort{Level: 2},
+			Equiv: VSort{Level: 0},
+		}
+		got := PathApply(ua, VIVar{Level: 3})
+		if glue, ok := got.(VGlue); ok {
+			if len(glue.System) != 1 {
+				t.Errorf("got %d branches, want 1", len(glue.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlue", got)
+		}
+	})
+
+	t.Run("nil-like values produce stuck", func(t *testing.T) {
+		// Apply a non-path value
+		got := PathApply(VSort{Level: 0}, VI0{})
+		if _, ok := got.(VNeutral); !ok {
+			t.Errorf("got %T, want VNeutral (stuck)", got)
+		}
+	})
+}
+
+// TestEvalTransport_BodyUsesInterval tests transport with body that uses interval.
+func TestEvalTransport_BodyUsesInterval(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	// Transport with IVar in body - should be stuck
+	aClosure := &IClosure{
+		Env:  env,
+		IEnv: ienv,
+		Term: ast.IVar{Ix: 0},
+	}
+	eVal := VSort{Level: 0}
+
+	got := EvalTransport(aClosure, eVal)
+	if _, ok := got.(VTransport); !ok {
+		t.Errorf("got %T, want VTransport (stuck)", got)
+	}
+}
+
+// TestEvalComp_TransportFallback tests composition falling back to transport.
+func TestEvalComp_TransportFallback(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	// With FaceBot and constant A, comp falls back to transport which returns identity
+	aClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}
+	tubeClosure := &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}}
+	base := VSort{Level: 42}
+
+	got := EvalComp(aClosure, VFaceBot{}, tubeClosure, base)
+	// Transport of constant type is identity
+	if s, ok := got.(VSort); ok {
+		if s.Level != 42 {
+			t.Errorf("got level %d, want 42", s.Level)
+		}
+	} else {
+		t.Errorf("got %T, want VSort", got)
+	}
+}
+
+// TestEvalGlue_MultipleBranches tests Glue with multiple branches.
+func TestEvalGlue_MultipleBranches(t *testing.T) {
+	t.Run("first true branch wins", func(t *testing.T) {
+		branches := []VGlueBranch{
+			{Phi: VFaceBot{}, T: VSort{Level: 1}, Equiv: VSort{Level: 0}},
+			{Phi: VFaceTop{}, T: VSort{Level: 2}, Equiv: VSort{Level: 0}},
+			{Phi: VFaceTop{}, T: VSort{Level: 3}, Equiv: VSort{Level: 0}},
+		}
+		got := EvalGlue(VSort{Level: 0}, branches)
+		if s, ok := got.(VSort); ok {
+			if s.Level != 2 {
+				t.Errorf("got level %d, want 2 (first true branch)", s.Level)
+			}
+		} else {
+			t.Errorf("got %T, want VSort", got)
+		}
+	})
+
+	t.Run("mixed branches filtered", func(t *testing.T) {
+		branches := []VGlueBranch{
+			{Phi: VFaceBot{}, T: VSort{Level: 1}, Equiv: VSort{Level: 0}},
+			{Phi: VFaceEq{ILevel: 0, IsOne: true}, T: VSort{Level: 2}, Equiv: VSort{Level: 0}},
+		}
+		got := EvalGlue(VSort{Level: 0}, branches)
+		if glue, ok := got.(VGlue); ok {
+			// Bot should be filtered out, only Eq remains
+			if len(glue.System) != 1 {
+				t.Errorf("got %d branches, want 1", len(glue.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlue", got)
+		}
+	})
+}
+
+// TestEvalGlueElem_EdgeCases tests GlueElem evaluation edge cases.
+func TestEvalGlueElem_EdgeCases(t *testing.T) {
+	t.Run("empty system", func(t *testing.T) {
+		base := VSort{Level: 99}
+		got := EvalGlueElem(nil, base)
+		if ge, ok := got.(VGlueElem); ok {
+			if len(ge.System) != 0 {
+				t.Errorf("got %d branches, want 0", len(ge.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlueElem", got)
+		}
+	})
+
+	t.Run("all bot branches", func(t *testing.T) {
+		branches := []VGlueElemBranch{
+			{Phi: VFaceBot{}, Term: VSort{Level: 1}},
+			{Phi: VFaceBot{}, Term: VSort{Level: 2}},
+		}
+		got := EvalGlueElem(branches, VSort{Level: 0})
+		if ge, ok := got.(VGlueElem); ok {
+			if len(ge.System) != 0 {
+				t.Errorf("got %d branches after filtering, want 0", len(ge.System))
+			}
+		} else {
+			t.Errorf("got %T, want VGlueElem", got)
+		}
+	})
+}
+
+// TestReifyCubicalAt_EdgeCases tests reification edge cases.
+func TestReifyCubicalAt_EdgeCases(t *testing.T) {
+	t.Run("VIVar with high level", func(t *testing.T) {
+		// When ilevel=2, VIVar{Level:5} should produce ix = 2-5-1 = -4 < 0
+		// so ix should be set to Level (5)
+		got := ReifyCubicalAt(0, 2, VIVar{Level: 5})
+		if iv, ok := got.(ast.IVar); ok {
+			if iv.Ix != 5 {
+				t.Errorf("got ix=%d, want 5", iv.Ix)
+			}
+		} else {
+			t.Errorf("got %T, want ast.IVar", got)
+		}
+	})
+
+	t.Run("VFaceEq with high level", func(t *testing.T) {
+		// When ilevel=1, VFaceEq{ILevel:5} should produce ix = 1-5-1 = -5 < 0
+		// so ix should be set to ILevel (5)
+		got := ReifyCubicalAt(0, 1, VFaceEq{ILevel: 5, IsOne: true})
+		if fe, ok := got.(ast.FaceEq); ok {
+			if fe.IVar != 5 {
+				t.Errorf("got IVar=%d, want 5", fe.IVar)
+			}
+		} else {
+			t.Errorf("got %T, want ast.FaceEq", got)
+		}
+	})
+
+	t.Run("unknown value type", func(t *testing.T) {
+		type unknownValue struct{ Value }
+		got := ReifyCubicalAt(0, 0, unknownValue{})
+		if g, ok := got.(ast.Global); ok {
+			if g.Name != "error:unknown cubical value type" {
+				t.Errorf("got %q, want error:unknown cubical value type", g.Name)
+			}
+		} else {
+			t.Errorf("got %T, want ast.Global error", got)
+		}
+	})
+}
+
+// TestReifyFaceAt_EdgeCases tests face reification edge cases.
+func TestReifyFaceAt_EdgeCases(t *testing.T) {
+	t.Run("unknown face type returns Bot", func(t *testing.T) {
+		type unknownFace struct{ FaceValue }
+		got := reifyFaceAt(0, 0, unknownFace{})
+		if _, ok := got.(ast.FaceBot); !ok {
+			t.Errorf("got %T, want ast.FaceBot", got)
+		}
+	})
+
+	t.Run("deeply nested VFaceAnd", func(t *testing.T) {
+		nested := VFaceAnd{
+			Left:  VFaceAnd{Left: VFaceTop{}, Right: VFaceBot{}},
+			Right: VFaceTop{},
+		}
+		got := reifyFaceAt(0, 0, nested)
+		if _, ok := got.(ast.FaceAnd); !ok {
+			t.Errorf("got %T, want ast.FaceAnd", got)
+		}
+	})
+}
+
+// TestReifyNeutralCubicalAt tests neutral reification with cubical spine elements.
+func TestReifyNeutralCubicalAt(t *testing.T) {
+	t.Run("variable head", func(t *testing.T) {
+		n := Neutral{Head: Head{Var: 0}, Sp: nil}
+		got := reifyNeutralCubicalAt(1, 0, n)
+		if v, ok := got.(ast.Var); ok {
+			if v.Ix != 0 {
+				t.Errorf("got ix=%d, want 0", v.Ix)
+			}
+		} else {
+			t.Errorf("got %T, want ast.Var", got)
+		}
+	})
+
+	t.Run("fst with extra spine", func(t *testing.T) {
+		n := Neutral{
+			Head: Head{Glob: "fst"},
+			Sp:   []Value{VSort{Level: 0}, VSort{Level: 1}},
+		}
+		got := reifyNeutralCubicalAt(0, 0, n)
+		if app, ok := got.(ast.App); ok {
+			if _, ok := app.T.(ast.Fst); !ok {
+				t.Errorf("inner: got %T, want ast.Fst", app.T)
+			}
+		} else {
+			t.Errorf("got %T, want ast.App", got)
+		}
+	})
+
+	t.Run("snd with extra spine", func(t *testing.T) {
+		n := Neutral{
+			Head: Head{Glob: "snd"},
+			Sp:   []Value{VSort{Level: 0}, VSort{Level: 1}},
+		}
+		got := reifyNeutralCubicalAt(0, 0, n)
+		if app, ok := got.(ast.App); ok {
+			if _, ok := app.T.(ast.Snd); !ok {
+				t.Errorf("inner: got %T, want ast.Snd", app.T)
+			}
+		} else {
+			t.Errorf("got %T, want ast.App", got)
+		}
+	})
+
+	t.Run("J with extra spine", func(t *testing.T) {
+		n := Neutral{
+			Head: Head{Glob: "J"},
+			Sp: []Value{
+				VSort{Level: 0}, VSort{Level: 1}, VSort{Level: 2},
+				VSort{Level: 3}, VSort{Level: 4}, VSort{Level: 5},
+				VSort{Level: 6}, // Extra argument
+			},
+		}
+		got := reifyNeutralCubicalAt(0, 0, n)
+		if app, ok := got.(ast.App); ok {
+			if _, ok := app.T.(ast.J); !ok {
+				t.Errorf("inner: got %T, want ast.J", app.T)
+			}
+		} else {
+			t.Errorf("got %T, want ast.App", got)
+		}
+	})
+
+	t.Run("@ path application with extra spine", func(t *testing.T) {
+		n := Neutral{
+			Head: Head{Glob: "@"},
+			Sp:   []Value{VSort{Level: 0}, VI0{}, VSort{Level: 1}},
+		}
+		got := reifyNeutralCubicalAt(0, 0, n)
+		if app, ok := got.(ast.App); ok {
+			if _, ok := app.T.(ast.PathApp); !ok {
+				t.Errorf("inner: got %T, want ast.PathApp", app.T)
+			}
+		} else {
+			t.Errorf("got %T, want ast.App", got)
+		}
+	})
+}
+
+// TestEvalCubical_J tests J eliminator evaluation.
+func TestEvalCubical_J(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("J with Refl reduces", func(t *testing.T) {
+		// J A C d x x (refl A x) -> d
+		term := ast.J{
+			A: ast.Sort{U: 0},
+			C: ast.Sort{U: 0},
+			D: ast.Global{Name: "d"},
+			X: ast.Global{Name: "x"},
+			Y: ast.Global{Name: "x"},
+			P: ast.Refl{A: ast.Sort{U: 0}, X: ast.Global{Name: "x"}},
+		}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "d" {
+				t.Errorf("got %q, want d", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral with d", got)
+		}
+	})
+
+	t.Run("J with non-Refl is stuck", func(t *testing.T) {
+		// J A C d x y p where p is neutral
+		term := ast.J{
+			A: ast.Sort{U: 0},
+			C: ast.Sort{U: 0},
+			D: ast.Global{Name: "d"},
+			X: ast.Global{Name: "x"},
+			Y: ast.Global{Name: "y"},
+			P: ast.Global{Name: "p"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "J" {
+				t.Errorf("got head %q, want J", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want stuck VNeutral", got)
+		}
+	})
+}
+
+// TestEvalCubical_SystemBranches tests System evaluation with various branch combinations.
+func TestEvalCubical_SystemBranches(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("empty system", func(t *testing.T) {
+		term := ast.System{Branches: nil}
+		got := EvalCubical(env, ienv, term)
+		if s, ok := got.(VSystem); ok {
+			if len(s.Branches) != 0 {
+				t.Errorf("got %d branches, want 0", len(s.Branches))
+			}
+		} else {
+			t.Errorf("got %T, want VSystem", got)
+		}
+	})
+
+	t.Run("multiple branches", func(t *testing.T) {
+		term := ast.System{Branches: []ast.SystemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Sort{U: 0}},
+			{Phi: ast.FaceBot{}, Term: ast.Sort{U: 1}},
+			{Phi: ast.FaceEq{IVar: 0, IsOne: true}, Term: ast.Sort{U: 2}},
+		}}
+		got := EvalCubical(env, ienv, term)
+		if s, ok := got.(VSystem); ok {
+			if len(s.Branches) != 3 {
+				t.Errorf("got %d branches, want 3", len(s.Branches))
+			}
+		} else {
+			t.Errorf("got %T, want VSystem", got)
+		}
+	})
+}
+
+// TestEvalFaceEqForUA tests the helper function for UA face constraints.
+func TestEvalFaceEqForUA(t *testing.T) {
+	t.Run("VIVar produces FaceEq", func(t *testing.T) {
+		got := evalFaceEqForUA(VIVar{Level: 3})
+		if fe, ok := got.(VFaceEq); ok {
+			if fe.ILevel != 3 {
+				t.Errorf("got level %d, want 3", fe.ILevel)
+			}
+			if fe.IsOne {
+				t.Error("got isOne=true, want false")
+			}
+		} else {
+			t.Errorf("got %T, want VFaceEq", got)
+		}
+	})
+
+	t.Run("non-VIVar returns Bot", func(t *testing.T) {
+		got := evalFaceEqForUA(VSort{Level: 0})
+		if _, ok := got.(VFaceBot); !ok {
+			t.Errorf("got %T, want VFaceBot", got)
+		}
+	})
+}
+
+// TestAlphaEqCubical tests the alpha equality check for cubical terms.
+func TestAlphaEqCubical(t *testing.T) {
+	t.Run("identical terms are equal", func(t *testing.T) {
+		a := ast.Sort{U: 0}
+		b := ast.Sort{U: 0}
+		if !alphaEqCubical(a, b) {
+			t.Error("identical terms should be equal")
+		}
+	})
+
+	t.Run("different terms are not equal", func(t *testing.T) {
+		a := ast.Sort{U: 0}
+		b := ast.Sort{U: 1}
+		if alphaEqCubical(a, b) {
+			t.Error("different terms should not be equal")
+		}
+	})
+}
+
+// TestIsConstantFamily_EdgeCases tests isConstantFamily with various closures.
+func TestIsConstantFamily_EdgeCases(t *testing.T) {
+	t.Run("global is constant", func(t *testing.T) {
+		c := &IClosure{
+			Env:  &Env{},
+			IEnv: EmptyIEnv(),
+			Term: ast.Global{Name: "A"},
+		}
+		if !isConstantFamily(c) {
+			t.Error("global should be constant")
+		}
+	})
+
+	t.Run("pi with constant components is constant", func(t *testing.T) {
+		c := &IClosure{
+			Env:  &Env{},
+			IEnv: EmptyIEnv(),
+			Term: ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}},
+		}
+		if !isConstantFamily(c) {
+			t.Error("pi with constant components should be constant")
+		}
+	})
+
+	t.Run("body using interval is non-constant", func(t *testing.T) {
+		c := &IClosure{
+			Env:  &Env{},
+			IEnv: EmptyIEnv(),
+			Term: ast.IVar{Ix: 0},
+		}
+		if isConstantFamily(c) {
+			t.Error("body using interval should be non-constant")
+		}
+	})
+}
+
+// TestVGlobal_Helper tests the vGlobal helper function.
+func TestVGlobal_Helper(t *testing.T) {
+	got := vGlobal("test")
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "test" {
+			t.Errorf("got %q, want test", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral", got)
+	}
+}
+
+// TestEvalCubical_Closures tests closure handling in various cubical operations.
+func TestEvalCubical_Closures(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	t.Run("PathLam closure captures env", func(t *testing.T) {
+		// let x = Type0 in <i> x
+		term := ast.Let{
+			Binder: "x",
+			Val:    ast.Sort{U: 42},
+			Body:   ast.PathLam{Binder: "i", Body: ast.Var{Ix: 0}},
+		}
+		got := EvalCubical(env, ienv, term)
+		if pl, ok := got.(VPathLam); ok {
+			// Apply the path lambda to i0
+			result := PathApply(pl, VI0{})
+			if s, ok := result.(VSort); ok {
+				if s.Level != 42 {
+					t.Errorf("got level %d, want 42", s.Level)
+				}
+			} else {
+				t.Errorf("applied result: got %T, want VSort", result)
+			}
+		} else {
+			t.Errorf("got %T, want VPathLam", got)
+		}
+	})
+
+	t.Run("PathP closure under interval binder", func(t *testing.T) {
+		term := ast.PathP{
+			A: ast.Sort{U: 0},
+			X: ast.Global{Name: "x"},
+			Y: ast.Global{Name: "y"},
+		}
+		got := EvalCubical(env, ienv, term)
+		if pp, ok := got.(VPathP); ok {
+			if pp.A == nil {
+				t.Error("A closure should not be nil")
+			}
+		} else {
+			t.Errorf("got %T, want VPathP", got)
+		}
+	})
+}
