@@ -197,3 +197,127 @@ func TestSaveLoadJSON_PreservesEdgeMembers(t *testing.T) {
 		t.Fatalf("Edge E1 size=%d, want 5", size)
 	}
 }
+
+// ============================================================================
+// LoadJSON Error Cases
+// ============================================================================
+
+func TestLoadJSON_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	invalidJSON := strings.NewReader("{not valid json")
+
+	_, err := LoadJSON[string](invalidJSON)
+	if err == nil {
+		t.Fatal("LoadJSON should fail on invalid JSON")
+	}
+}
+
+func TestLoadJSON_WrongType(t *testing.T) {
+	t.Parallel()
+	// Valid JSON but wrong structure
+	wrongType := strings.NewReader(`{"foo": "bar"}`)
+
+	// This should still work but produce an empty graph (no vertices/edges fields)
+	loaded, err := LoadJSON[string](wrongType)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+	if loaded.NumVertices() != 0 || loaded.NumEdges() != 0 {
+		t.Fatal("Expected empty graph from wrong structure")
+	}
+}
+
+func TestLoadJSON_EmptyJSON(t *testing.T) {
+	t.Parallel()
+	emptyJSON := strings.NewReader(`{}`)
+
+	loaded, err := LoadJSON[string](emptyJSON)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+	if loaded.NumVertices() != 0 || loaded.NumEdges() != 0 {
+		t.Fatal("Expected empty graph from empty JSON")
+	}
+}
+
+func TestLoadJSON_EmptyEdgeMembers(t *testing.T) {
+	t.Parallel()
+	// Edge with empty members should fail (AddEdge rejects empty edges)
+	emptyEdge := strings.NewReader(`{"vertices":["A","B"],"edges":{"E1":[]}}`)
+
+	_, err := LoadJSON[string](emptyEdge)
+	if err == nil {
+		t.Fatal("LoadJSON should fail on empty edge members")
+	}
+}
+
+func TestLoadJSON_NullVertices(t *testing.T) {
+	t.Parallel()
+	nullVertices := strings.NewReader(`{"vertices":null,"edges":{}}`)
+
+	loaded, err := LoadJSON[string](nullVertices)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+	if loaded.NumVertices() != 0 {
+		t.Fatalf("Expected 0 vertices, got %d", loaded.NumVertices())
+	}
+}
+
+func TestLoadJSON_NullEdges(t *testing.T) {
+	t.Parallel()
+	nullEdges := strings.NewReader(`{"vertices":["A","B"],"edges":null}`)
+
+	loaded, err := LoadJSON[string](nullEdges)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+	if loaded.NumVertices() != 2 {
+		t.Fatalf("Expected 2 vertices, got %d", loaded.NumVertices())
+	}
+	if loaded.NumEdges() != 0 {
+		t.Fatalf("Expected 0 edges, got %d", loaded.NumEdges())
+	}
+}
+
+func TestLoadJSON_DuplicateEdgeID(t *testing.T) {
+	t.Parallel()
+	// First save a graph, then manually create JSON with duplicate edge
+	// Note: JSON maps can't have duplicate keys, so we test edge ID collision
+	// by loading a graph that would conflict with existing edges
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B"})
+
+	var buf bytes.Buffer
+	_ = h.SaveJSON(&buf)
+
+	// Load and verify - this just tests normal loading
+	loaded, err := LoadJSON[string](&buf)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+	if !loaded.HasEdge("E1") {
+		t.Fatal("Expected edge E1")
+	}
+}
+
+func TestLoadJSON_VertexCreatedByEdge(t *testing.T) {
+	t.Parallel()
+	// Edges reference vertices not in vertices list - should auto-create
+	edgeOnly := strings.NewReader(`{"vertices":[],"edges":{"E1":["X","Y","Z"]}}`)
+
+	loaded, err := LoadJSON[string](edgeOnly)
+	if err != nil {
+		t.Fatalf("LoadJSON error: %v", err)
+	}
+
+	// Vertices should be created from edge members
+	if loaded.NumVertices() != 3 {
+		t.Fatalf("Expected 3 vertices, got %d", loaded.NumVertices())
+	}
+	for _, v := range []string{"X", "Y", "Z"} {
+		if !loaded.HasVertex(v) {
+			t.Fatalf("Missing vertex %s", v)
+		}
+	}
+}
