@@ -105,6 +105,29 @@ func TestGreedyHittingSet_GreedyChoosesMaxDegree(t *testing.T) {
 	}
 }
 
+func TestGreedyHittingSet_Deterministic(t *testing.T) {
+	t.Parallel()
+	// Create a hypergraph where map iteration order could affect results
+	h := NewHypergraph[string]()
+	_ = h.AddEdge("E1", []string{"A", "B", "C"})
+	_ = h.AddEdge("E2", []string{"C", "D", "E"})
+	_ = h.AddEdge("E3", []string{"E", "F", "G"})
+
+	// Run GreedyHittingSet multiple times and verify same result
+	first := h.GreedyHittingSet()
+	for i := 0; i < 100; i++ {
+		result := h.GreedyHittingSet()
+		if len(result) != len(first) {
+			t.Fatalf("Run %d: different size %d vs %d", i, len(result), len(first))
+		}
+		for j, v := range result {
+			if v != first[j] {
+				t.Fatalf("Run %d: different result at index %d: %v vs %v", i, j, v, first[j])
+			}
+		}
+	}
+}
+
 // ============================================================================
 // EnumerateMinimalTransversals Tests
 // ============================================================================

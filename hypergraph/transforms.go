@@ -97,6 +97,13 @@ func (h *Hypergraph[V]) LineGraph() *Graph[string] {
 	return g
 }
 
+// Primal returns the primal graph (synonym for TwoSection).
+// The primal graph is an ordinary graph where vertices are connected
+// if they belong to the same hyperedge.
+func (h *Hypergraph[V]) Primal() *Graph[V] {
+	return h.TwoSection()
+}
+
 // Vertices returns all vertices of the graph.
 func (g *Graph[V]) Vertices() []V {
 	vs := make([]V, 0, len(g.vertices))
