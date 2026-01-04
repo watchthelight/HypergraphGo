@@ -7,6 +7,125 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+- **Cubical term printing coverage** (`internal/ast/print_cubical_test.go` - new)
+  - Comprehensive tests for all 28 cubical term types
+  - Interval types: `Interval`, `I0`, `I1`, `IVar` with various indices
+  - Path types: `Path`, `PathP`, `PathLam` (with/without binder), `PathApp`, `Transport`
+  - Face formulas: `FaceTop`, `FaceBot`, `FaceEq`, `FaceAnd`, `FaceOr`, nested combinations
+  - Partial types: `Partial`, `System` (empty, single, multiple branches)
+  - Composition: `Comp` (with/without binder), `HComp`, `Fill` (with/without binder)
+  - Glue types: `Glue` (empty/single/multiple branches), `GlueElem`, `Unglue`
+  - Univalence: `UA`, `UABeta`
+  - HIT: `HITApp` (no args, term args, interval args, both)
+  - Edge cases: nil face handling, complex nested cubical terms
+  - Coverage improved from 38.8% to 86.1% for `internal/ast` package
+- **HIT term structure tests** (`internal/ast/term_test.go` - extended)
+  - `HITSpec.IsHIT()`: with/without path constructors, empty path constructors
+  - `HITSpec.MaxLevel()`: no constructors, level-1, level-2, mixed levels
+  - `PathConstructor` structure verification
+  - `Boundary` structure verification
+  - `HITApp` structure and Term interface compliance
+  - `Constructor` structure verification
+  - Full `HITSpec` integration test (Circle S1)
+  - `MkApps` helper: empty, single arg, multiple args
+  - `Sort.IsZeroLevel()` tests
+  - Coverage improved to 87.8% for `internal/ast` package
+- **Cubical S-expression parsing tests** (`internal/parser/sexpr_cubical_test.go` - new)
+  - Interval atoms: `I`, `Interval`, `i0`, `i1`
+  - `IVar` parsing with valid indices and error cases
+  - `Path` and `PathP` type parsing with nested types
+  - `PathLam` parsing (both `PathLam` and `<>` syntax)
+  - `PathApp` parsing (both `PathApp` and `@` syntax)
+  - `Transport` parsing with nested type families
+  - `HITApp` parsing: no args, term args, interval args, both
+  - `parseTermList` edge cases via HITApp
+  - `formatCubicalTerm` for all cubical types
+  - Round-trip tests for all cubical terms
+  - Complex expressions: PathApp on PathLam, mixed cubical/non-cubical
+  - Coverage improved from 52.5% to 79.9% for `internal/parser` package
+- **Alpha-equality cubical tests** (`internal/core/conv_cubical_test.go` - extended)
+  - HITApp tests: same, different HIT/ctor name, term args, iargs, full combinations
+  - shiftTermExtension tests for all cubical types (Interval, I0, I1, IVar, Path, PathP, PathLam, PathApp, Transport)
+  - Non-cubical term verification (shiftTermExtension returns false)
+  - Cubical vs non-cubical type mismatch tests
+  - Coverage improved from 59.2% to 70.4% for `internal/core` package
+- **HITApp substitution tests** (`kernel/subst/subst_cubical_test.go` - extended)
+  - IShift tests for HITApp: no shift at cutoff, shift at higher levels, nested IVar
+  - ISubst tests for HITApp: substitution at i0/i1, variable substitution, nested terms
+  - shiftExtension tests for HITApp: same at 0, shift at higher levels, nested structures
+  - substExtension tests for HITApp: substitution of term variables, nested substitution
+  - Additional tests for IShiftFace, faceToTerm, simplifyFaceAndAST, simplifyFaceOrAST
+  - Coverage improved from 59.4% to 84.3% for `kernel/subst` package
+- **HIT evaluation tests** (`internal/eval/nbe_hit_test.go` - new)
+  - VHITPathCtor interface tests
+  - BoundaryVal structure tests
+  - evalHITApp tests: reduce at i0/i1, stuck at IVar, multiple IArgs, no boundaries
+  - lookupHITBoundaries tests: no recursor, non-HIT, with path ctor, unknown ctor
+  - tryHITPathReduction tests: unknown ctor, at i0/i1, with extra args, stuck cases, term args
+- **Value equality tests** (`internal/eval/equality_test.go` - new)
+  - alphaEqFace tests for nil, FaceTop, FaceBot, FaceEq, FaceAnd, FaceOr
+  - ValueEqual tests for VSort, VGlobal, VPair, VId, VRefl, intervals, VIVar, VPath
+  - ValueEqual tests for VNeutral, VLam, VPi, VSigma, VPathP, VPathLam, VTransport
+  - ValueEqual tests for face values: VFaceTop, VFaceBot, VFaceEq, VFaceAnd, VFaceOr
+  - ValueEqual tests for VPartial, VSystem
+  - NeutralEqual and faceValueEqual tests
+- **Pretty printing tests** (`internal/eval/pretty_test.go` - new)
+  - SprintValue tests for all value types: VSort, VGlobal, VPair, VLam, VPi, VSigma
+  - SprintValue tests for VId, VRefl, intervals, VPath, VPathP, VPathLam, VTransport
+  - SprintValue tests for face values: VFaceTop, VFaceBot, VFaceEq, VFaceAnd, VFaceOr
+  - SprintValue tests for VPartial, VSystem, VGlue, VGlueElem, VComp, VHComp
+  - SprintValue tests for VHITPathCtor, VNeutral with spine
+  - WriteFaceValue tests for nested formulas
+  - Coverage improved from 66.6% to 80.8% for `internal/eval` package
+- **HIT checker tests** (`kernel/check/hit_test.go` - extended)
+  - Extended containsHIT tests for Lam, PathLam, Path endpoints, PathP, PathApp
+  - New isPathResult tests for Path, PathP, App, non-path types
+- **Conversion/alpha-equality tests** (`internal/core/conv_test.go` - extended)
+  - `TestEnv_Extend`: environment extension with simple and complex terms
+  - `TestShiftTerm_*`: comprehensive shiftTerm tests for all term types (Var, Lam, Pi, Sigma, Pair, Fst, Snd, Let, Id, Refl, J, App, nil)
+  - `TestAlphaEq_EdgeCases`: nil handling, Sort, Var, Global, Pi, Sigma, Pair, Fst, Snd, Let, Id, Refl, J, App, cross-type comparisons
+  - `TestEtaEqual_EdgeCases`: function eta (f = λx. f x), pair eta (p = (fst p, snd p)), negative cases
+  - `TestEtaEqualPair_DirectCases`: valid eta, not a pair, wrong fst/snd
+  - `TestEtaEqualFunction_DirectCases`: valid eta, not a lambda, wrong body/arg/func
+  - `TestConv_NilEnvironment`: nil environment handling
+  - Coverage improved from 70.4% to 87.6% for `internal/core` package
+- **Cubical error constructors** (`kernel/check/errors_test.go` - extended)
+  - `TestErrNotAPath`: path type error construction
+  - `TestErrPathEndpointMismatch`: endpoint mismatch error
+  - `TestErrUnboundIVar`: unbound interval variable error
+- **Face checking tests** (`kernel/check/path_test.go` - extended)
+  - `TestCheckFace_*`: FaceTop, FaceBot, FaceEq (bound/unbound), FaceAnd, FaceOr, nil
+  - Invalid face nesting tests for FaceAnd/FaceOr
+- **PathApp synthesis tests** (`kernel/check/path_test.go` - extended)
+  - `TestSynthPathApp_I0Endpoint`, `TestSynthPathApp_I1Endpoint`, `TestSynthPathApp_IVar`
+  - `TestSynthPathApp_NotAPath`: error case for non-path term
+- **PathLam checking tests** (`kernel/check/path_test.go` - extended)
+  - `TestCheckPathLam_ValidConstant`: checking against Path type
+  - `TestCheckPathLam_WrongLeftEndpoint`, `TestCheckPathLam_WrongRightEndpoint`: endpoint mismatch errors
+  - `TestCheckPathLam_AgainstPathP`: checking against PathP type
+- **Cubical synthesis tests** (`kernel/check/path_test.go` - extended)
+  - Interval, I0, I1, IVar (valid/unbound) synthesis
+  - Face synthesis: FaceTop, FaceBot, FaceEq (valid/unbound), FaceAnd, FaceOr
+  - Partial type synthesis
+  - Transport synthesis
+  - System synthesis (empty error, single branch)
+- **Checker constructor test** (`kernel/check/check_test.go` - extended)
+  - `TestNewCheckerWithPrimitives`: convenience constructor with primitive verification
+  - Coverage improved from 73.7% to 75.8% for `kernel/check` package
+- **CLI command edge case tests** (`cmd/hg/commands_test.go` - extended)
+  - `TestCmdNew_InvalidOutputPath`: saveGraph error handling
+  - `TestCmdCopy_InvalidOutputPath`: output file error handling
+  - `TestCmdAddVertex_InvalidOutputPath`: output file error handling
+  - `TestCmdAddEdge_InvalidOutputPath`: output file error handling
+  - `TestCmdAddEdge_DuplicateEdge`: duplicate edge ID error handling
+- **REPL edge case tests** (`cmd/hg/repl_test.go` - extended)
+  - `TestExecuteReplCommand_EdgeCases`: missing argument errors for remove-edge, has-vertex, has-edge, degree, edge-size, bfs, dfs
+  - Nonexistent vertex/edge error handling for degree, edge-size, dfs
+  - `TestExecuteReplCommand_SaveError`: save with invalid path error
+  - `TestExecuteReplCommand_LoadShorthand`: unknown colon command error
+  - Coverage improved from 79.7% to 81.6% for `cmd/hg` package
+
 ## [1.7.0] - 2026-01-04
 
 ### Fixed
