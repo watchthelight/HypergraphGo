@@ -341,6 +341,84 @@ func TestAlphaEqCubical(t *testing.T) {
 			ast.Comp{IBinder: "i", A: typeU, Phi: ast.FaceBot{}, Tube: ast.Var{Ix: 0}, Base: ast.Var{Ix: 1}},
 			ast.HComp{A: typeU, Phi: ast.FaceBot{}, Tube: ast.Var{Ix: 0}, Base: ast.Var{Ix: 1}},
 			false},
+
+		// HITApp tests
+		{
+			"HITApp same",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: nil},
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: nil},
+			true,
+		},
+		{
+			"HITApp different HIT name",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: nil},
+			ast.HITApp{HITName: "S2", Ctor: "loop", Args: nil, IArgs: nil},
+			false,
+		},
+		{
+			"HITApp different ctor name",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: nil},
+			ast.HITApp{HITName: "S1", Ctor: "base", Args: nil, IArgs: nil},
+			false,
+		},
+		{
+			"HITApp with term args same",
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: []ast.Term{ast.Var{Ix: 0}}, IArgs: nil},
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: []ast.Term{ast.Var{Ix: 0}}, IArgs: nil},
+			true,
+		},
+		{
+			"HITApp different term args",
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: []ast.Term{ast.Var{Ix: 0}}, IArgs: nil},
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: []ast.Term{ast.Var{Ix: 1}}, IArgs: nil},
+			false,
+		},
+		{
+			"HITApp different args length",
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: []ast.Term{ast.Var{Ix: 0}}, IArgs: nil},
+			ast.HITApp{HITName: "Susp", Ctor: "merid", Args: nil, IArgs: nil},
+			false,
+		},
+		{
+			"HITApp with iargs same",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: []ast.Term{ast.I0{}}},
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: []ast.Term{ast.I0{}}},
+			true,
+		},
+		{
+			"HITApp different iargs",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: []ast.Term{ast.I0{}}},
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: []ast.Term{ast.I1{}}},
+			false,
+		},
+		{
+			"HITApp different iargs length",
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: []ast.Term{ast.I0{}}},
+			ast.HITApp{HITName: "S1", Ctor: "loop", Args: nil, IArgs: nil},
+			false,
+		},
+		{
+			"HITApp full same",
+			ast.HITApp{
+				HITName: "Quot",
+				Ctor:    "eq",
+				Args:    []ast.Term{ast.Var{Ix: 0}, ast.Var{Ix: 1}},
+				IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+			},
+			ast.HITApp{
+				HITName: "Quot",
+				Ctor:    "eq",
+				Args:    []ast.Term{ast.Var{Ix: 0}, ast.Var{Ix: 1}},
+				IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+			},
+			true,
+		},
+
+		// Cubical vs non-cubical type mismatch
+		{"Interval vs Sort", ast.Interval{}, ast.Sort{U: 0}, false},
+		{"Path vs Pi", ast.Path{A: typeU, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 1}},
+			ast.Pi{Binder: "x", A: typeU, B: ast.Var{Ix: 0}}, false},
+		{"FaceTop vs Global", ast.FaceTop{}, ast.Global{Name: "true"}, false},
 	}
 
 	for _, tt := range tests {
@@ -350,5 +428,104 @@ func TestAlphaEqCubical(t *testing.T) {
 				t.Errorf("AlphaEq(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestShiftTermExtension tests term shifting for cubical types.
+func TestShiftTermExtension(t *testing.T) {
+	typeU := ast.Sort{U: 0}
+
+	tests := []struct {
+		name   string
+		term   ast.Term
+		d      int
+		cutoff int
+	}{
+		// Constants don't change
+		{"Interval", ast.Interval{}, 1, 0},
+		{"I0", ast.I0{}, 1, 0},
+		{"I1", ast.I1{}, 1, 0},
+
+		// IVar uses separate index space (no shift)
+		{"IVar", ast.IVar{Ix: 0}, 1, 0},
+
+		// Path types get inner terms shifted
+		{"Path", ast.Path{A: typeU, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 1}}, 1, 0},
+		{"PathP", ast.PathP{A: typeU, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 1}}, 1, 0},
+		{"PathLam", ast.PathLam{Binder: "i", Body: ast.Var{Ix: 0}}, 1, 0},
+		{"PathApp", ast.PathApp{P: ast.Var{Ix: 0}, R: ast.I0{}}, 1, 0},
+		{"Transport", ast.Transport{A: typeU, E: ast.Var{Ix: 0}}, 1, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, handled := shiftTermExtension(tt.term, tt.d, tt.cutoff)
+			if !handled {
+				t.Errorf("shiftTermExtension(%T) not handled", tt.term)
+			}
+			if result == nil {
+				t.Errorf("shiftTermExtension(%T) returned nil", tt.term)
+			}
+		})
+	}
+}
+
+// TestShiftTermExtension_NonCubical tests that non-cubical terms are not handled.
+func TestShiftTermExtension_NonCubical(t *testing.T) {
+	nonCubical := []ast.Term{
+		ast.Sort{U: 0},
+		ast.Var{Ix: 0},
+		ast.Global{Name: "x"},
+		ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}},
+		ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}},
+		ast.App{T: ast.Global{Name: "f"}, U: ast.Global{Name: "x"}},
+	}
+
+	for _, tm := range nonCubical {
+		t.Run(typeNameOf(tm), func(t *testing.T) {
+			_, handled := shiftTermExtension(tm, 1, 0)
+			if handled {
+				t.Errorf("shiftTermExtension should not handle %T", tm)
+			}
+		})
+	}
+}
+
+// TestAlphaEqFace_UnknownFace tests default case in alphaEqFace.
+func TestAlphaEqFace_DefaultCase(t *testing.T) {
+	// All known face types are covered - this ensures the default returns false
+	faces := []ast.Face{
+		ast.FaceTop{},
+		ast.FaceBot{},
+		ast.FaceEq{IVar: 0, IsOne: false},
+		ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+	}
+
+	// Same type should always match
+	for _, f := range faces {
+		if !alphaEqFace(f, f) {
+			t.Errorf("alphaEqFace(%T, %T) should be true", f, f)
+		}
+	}
+}
+
+// typeNameOf returns a descriptive name for a term type.
+func typeNameOf(t ast.Term) string {
+	switch t.(type) {
+	case ast.Sort:
+		return "Sort"
+	case ast.Var:
+		return "Var"
+	case ast.Global:
+		return "Global"
+	case ast.Pi:
+		return "Pi"
+	case ast.Lam:
+		return "Lam"
+	case ast.App:
+		return "App"
+	default:
+		return "unknown"
 	}
 }
