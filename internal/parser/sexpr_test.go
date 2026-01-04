@@ -267,6 +267,134 @@ func TestMustParse(t *testing.T) {
 	MustParse("(Invalid")
 }
 
+func TestParseJ(t *testing.T) {
+	// Test J eliminator parsing: (J A C d x y p)
+	input := "(J Nat C d x y p)"
+	term, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm(%q) error: %v", input, err)
+	}
+
+	j, ok := term.(ast.J)
+	if !ok {
+		t.Fatalf("expected ast.J, got %T", term)
+	}
+
+	// Check each field was parsed correctly
+	if g, ok := j.A.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("J.A = %v, want Nat", j.A)
+	}
+	if g, ok := j.C.(ast.Global); !ok || g.Name != "C" {
+		t.Errorf("J.C = %v, want C", j.C)
+	}
+	if g, ok := j.D.(ast.Global); !ok || g.Name != "d" {
+		t.Errorf("J.D = %v, want d", j.D)
+	}
+	if g, ok := j.X.(ast.Global); !ok || g.Name != "x" {
+		t.Errorf("J.X = %v, want x", j.X)
+	}
+	if g, ok := j.Y.(ast.Global); !ok || g.Name != "y" {
+		t.Errorf("J.Y = %v, want y", j.Y)
+	}
+	if g, ok := j.P.(ast.Global); !ok || g.Name != "p" {
+		t.Errorf("J.P = %v, want p", j.P)
+	}
+}
+
+func TestParseJ_Nested(t *testing.T) {
+	// Test J with nested terms
+	input := "(J (Pi x Nat Nat) (Lam c (Var 0)) (Refl Nat zero) zero zero (Refl Nat zero))"
+	term, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm(%q) error: %v", input, err)
+	}
+
+	j, ok := term.(ast.J)
+	if !ok {
+		t.Fatalf("expected ast.J, got %T", term)
+	}
+
+	// A should be a Pi
+	if _, ok := j.A.(ast.Pi); !ok {
+		t.Errorf("J.A should be Pi, got %T", j.A)
+	}
+
+	// C should be a Lam
+	if _, ok := j.C.(ast.Lam); !ok {
+		t.Errorf("J.C should be Lam, got %T", j.C)
+	}
+
+	// D should be a Refl
+	if _, ok := j.D.(ast.Refl); !ok {
+		t.Errorf("J.D should be Refl, got %T", j.D)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"  hello  ", "hello"},
+		{"no spaces", "no spaces"},
+		{"\t\ttabs\t\t", "tabs"},
+		{"\n\nnewlines\n\n", "newlines"},
+		{"  mixed \t spaces  ", "mixed \t spaces"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := Normalize(tt.input)
+			if got != tt.expected {
+				t.Errorf("Normalize(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatTerm_Extended(t *testing.T) {
+	tests := []struct {
+		name     string
+		term     ast.Term
+		contains string
+	}{
+		{"nil", nil, "nil"},
+		{"Lam with Ann", ast.Lam{Binder: "x", Ann: ast.Global{Name: "Nat"}, Body: ast.Var{Ix: 0}}, "Lam"},
+		{"Sigma", ast.Sigma{Binder: "x", A: ast.Global{Name: "A"}, B: ast.Var{Ix: 0}}, "Sigma"},
+		{"Pair", ast.Pair{Fst: ast.Global{Name: "a"}, Snd: ast.Global{Name: "b"}}, "Pair"},
+		{"Fst", ast.Fst{P: ast.Global{Name: "p"}}, "Fst"},
+		{"Snd", ast.Snd{P: ast.Global{Name: "p"}}, "Snd"},
+		{"Let", ast.Let{Binder: "x", Val: ast.Global{Name: "v"}, Body: ast.Var{Ix: 0}}, "Let"},
+		{"Id", ast.Id{A: ast.Global{Name: "Nat"}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}}, "Id"},
+		{"Refl", ast.Refl{A: ast.Global{Name: "Nat"}, X: ast.Global{Name: "x"}}, "Refl"},
+		{"J", ast.J{A: ast.Global{Name: "Nat"}, C: ast.Global{Name: "C"}, D: ast.Global{Name: "d"}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}, P: ast.Global{Name: "p"}}, "J"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatTerm(tt.term)
+			if !containsString(result, tt.contains) {
+				t.Errorf("FormatTerm(%v) = %q, should contain %q", tt.term, result, tt.contains)
+			}
+		})
+	}
+}
+
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 // termEqual compares two terms for structural equality.
 func termEqual(a, b ast.Term) bool {
 	if a == nil && b == nil {
