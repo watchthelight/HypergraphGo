@@ -500,6 +500,23 @@ func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 		arg := EvalCubical(env, ienv, tm.Arg)
 		return EvalUABeta(equiv, arg)
 
+	// --- Higher Inductive Types ---
+
+	case ast.HITApp:
+		// Evaluate all term arguments
+		args := make([]Value, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = EvalCubical(env, ienv, arg)
+		}
+		// Evaluate all interval arguments
+		iargs := make([]Value, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = EvalCubical(env, ienv, iarg)
+		}
+		// Look up boundary info from recursor registry
+		boundaries := lookupHITBoundaries(tm.HITName, tm.Ctor, args)
+		return evalHITApp(tm.HITName, tm.Ctor, args, iargs, boundaries)
+
 	default:
 		return evalError("unknown cubical term type")
 	}
@@ -574,6 +591,14 @@ func PathApply(p Value, r Value) Value {
 		// Stuck path application
 		head := Head{Glob: "@"}
 		return VNeutral{N: Neutral{Head: head, Sp: []Value{p, r}}}
+
+	case VHITPathCtor:
+		// HIT path constructor applied to interval
+		// Apply the interval argument and check for endpoint reduction
+		newIArgs := make([]Value, len(pv.IArgs)+1)
+		copy(newIArgs, pv.IArgs)
+		newIArgs[len(pv.IArgs)] = r
+		return evalHITApp(pv.HITName, pv.CtorName, pv.Args, newIArgs, pv.Boundaries)
 
 	default:
 		// Not a path - stuck
@@ -1147,6 +1172,26 @@ func ReifyCubicalAt(level int, ilevel int, v Value) ast.Term {
 		arg := ReifyCubicalAt(level, ilevel, val.Arg)
 		return ast.UABeta{Equiv: equiv, Arg: arg}
 
+	// --- Higher Inductive Types ---
+
+	case VHITPathCtor:
+		// Reify all term arguments
+		args := make([]ast.Term, len(val.Args))
+		for i, arg := range val.Args {
+			args[i] = ReifyCubicalAt(level, ilevel, arg)
+		}
+		// Reify all interval arguments
+		iargs := make([]ast.Term, len(val.IArgs))
+		for i, iarg := range val.IArgs {
+			iargs[i] = ReifyCubicalAt(level, ilevel, iarg)
+		}
+		return ast.HITApp{
+			HITName: val.HITName,
+			Ctor:    val.CtorName,
+			Args:    args,
+			IArgs:   iargs,
+		}
+
 	default:
 		return reifyError("unknown cubical value type")
 	}
@@ -1378,6 +1423,9 @@ func tryReifyCubical(level int, v Value) (ast.Term, bool) {
 	case VUA:
 		return ReifyCubicalAt(level, 0, val), true
 	case VUABeta:
+		return ReifyCubicalAt(level, 0, val), true
+	// Higher Inductive Types
+	case VHITPathCtor:
 		return ReifyCubicalAt(level, 0, val), true
 	default:
 		return nil, false

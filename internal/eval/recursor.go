@@ -12,6 +12,10 @@ type RecursorInfo struct {
 	NumIndices int               // Number of indices (e.g., 1 for Vec A n)
 	NumCases   int               // Number of constructor cases
 	Ctors      []ConstructorInfo // Info about each constructor
+
+	// HIT-specific fields
+	PathCtors []PathConstructorInfo // Info about path constructors (for HITs)
+	IsHIT     bool                  // True if this is a Higher Inductive Type
 }
 
 // ConstructorInfo contains information about a single constructor.
@@ -31,6 +35,20 @@ type ConstructorInfo struct {
 	// IHs would require looking up different eliminators.
 	// For the current separate eliminator design, all entries equal RecursorInfo.ElimName.
 	RecursiveArgElims map[int]string
+}
+
+// PathConstructorInfo contains information about a path constructor in a HIT.
+type PathConstructorInfo struct {
+	Name       string         // Constructor name (e.g., "loop")
+	Level      int            // Dimension: 1=path, 2=path-of-path, etc.
+	NumArgs    int            // Number of arguments before interval args
+	Boundaries []BoundarySpec // Boundary specs for each interval dimension
+}
+
+// BoundarySpec specifies boundary values for one interval dimension.
+type BoundarySpec struct {
+	AtZeroVal Value // Evaluated value when interval = i0
+	AtOneVal  Value // Evaluated value when interval = i1
 }
 
 // recursorRegistry maps eliminator names to their RecursorInfo.
@@ -98,6 +116,13 @@ func tryGenericRecursorReduction(elimName string, sp []Value) Value {
 	scrutineeIdx := casesEnd + info.NumIndices // skip indices
 	scrutinee := sp[scrutineeIdx]              // the value being eliminated
 	extraArgs := sp[scrutineeIdx+1:]           // additional arguments after scrutinee
+
+	// Check if scrutinee is a HIT path constructor
+	if info.IsHIT {
+		if hitPath, ok := scrutinee.(VHITPathCtor); ok {
+			return tryHITPathReduction(info, sp, hitPath, extraArgs)
+		}
+	}
 
 	// Check if scrutinee is a constructor
 	neutral, ok := scrutinee.(VNeutral)
@@ -232,6 +257,92 @@ func buildRecursorCallWithIndices(elimName string, sp []Value, ctorArgs []Value,
 
 	// Apply the recursive argument
 	result = Apply(result, ctorArgs[recArgIdx])
+
+	return result
+}
+
+// tryHITPathReduction reduces a HIT eliminator applied to a path constructor.
+// For a path constructor like loop @ i, the reduction is:
+//
+//	S1-elim P pbase ploop (loop @ i) --> ploop @ i
+//
+// At endpoints:
+//
+//	S1-elim P pbase ploop (loop @ i0) --> pbase
+//	S1-elim P pbase ploop (loop @ i1) --> pbase
+//
+// For higher-level paths (level 2+), we apply multiple interval arguments.
+func tryHITPathReduction(info *RecursorInfo, sp []Value, hitPath VHITPathCtor, extraArgs []Value) Value {
+	// Find the matching path constructor
+	pathCtorIdx := -1
+	for i, pc := range info.PathCtors {
+		if pc.Name == hitPath.CtorName {
+			pathCtorIdx = i
+			break
+		}
+	}
+
+	if pathCtorIdx < 0 {
+		return nil // Unknown path constructor
+	}
+
+	pathCtor := info.PathCtors[pathCtorIdx]
+
+	// Check if any interval argument is an endpoint
+	// If so, reduce to the corresponding boundary value
+	for dim, iarg := range hitPath.IArgs {
+		if dim >= len(hitPath.Boundaries) {
+			break
+		}
+		switch iarg.(type) {
+		case VI0:
+			// Reduce to the case for the left endpoint
+			// The boundary value is the evaluated case for that endpoint
+			result := hitPath.Boundaries[dim].AtZero
+			for _, extra := range extraArgs {
+				result = Apply(result, extra)
+			}
+			return result
+		case VI1:
+			// Reduce to the case for the right endpoint
+			result := hitPath.Boundaries[dim].AtOne
+			for _, extra := range extraArgs {
+				result = Apply(result, extra)
+			}
+			return result
+		}
+	}
+
+	// Not at an endpoint - apply the path case to the interval arguments
+	// The path case is at index: NumCases (point cases) + pathCtorIdx (path case index)
+	casesStart := info.NumParams + 1
+	pathCasesStart := casesStart + info.NumCases
+	pathCaseIdx := pathCasesStart + pathCtorIdx
+
+	if pathCaseIdx >= len(sp) {
+		return nil // Not enough arguments
+	}
+
+	result := sp[pathCaseIdx]
+
+	// Apply term arguments (if any)
+	for _, arg := range hitPath.Args {
+		result = Apply(result, arg)
+	}
+
+	// Apply interval arguments via PathApply
+	// For a level-1 path case ploop : PathP ..., we apply ploop @ i
+	for _, iarg := range hitPath.IArgs {
+		result = PathApply(result, iarg)
+	}
+
+	// Apply any extra arguments
+	for _, extra := range extraArgs {
+		result = Apply(result, extra)
+	}
+
+	// If we have boundaries defined, store them for potential future reduction
+	_ = pathCtor // used for documentation
 
 	return result
 }

@@ -215,6 +215,21 @@ func writeValue(b *bytes.Buffer, v Value) {
 		writeValue(b, val.Arg)
 		b.WriteString(")")
 
+	// --- Higher Inductive Types ---
+
+	case VHITPathCtor:
+		b.WriteString("(")
+		b.WriteString(val.CtorName)
+		for _, arg := range val.Args {
+			b.WriteString(" ")
+			writeValue(b, arg)
+		}
+		for _, iarg := range val.IArgs {
+			b.WriteString(" @ ")
+			writeValue(b, iarg)
+		}
+		b.WriteString(")")
+
 	default:
 		b.WriteString("<?value?>")
 	}
@@ -528,6 +543,30 @@ func ValueEqual(v1, v2 Value) bool {
 		}
 		return false
 
+	// --- Higher Inductive Types ---
+
+	case VHITPathCtor:
+		if val2, ok := v2.(VHITPathCtor); ok {
+			if val1.HITName != val2.HITName || val1.CtorName != val2.CtorName {
+				return false
+			}
+			if len(val1.Args) != len(val2.Args) || len(val1.IArgs) != len(val2.IArgs) {
+				return false
+			}
+			for i := range val1.Args {
+				if !ValueEqual(val1.Args[i], val2.Args[i]) {
+					return false
+				}
+			}
+			for i := range val1.IArgs {
+				if !ValueEqual(val1.IArgs[i], val2.IArgs[i]) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+
 	default:
 		return false
 	}
@@ -727,6 +766,8 @@ func valueTypeName(v Value) string {
 		return "VUA"
 	case VUABeta:
 		return "VUABeta"
+	case VHITPathCtor:
+		return "VHITPathCtor"
 	default:
 		return "Unknown"
 	}
