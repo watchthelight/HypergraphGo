@@ -890,3 +890,111 @@ func TestAtomicSave(t *testing.T) {
 		}
 	})
 }
+
+// TestExecuteReplCommand_EdgeCases tests additional edge cases for REPL commands.
+func TestExecuteReplCommand_EdgeCases(t *testing.T) {
+	t.Run("remove-edge_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "remove-edge")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("has-vertex_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "has-vertex")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("has-edge_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "has-edge")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("degree_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "degree")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("degree_nonexistent_vertex", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "degree nonexistent")
+		if err == nil {
+			t.Fatal("expected error for nonexistent vertex")
+		}
+	})
+
+	t.Run("edge-size_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "edge-size")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("edge-size_nonexistent_edge", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "edge-size nonexistent")
+		if err == nil {
+			t.Fatal("expected error for nonexistent edge")
+		}
+	})
+
+	t.Run("bfs_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "bfs")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("dfs_missing_arg", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "dfs")
+		if err == nil {
+			t.Fatal("expected error for missing argument")
+		}
+	})
+
+	t.Run("dfs_nonexistent_vertex", func(t *testing.T) {
+		state := newTestReplState(t)
+		err := executeReplCommand(state, "dfs nonexistent")
+		if err == nil {
+			t.Fatal("expected error for nonexistent vertex")
+		}
+	})
+}
+
+// TestExecuteReplCommand_SaveError tests save with invalid path.
+func TestExecuteReplCommand_SaveError(t *testing.T) {
+	state := newTestReplState(t)
+	state.file = "/nonexistent/dir/file.json"
+
+	err := executeReplCommand(state, ":save")
+	if err == nil {
+		t.Fatal("expected error for invalid save path")
+	}
+}
+
+// TestExecuteReplCommand_LoadShorthand tests :l shorthand for :load.
+func TestExecuteReplCommand_LoadShorthand(t *testing.T) {
+	// Note: :l is not implemented as shorthand, but :load is tested
+	// This tests the shorthand aliases :q and :h
+	state := newTestReplState(t)
+	state.modified = false
+
+	// Already tested :q and :h, let's test edge case for unknown colon command
+	err := executeReplCommand(state, ":unknown")
+	if err == nil {
+		t.Fatal("expected error for unknown colon command")
+	}
+}

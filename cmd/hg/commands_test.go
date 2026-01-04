@@ -754,3 +754,56 @@ func TestCommands_EmptyGraph(t *testing.T) {
 		}
 	})
 }
+
+// TestCmdNew_InvalidOutputPath tests cmdNew with an invalid output path.
+func TestCmdNew_InvalidOutputPath(t *testing.T) {
+	err := cmdNew([]string{"-o", "/nonexistent/dir/file.json"})
+	if err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+}
+
+// TestCmdCopy_InvalidOutputPath tests cmdCopy with an invalid output path.
+func TestCmdCopy_InvalidOutputPath(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := writeTestGraphFile(t, dir, "input.json")
+
+	err := cmdCopy([]string{"-f", inputPath, "-o", "/nonexistent/dir/file.json"})
+	if err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+}
+
+// TestCmdAddVertex_InvalidOutputPath tests cmdAddVertex with invalid output path.
+func TestCmdAddVertex_InvalidOutputPath(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := writeTestGraphFile(t, dir, "input.json")
+
+	err := cmdAddVertex([]string{"-f", inputPath, "-v", "x", "-o", "/nonexistent/dir/file.json"})
+	if err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+}
+
+// TestCmdAddEdge_InvalidOutputPath tests cmdAddEdge with invalid output path.
+func TestCmdAddEdge_InvalidOutputPath(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := writeTestGraphFile(t, dir, "input.json")
+
+	err := cmdAddEdge([]string{"-f", inputPath, "-id", "e3", "-m", "a,b", "-o", "/nonexistent/dir/file.json"})
+	if err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+}
+
+// TestCmdAddEdge_DuplicateEdge tests adding an edge with existing ID.
+func TestCmdAddEdge_DuplicateEdge(t *testing.T) {
+	dir := t.TempDir()
+	path := writeTestGraphFile(t, dir, "graph.json")
+
+	// Try to add edge with ID that already exists (e1)
+	err := cmdAddEdge([]string{"-f", path, "-id", "e1", "-m", "a,c"})
+	if err == nil {
+		t.Fatal("expected error for duplicate edge ID")
+	}
+}
