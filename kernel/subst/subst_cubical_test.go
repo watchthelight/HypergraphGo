@@ -1551,3 +1551,1015 @@ func TestISubstFace_Unknown(t *testing.T) {
 		t.Errorf("expected custom face unchanged")
 	}
 }
+
+// ============================================================================
+// HITApp Tests - Higher Inductive Types Substitution
+// ============================================================================
+
+// --- IShift Tests for HITApp ---
+
+func TestIShift_HITApp_NoIArgs(t *testing.T) {
+	t.Parallel()
+	// HITApp with only term args, no interval args
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "base",
+		Args:    []ast.Term{ast.Sort{U: 0}},
+		IArgs:   nil,
+	}
+	result := IShift(1, 0, term)
+
+	hit, ok := result.(ast.HITApp)
+	if !ok {
+		t.Fatalf("expected HITApp, got %T", result)
+	}
+	if hit.HITName != "S1" || hit.Ctor != "base" {
+		t.Errorf("HITName/Ctor should be preserved")
+	}
+	if len(hit.Args) != 1 {
+		t.Errorf("expected 1 arg, got %d", len(hit.Args))
+	}
+}
+
+func TestIShift_HITApp_WithIArgs_AboveCutoff(t *testing.T) {
+	t.Parallel()
+	// HITApp with interval args above cutoff should be shifted
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 2}, ast.IVar{Ix: 3}},
+	}
+	result := IShift(5, 1, term)
+
+	hit := result.(ast.HITApp)
+	// IVar{2} >= 1, shifted to IVar{7}
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 7 {
+		t.Errorf("IArgs[0]: expected IVar{7}, got %v", hit.IArgs[0])
+	}
+	// IVar{3} >= 1, shifted to IVar{8}
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 8 {
+		t.Errorf("IArgs[1]: expected IVar{8}, got %v", hit.IArgs[1])
+	}
+}
+
+func TestIShift_HITApp_WithIArgs_BelowCutoff(t *testing.T) {
+	t.Parallel()
+	// HITApp with interval args below cutoff should be unchanged
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}, ast.IVar{Ix: 1}},
+	}
+	result := IShift(5, 5, term)
+
+	hit := result.(ast.HITApp)
+	// IVar{0} < 5, unchanged
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("IArgs[0]: expected IVar{0}, got %v", hit.IArgs[0])
+	}
+	// IVar{1} < 5, unchanged
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 1 {
+		t.Errorf("IArgs[1]: expected IVar{1}, got %v", hit.IArgs[1])
+	}
+}
+
+func TestIShift_HITApp_MixedIArgs(t *testing.T) {
+	t.Parallel()
+	// Mix of constants and variables
+	term := ast.HITApp{
+		HITName: "Quot",
+		Ctor:    "eq",
+		Args:    []ast.Term{ast.Global{Name: "A"}, ast.Global{Name: "R"}},
+		IArgs:   []ast.Term{ast.I0{}, ast.IVar{Ix: 2}, ast.I1{}},
+	}
+	result := IShift(3, 1, term)
+
+	hit := result.(ast.HITApp)
+	// I0 unchanged
+	if _, ok := hit.IArgs[0].(ast.I0); !ok {
+		t.Errorf("IArgs[0]: expected I0, got %v", hit.IArgs[0])
+	}
+	// IVar{2} >= 1, shifted to IVar{5}
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("IArgs[1]: expected IVar{5}, got %v", hit.IArgs[1])
+	}
+	// I1 unchanged
+	if _, ok := hit.IArgs[2].(ast.I1); !ok {
+		t.Errorf("IArgs[2]: expected I1, got %v", hit.IArgs[2])
+	}
+}
+
+func TestIShift_HITApp_WithTermArgs(t *testing.T) {
+	t.Parallel()
+	// Term args containing interval variables
+	term := ast.HITApp{
+		HITName: "Trunc",
+		Ctor:    "squash",
+		Args:    []ast.Term{ast.PathApp{P: ast.Global{Name: "p"}, R: ast.IVar{Ix: 1}}},
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+	}
+	result := IShift(2, 0, term)
+
+	hit := result.(ast.HITApp)
+	// Args[0] should have IVar shifted
+	papp, ok := hit.Args[0].(ast.PathApp)
+	if !ok {
+		t.Fatalf("Args[0]: expected PathApp, got %T", hit.Args[0])
+	}
+	if ivar, ok := papp.R.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Args[0].R: expected IVar{3}, got %v", papp.R)
+	}
+	// IArgs[0] shifted
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("IArgs[0]: expected IVar{2}, got %v", hit.IArgs[0])
+	}
+}
+
+// --- ISubst Tests for HITApp ---
+
+func TestISubst_HITApp_NoIArgs(t *testing.T) {
+	t.Parallel()
+	// HITApp with no interval args
+	term := ast.HITApp{
+		HITName: "Nat",
+		Ctor:    "zero",
+		Args:    nil,
+		IArgs:   nil,
+	}
+	result := ISubst(0, ast.I0{}, term)
+
+	hit, ok := result.(ast.HITApp)
+	if !ok {
+		t.Fatalf("expected HITApp, got %T", result)
+	}
+	if hit.HITName != "Nat" || hit.Ctor != "zero" {
+		t.Errorf("HITName/Ctor should be preserved")
+	}
+}
+
+func TestISubst_HITApp_SubstInIArgs(t *testing.T) {
+	t.Parallel()
+	// Substitute i0 for IVar{0}
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+	}
+	result := ISubst(0, ast.I0{}, term)
+
+	hit := result.(ast.HITApp)
+	// IVar{0} at j=0 becomes I0
+	if _, ok := hit.IArgs[0].(ast.I0); !ok {
+		t.Errorf("IArgs[0]: expected I0, got %v", hit.IArgs[0])
+	}
+}
+
+func TestISubst_HITApp_DecrementAboveJ(t *testing.T) {
+	t.Parallel()
+	// IVars above j should be decremented
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 2}, ast.IVar{Ix: 3}},
+	}
+	result := ISubst(1, ast.I1{}, term)
+
+	hit := result.(ast.HITApp)
+	// IVar{2} > 1, decremented to IVar{1}
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 1 {
+		t.Errorf("IArgs[0]: expected IVar{1}, got %v", hit.IArgs[0])
+	}
+	// IVar{3} > 1, decremented to IVar{2}
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("IArgs[1]: expected IVar{2}, got %v", hit.IArgs[1])
+	}
+}
+
+func TestISubst_HITApp_BelowJ_Unchanged(t *testing.T) {
+	t.Parallel()
+	// IVars below j should be unchanged
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+	}
+	result := ISubst(2, ast.I1{}, term)
+
+	hit := result.(ast.HITApp)
+	// IVar{0} < 2, unchanged
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("IArgs[0]: expected IVar{0}, got %v", hit.IArgs[0])
+	}
+}
+
+func TestISubst_HITApp_InTermArgs(t *testing.T) {
+	t.Parallel()
+	// Substitution in term args containing interval variables
+	term := ast.HITApp{
+		HITName: "Quot",
+		Ctor:    "eq",
+		Args: []ast.Term{
+			ast.PathLam{Binder: "i", Body: ast.IVar{Ix: 1}}, // Under binder: j+1=1
+		},
+		IArgs: []ast.Term{ast.IVar{Ix: 0}},
+	}
+	result := ISubst(0, ast.I1{}, term)
+
+	hit := result.(ast.HITApp)
+	// PathLam body: IVar{1} at j+1=1 becomes I1
+	plam, ok := hit.Args[0].(ast.PathLam)
+	if !ok {
+		t.Fatalf("Args[0]: expected PathLam, got %T", hit.Args[0])
+	}
+	if _, ok := plam.Body.(ast.I1); !ok {
+		t.Errorf("Args[0].Body: expected I1, got %v", plam.Body)
+	}
+	// IArgs[0]: IVar{0} at j=0 becomes I1
+	if _, ok := hit.IArgs[0].(ast.I1); !ok {
+		t.Errorf("IArgs[0]: expected I1, got %v", hit.IArgs[0])
+	}
+}
+
+func TestISubst_HITApp_MultipleArgs(t *testing.T) {
+	t.Parallel()
+	// HITApp with multiple args and iargs
+	term := ast.HITApp{
+		HITName: "Int",
+		Ctor:    "seg",
+		Args:    []ast.Term{ast.Global{Name: "n"}, ast.IVar{Ix: 0}},
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}, ast.IVar{Ix: 1}},
+	}
+	result := ISubst(0, ast.I0{}, term)
+
+	hit := result.(ast.HITApp)
+	// Args[1]: IVar{0} becomes I0
+	if _, ok := hit.Args[1].(ast.I0); !ok {
+		t.Errorf("Args[1]: expected I0, got %v", hit.Args[1])
+	}
+	// IArgs[0]: IVar{0} becomes I0
+	if _, ok := hit.IArgs[0].(ast.I0); !ok {
+		t.Errorf("IArgs[0]: expected I0, got %v", hit.IArgs[0])
+	}
+	// IArgs[1]: IVar{1} decremented to IVar{0}
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("IArgs[1]: expected IVar{0}, got %v", hit.IArgs[1])
+	}
+}
+
+// --- shiftExtension Tests for HITApp ---
+
+func TestShiftExtension_HITApp_NoArgs(t *testing.T) {
+	t.Parallel()
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "base",
+		Args:    nil,
+		IArgs:   nil,
+	}
+	result, ok := shiftExtension(1, 0, term)
+	if !ok {
+		t.Fatal("shiftExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	if hit.HITName != "S1" || hit.Ctor != "base" {
+		t.Errorf("HITName/Ctor should be preserved")
+	}
+}
+
+func TestShiftExtension_HITApp_ShiftTermVars(t *testing.T) {
+	t.Parallel()
+	// Term args with Var should be shifted
+	term := ast.HITApp{
+		HITName: "Trunc",
+		Ctor:    "squash",
+		Args:    []ast.Term{ast.Var{Ix: 0}, ast.Var{Ix: 2}},
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}}, // IVars unchanged by term shift
+	}
+	result, ok := shiftExtension(3, 1, term)
+	if !ok {
+		t.Fatal("shiftExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	// Var{0} < 1, unchanged
+	if v, ok := hit.Args[0].(ast.Var); !ok || v.Ix != 0 {
+		t.Errorf("Args[0]: expected Var{0}, got %v", hit.Args[0])
+	}
+	// Var{2} >= 1, shifted to Var{5}
+	if v, ok := hit.Args[1].(ast.Var); !ok || v.Ix != 5 {
+		t.Errorf("Args[1]: expected Var{5}, got %v", hit.Args[1])
+	}
+	// IVar unchanged
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("IArgs[0]: expected IVar{0}, got %v", hit.IArgs[0])
+	}
+}
+
+func TestShiftExtension_HITApp_NestedTerms(t *testing.T) {
+	t.Parallel()
+	// Nested term with Var in Args
+	term := ast.HITApp{
+		HITName: "Quot",
+		Ctor:    "eq",
+		Args: []ast.Term{
+			ast.App{T: ast.Var{Ix: 1}, U: ast.Var{Ix: 0}},
+		},
+		IArgs: nil,
+	}
+	result, ok := shiftExtension(2, 1, term)
+	if !ok {
+		t.Fatal("shiftExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	app, ok := hit.Args[0].(ast.App)
+	if !ok {
+		t.Fatalf("Args[0]: expected App, got %T", hit.Args[0])
+	}
+	// Var{1} >= 1, shifted to Var{3}
+	if v, ok := app.T.(ast.Var); !ok || v.Ix != 3 {
+		t.Errorf("Args[0].T: expected Var{3}, got %v", app.T)
+	}
+	// Var{0} < 1, unchanged
+	if v, ok := app.U.(ast.Var); !ok || v.Ix != 0 {
+		t.Errorf("Args[0].U: expected Var{0}, got %v", app.U)
+	}
+}
+
+func TestShiftExtension_HITApp_IArgs_TermShiftNoOp(t *testing.T) {
+	t.Parallel()
+	// IArgs should be passed through but IVars don't have term vars
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.I0{}, ast.IVar{Ix: 5}, ast.I1{}},
+	}
+	result, ok := shiftExtension(10, 0, term)
+	if !ok {
+		t.Fatal("shiftExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	// All IArgs should be unchanged (no term vars)
+	if _, ok := hit.IArgs[0].(ast.I0); !ok {
+		t.Errorf("IArgs[0]: expected I0")
+	}
+	if ivar, ok := hit.IArgs[1].(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("IArgs[1]: expected IVar{5}")
+	}
+	if _, ok := hit.IArgs[2].(ast.I1); !ok {
+		t.Errorf("IArgs[2]: expected I1")
+	}
+}
+
+// --- substExtension Tests for HITApp ---
+
+func TestSubstExtension_HITApp_NoArgs(t *testing.T) {
+	t.Parallel()
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "base",
+		Args:    nil,
+		IArgs:   nil,
+	}
+	result, ok := substExtension(0, ast.Sort{U: 0}, term)
+	if !ok {
+		t.Fatal("substExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	if hit.HITName != "S1" || hit.Ctor != "base" {
+		t.Errorf("HITName/Ctor should be preserved")
+	}
+}
+
+func TestSubstExtension_HITApp_SubstInArgs(t *testing.T) {
+	t.Parallel()
+	// Substitute for Var{0} in Args
+	term := ast.HITApp{
+		HITName: "Trunc",
+		Ctor:    "squash",
+		Args:    []ast.Term{ast.Var{Ix: 0}, ast.Var{Ix: 1}},
+		IArgs:   nil,
+	}
+	result, ok := substExtension(0, ast.Sort{U: 5}, term)
+	if !ok {
+		t.Fatal("substExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	// Var{0} at j=0 becomes Sort{5}
+	if s, ok := hit.Args[0].(ast.Sort); !ok || s.U != 5 {
+		t.Errorf("Args[0]: expected Sort{5}, got %v", hit.Args[0])
+	}
+	// Var{1} > 0, decremented to Var{0}
+	if v, ok := hit.Args[1].(ast.Var); !ok || v.Ix != 0 {
+		t.Errorf("Args[1]: expected Var{0}, got %v", hit.Args[1])
+	}
+}
+
+func TestSubstExtension_HITApp_IArgs_TermSubstNoOp(t *testing.T) {
+	t.Parallel()
+	// IArgs contain IVars - term substitution should pass through
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    nil,
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}, ast.I0{}},
+	}
+	result, ok := substExtension(0, ast.Sort{U: 0}, term)
+	if !ok {
+		t.Fatal("substExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	// IVars unchanged (no term vars)
+	if ivar, ok := hit.IArgs[0].(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("IArgs[0]: expected IVar{0}, got %v", hit.IArgs[0])
+	}
+	if _, ok := hit.IArgs[1].(ast.I0); !ok {
+		t.Errorf("IArgs[1]: expected I0, got %v", hit.IArgs[1])
+	}
+}
+
+func TestSubstExtension_HITApp_NestedSubst(t *testing.T) {
+	t.Parallel()
+	// Nested term in Args - Var{1} in lambda body gets substituted
+	// subst(0, s, Lam{body}) = Lam{subst(1, shift(s), body)}
+	// Var{1} at j=1 matches and gets substituted with Global{subst}
+	term := ast.HITApp{
+		HITName: "Quot",
+		Ctor:    "eq",
+		Args: []ast.Term{
+			ast.Lam{Binder: "x", Ann: nil, Body: ast.Var{Ix: 1}},
+		},
+		IArgs: nil,
+	}
+	result, ok := substExtension(0, ast.Global{Name: "subst"}, term)
+	if !ok {
+		t.Fatal("substExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	lam, ok := hit.Args[0].(ast.Lam)
+	if !ok {
+		t.Fatalf("Args[0]: expected Lam, got %T", hit.Args[0])
+	}
+	// Var{1} inside lam body at j=1 matches substitution, becomes Global{subst}
+	if g, ok := lam.Body.(ast.Global); !ok || g.Name != "subst" {
+		t.Errorf("Args[0].Body: expected Global{subst}, got %v", lam.Body)
+	}
+}
+
+func TestSubstExtension_HITApp_MultipleArgsIArgs(t *testing.T) {
+	t.Parallel()
+	// Both Args and IArgs
+	term := ast.HITApp{
+		HITName: "Int",
+		Ctor:    "seg",
+		Args:    []ast.Term{ast.Var{Ix: 0}, ast.Var{Ix: 2}},
+		IArgs:   []ast.Term{ast.IVar{Ix: 0}},
+	}
+	result, ok := substExtension(1, ast.Global{Name: "x"}, term)
+	if !ok {
+		t.Fatal("substExtension should handle HITApp")
+	}
+
+	hit := result.(ast.HITApp)
+	// Var{0} < 1, unchanged
+	if v, ok := hit.Args[0].(ast.Var); !ok || v.Ix != 0 {
+		t.Errorf("Args[0]: expected Var{0}, got %v", hit.Args[0])
+	}
+	// Var{2} > 1, decremented to Var{1}
+	if v, ok := hit.Args[1].(ast.Var); !ok || v.Ix != 1 {
+		t.Errorf("Args[1]: expected Var{1}, got %v", hit.Args[1])
+	}
+}
+
+// ============================================================================
+// IShift Coverage Tests - All Standard Term Types
+// ============================================================================
+
+func TestIShift_Nil(t *testing.T) {
+	t.Parallel()
+	result := IShift(1, 0, nil)
+	if result != nil {
+		t.Errorf("IShift(nil) should return nil, got %v", result)
+	}
+}
+
+func TestIShift_StandardTerms_NoIntervalVars(t *testing.T) {
+	t.Parallel()
+	// Standard terms without interval variables should pass through unchanged
+	tests := []struct {
+		name string
+		term ast.Term
+	}{
+		{"Var", ast.Var{Ix: 5}},
+		{"Sort", ast.Sort{U: 2}},
+		{"Global", ast.Global{Name: "test"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IShift(10, 0, tt.term)
+			if !reflect.DeepEqual(result, tt.term) {
+				t.Errorf("expected %v unchanged, got %v", tt.term, result)
+			}
+		})
+	}
+}
+
+func TestIShift_Pi(t *testing.T) {
+	t.Parallel()
+	term := ast.Pi{
+		Binder: "x",
+		A:      ast.IVar{Ix: 0},
+		B:      ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+
+	pi := result.(ast.Pi)
+	if pi.Binder != "x" {
+		t.Errorf("Binder should be preserved")
+	}
+	if ivar, ok := pi.A.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Pi.A: expected IVar{2}, got %v", pi.A)
+	}
+	if ivar, ok := pi.B.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Pi.B: expected IVar{3}, got %v", pi.B)
+	}
+}
+
+func TestIShift_Lam(t *testing.T) {
+	t.Parallel()
+	term := ast.Lam{
+		Binder: "f",
+		Ann:    ast.IVar{Ix: 0},
+		Body:   ast.IVar{Ix: 1},
+	}
+	result := IShift(3, 1, term)
+
+	lam := result.(ast.Lam)
+	// IVar{0} < 1, unchanged
+	if ivar, ok := lam.Ann.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Lam.Ann: expected IVar{0}, got %v", lam.Ann)
+	}
+	// IVar{1} >= 1, shifted by 3
+	if ivar, ok := lam.Body.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("Lam.Body: expected IVar{4}, got %v", lam.Body)
+	}
+}
+
+func TestIShift_App(t *testing.T) {
+	t.Parallel()
+	term := ast.App{
+		T: ast.IVar{Ix: 0},
+		U: ast.IVar{Ix: 2},
+	}
+	result := IShift(1, 1, term)
+
+	app := result.(ast.App)
+	// IVar{0} < 1, unchanged
+	if ivar, ok := app.T.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("App.T: expected IVar{0}, got %v", app.T)
+	}
+	// IVar{2} >= 1, shifted
+	if ivar, ok := app.U.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("App.U: expected IVar{3}, got %v", app.U)
+	}
+}
+
+func TestIShift_Sigma(t *testing.T) {
+	t.Parallel()
+	term := ast.Sigma{
+		Binder: "p",
+		A:      ast.IVar{Ix: 0},
+		B:      ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+
+	sigma := result.(ast.Sigma)
+	if ivar, ok := sigma.A.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Sigma.A: expected IVar{2}, got %v", sigma.A)
+	}
+	if ivar, ok := sigma.B.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Sigma.B: expected IVar{3}, got %v", sigma.B)
+	}
+}
+
+func TestIShift_Pair(t *testing.T) {
+	t.Parallel()
+	term := ast.Pair{
+		Fst: ast.IVar{Ix: 1},
+		Snd: ast.IVar{Ix: 0},
+	}
+	result := IShift(5, 1, term)
+
+	pair := result.(ast.Pair)
+	if ivar, ok := pair.Fst.(ast.IVar); !ok || ivar.Ix != 6 {
+		t.Errorf("Pair.Fst: expected IVar{6}, got %v", pair.Fst)
+	}
+	if ivar, ok := pair.Snd.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Pair.Snd: expected IVar{0}, got %v", pair.Snd)
+	}
+}
+
+func TestIShift_FstSnd(t *testing.T) {
+	t.Parallel()
+	fstTerm := ast.Fst{P: ast.IVar{Ix: 0}}
+	sndTerm := ast.Snd{P: ast.IVar{Ix: 1}}
+
+	fstResult := IShift(2, 0, fstTerm)
+	sndResult := IShift(2, 0, sndTerm)
+
+	if fst, ok := fstResult.(ast.Fst); !ok {
+		t.Errorf("expected Fst, got %T", fstResult)
+	} else if ivar, ok := fst.P.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Fst.P: expected IVar{2}, got %v", fst.P)
+	}
+
+	if snd, ok := sndResult.(ast.Snd); !ok {
+		t.Errorf("expected Snd, got %T", sndResult)
+	} else if ivar, ok := snd.P.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Snd.P: expected IVar{3}, got %v", snd.P)
+	}
+}
+
+func TestIShift_Let(t *testing.T) {
+	t.Parallel()
+	term := ast.Let{
+		Binder: "x",
+		Ann:    ast.IVar{Ix: 0},
+		Val:    ast.IVar{Ix: 1},
+		Body:   ast.IVar{Ix: 2},
+	}
+	result := IShift(3, 1, term)
+
+	let := result.(ast.Let)
+	// IVar{0} < 1, unchanged
+	if ivar, ok := let.Ann.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Let.Ann: expected IVar{0}, got %v", let.Ann)
+	}
+	// IVar{1} >= 1, shifted by 3
+	if ivar, ok := let.Val.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("Let.Val: expected IVar{4}, got %v", let.Val)
+	}
+	// IVar{2} >= 1, shifted by 3
+	if ivar, ok := let.Body.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Let.Body: expected IVar{5}, got %v", let.Body)
+	}
+}
+
+func TestIShift_Id(t *testing.T) {
+	t.Parallel()
+	term := ast.Id{
+		A: ast.IVar{Ix: 0},
+		X: ast.IVar{Ix: 1},
+		Y: ast.IVar{Ix: 2},
+	}
+	result := IShift(1, 0, term)
+
+	id := result.(ast.Id)
+	if ivar, ok := id.A.(ast.IVar); !ok || ivar.Ix != 1 {
+		t.Errorf("Id.A: expected IVar{1}, got %v", id.A)
+	}
+	if ivar, ok := id.X.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Id.X: expected IVar{2}, got %v", id.X)
+	}
+	if ivar, ok := id.Y.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Id.Y: expected IVar{3}, got %v", id.Y)
+	}
+}
+
+func TestIShift_Refl(t *testing.T) {
+	t.Parallel()
+	term := ast.Refl{
+		A: ast.IVar{Ix: 0},
+		X: ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+
+	refl := result.(ast.Refl)
+	if ivar, ok := refl.A.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Refl.A: expected IVar{2}, got %v", refl.A)
+	}
+	if ivar, ok := refl.X.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Refl.X: expected IVar{3}, got %v", refl.X)
+	}
+}
+
+func TestIShift_J(t *testing.T) {
+	t.Parallel()
+	term := ast.J{
+		A: ast.IVar{Ix: 0},
+		C: ast.IVar{Ix: 1},
+		D: ast.IVar{Ix: 2},
+		X: ast.IVar{Ix: 3},
+		Y: ast.IVar{Ix: 4},
+		P: ast.IVar{Ix: 5},
+	}
+	result := IShift(1, 0, term)
+
+	j := result.(ast.J)
+	expected := []int{1, 2, 3, 4, 5, 6}
+	actual := []ast.Term{j.A, j.C, j.D, j.X, j.Y, j.P}
+	for i, exp := range expected {
+		if ivar, ok := actual[i].(ast.IVar); !ok || ivar.Ix != exp {
+			t.Errorf("J field %d: expected IVar{%d}, got %v", i, exp, actual[i])
+		}
+	}
+}
+
+func TestIShift_Default(t *testing.T) {
+	t.Parallel()
+	// Unknown term type should be returned unchanged
+	type customTerm struct{ ast.Term }
+	custom := customTerm{}
+	result := IShift(5, 0, custom)
+	if result != custom {
+		t.Errorf("unknown term should be returned unchanged")
+	}
+}
+
+// ============================================================================
+// IShiftFace Tests
+// ============================================================================
+
+func TestIShiftFace_Nil(t *testing.T) {
+	t.Parallel()
+	result := IShiftFace(1, 0, nil)
+	if result != nil {
+		t.Errorf("IShiftFace(nil) should return nil, got %v", result)
+	}
+}
+
+func TestIShiftFace_TopBot(t *testing.T) {
+	t.Parallel()
+	topResult := IShiftFace(5, 0, ast.FaceTop{})
+	botResult := IShiftFace(5, 0, ast.FaceBot{})
+
+	if _, ok := topResult.(ast.FaceTop); !ok {
+		t.Errorf("FaceTop should be unchanged")
+	}
+	if _, ok := botResult.(ast.FaceBot); !ok {
+		t.Errorf("FaceBot should be unchanged")
+	}
+}
+
+func TestIShiftFace_FaceEq_AboveCutoff(t *testing.T) {
+	t.Parallel()
+	face := ast.FaceEq{IVar: 2, IsOne: true}
+	result := IShiftFace(3, 1, face)
+
+	eq, ok := result.(ast.FaceEq)
+	if !ok {
+		t.Fatalf("expected FaceEq, got %T", result)
+	}
+	// IVar 2 >= cutoff 1, shifted by 3
+	if eq.IVar != 5 || eq.IsOne != true {
+		t.Errorf("expected FaceEq{5, true}, got FaceEq{%d, %v}", eq.IVar, eq.IsOne)
+	}
+}
+
+func TestIShiftFace_FaceEq_BelowCutoff(t *testing.T) {
+	t.Parallel()
+	face := ast.FaceEq{IVar: 0, IsOne: false}
+	result := IShiftFace(5, 2, face)
+
+	eq := result.(ast.FaceEq)
+	// IVar 0 < cutoff 2, unchanged
+	if eq.IVar != 0 {
+		t.Errorf("expected IVar 0 unchanged, got %d", eq.IVar)
+	}
+}
+
+func TestIShiftFace_FaceAnd(t *testing.T) {
+	t.Parallel()
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	result := IShiftFace(2, 0, face)
+
+	and, ok := result.(ast.FaceAnd)
+	if !ok {
+		t.Fatalf("expected FaceAnd, got %T", result)
+	}
+	left, lok := and.Left.(ast.FaceEq)
+	right, rok := and.Right.(ast.FaceEq)
+	if !lok || !rok {
+		t.Fatal("expected FaceEq children")
+	}
+	if left.IVar != 2 {
+		t.Errorf("Left: expected IVar 2, got %d", left.IVar)
+	}
+	if right.IVar != 3 {
+		t.Errorf("Right: expected IVar 3, got %d", right.IVar)
+	}
+}
+
+func TestIShiftFace_FaceOr(t *testing.T) {
+	t.Parallel()
+	face := ast.FaceOr{
+		Left:  ast.FaceEq{IVar: 1, IsOne: false},
+		Right: ast.FaceEq{IVar: 2, IsOne: true},
+	}
+	result := IShiftFace(1, 1, face)
+
+	or, ok := result.(ast.FaceOr)
+	if !ok {
+		t.Fatalf("expected FaceOr, got %T", result)
+	}
+	left := or.Left.(ast.FaceEq)
+	right := or.Right.(ast.FaceEq)
+	// IVar 1 >= 1, shifted to 2
+	if left.IVar != 2 {
+		t.Errorf("Left: expected IVar 2, got %d", left.IVar)
+	}
+	// IVar 2 >= 1, shifted to 3
+	if right.IVar != 3 {
+		t.Errorf("Right: expected IVar 3, got %d", right.IVar)
+	}
+}
+
+func TestIShiftFace_Unknown(t *testing.T) {
+	t.Parallel()
+	// Unknown face type should be returned unchanged
+	type customFace struct{ ast.Face }
+	custom := customFace{}
+	result := IShiftFace(5, 0, custom)
+	if result != custom {
+		t.Errorf("unknown face should be returned unchanged")
+	}
+}
+
+// ============================================================================
+// faceToTerm Tests
+// ============================================================================
+
+func TestFaceToTerm_AllTypes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		face ast.Face
+	}{
+		{"FaceTop", ast.FaceTop{}},
+		{"FaceBot", ast.FaceBot{}},
+		{"FaceEq", ast.FaceEq{IVar: 0, IsOne: true}},
+		{"FaceAnd", ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}}},
+		{"FaceOr", ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := faceToTerm(tt.face)
+			if result == nil {
+				t.Errorf("faceToTerm should not return nil for %s", tt.name)
+			}
+		})
+	}
+}
+
+func TestFaceToTerm_Unknown(t *testing.T) {
+	t.Parallel()
+	// Unknown face type returns FaceBot as default
+	type customFace struct{ ast.Face }
+	result := faceToTerm(customFace{})
+	if _, ok := result.(ast.FaceBot); !ok {
+		t.Errorf("unknown face should return FaceBot, got %T", result)
+	}
+}
+
+// ============================================================================
+// simplifyFaceAndAST/simplifyFaceOrAST Tests
+// ============================================================================
+
+func TestSimplifyFaceAndAST_BotLeft(t *testing.T) {
+	t.Parallel()
+	result := simplifyFaceAndAST(ast.FaceBot{}, ast.FaceEq{IVar: 0, IsOne: true})
+	if _, ok := result.(ast.FaceBot); !ok {
+		t.Errorf("⊥ ∧ φ should be ⊥, got %T", result)
+	}
+}
+
+func TestSimplifyFaceAndAST_BotRight(t *testing.T) {
+	t.Parallel()
+	result := simplifyFaceAndAST(ast.FaceEq{IVar: 0, IsOne: true}, ast.FaceBot{})
+	if _, ok := result.(ast.FaceBot); !ok {
+		t.Errorf("φ ∧ ⊥ should be ⊥, got %T", result)
+	}
+}
+
+func TestSimplifyFaceAndAST_TopLeft(t *testing.T) {
+	t.Parallel()
+	right := ast.FaceEq{IVar: 1, IsOne: false}
+	result := simplifyFaceAndAST(ast.FaceTop{}, right)
+	if !reflect.DeepEqual(result, right) {
+		t.Errorf("⊤ ∧ φ should be φ, got %v", result)
+	}
+}
+
+func TestSimplifyFaceAndAST_TopRight(t *testing.T) {
+	t.Parallel()
+	left := ast.FaceEq{IVar: 2, IsOne: true}
+	result := simplifyFaceAndAST(left, ast.FaceTop{})
+	if !reflect.DeepEqual(result, left) {
+		t.Errorf("φ ∧ ⊤ should be φ, got %v", result)
+	}
+}
+
+func TestSimplifyFaceAndAST_Contradiction(t *testing.T) {
+	t.Parallel()
+	// (i=0) ∧ (i=1) = ⊥
+	result := simplifyFaceAndAST(
+		ast.FaceEq{IVar: 0, IsOne: false},
+		ast.FaceEq{IVar: 0, IsOne: true},
+	)
+	if _, ok := result.(ast.FaceBot); !ok {
+		t.Errorf("(i=0) ∧ (i=1) should be ⊥, got %T", result)
+	}
+}
+
+func TestSimplifyFaceAndAST_NoSimplification(t *testing.T) {
+	t.Parallel()
+	// (i=0) ∧ (j=1) - no simplification
+	left := ast.FaceEq{IVar: 0, IsOne: false}
+	right := ast.FaceEq{IVar: 1, IsOne: true}
+	result := simplifyFaceAndAST(left, right)
+	and, ok := result.(ast.FaceAnd)
+	if !ok {
+		t.Fatalf("expected FaceAnd, got %T", result)
+	}
+	if !reflect.DeepEqual(and.Left, left) || !reflect.DeepEqual(and.Right, right) {
+		t.Errorf("should preserve operands")
+	}
+}
+
+func TestSimplifyFaceOrAST_TopLeft(t *testing.T) {
+	t.Parallel()
+	result := simplifyFaceOrAST(ast.FaceTop{}, ast.FaceEq{IVar: 0, IsOne: true})
+	if _, ok := result.(ast.FaceTop); !ok {
+		t.Errorf("⊤ ∨ φ should be ⊤, got %T", result)
+	}
+}
+
+func TestSimplifyFaceOrAST_TopRight(t *testing.T) {
+	t.Parallel()
+	result := simplifyFaceOrAST(ast.FaceEq{IVar: 0, IsOne: true}, ast.FaceTop{})
+	if _, ok := result.(ast.FaceTop); !ok {
+		t.Errorf("φ ∨ ⊤ should be ⊤, got %T", result)
+	}
+}
+
+func TestSimplifyFaceOrAST_BotLeft(t *testing.T) {
+	t.Parallel()
+	right := ast.FaceEq{IVar: 1, IsOne: false}
+	result := simplifyFaceOrAST(ast.FaceBot{}, right)
+	if !reflect.DeepEqual(result, right) {
+		t.Errorf("⊥ ∨ φ should be φ, got %v", result)
+	}
+}
+
+func TestSimplifyFaceOrAST_BotRight(t *testing.T) {
+	t.Parallel()
+	left := ast.FaceEq{IVar: 2, IsOne: true}
+	result := simplifyFaceOrAST(left, ast.FaceBot{})
+	if !reflect.DeepEqual(result, left) {
+		t.Errorf("φ ∨ ⊥ should be φ, got %v", result)
+	}
+}
+
+func TestSimplifyFaceOrAST_Tautology(t *testing.T) {
+	t.Parallel()
+	// (i=0) ∨ (i=1) = ⊤
+	result := simplifyFaceOrAST(
+		ast.FaceEq{IVar: 0, IsOne: false},
+		ast.FaceEq{IVar: 0, IsOne: true},
+	)
+	if _, ok := result.(ast.FaceTop); !ok {
+		t.Errorf("(i=0) ∨ (i=1) should be ⊤, got %T", result)
+	}
+}
+
+func TestSimplifyFaceOrAST_NoSimplification(t *testing.T) {
+	t.Parallel()
+	// (i=0) ∨ (j=1) - no simplification
+	left := ast.FaceEq{IVar: 0, IsOne: false}
+	right := ast.FaceEq{IVar: 1, IsOne: true}
+	result := simplifyFaceOrAST(left, right)
+	or, ok := result.(ast.FaceOr)
+	if !ok {
+		t.Fatalf("expected FaceOr, got %T", result)
+	}
+	if !reflect.DeepEqual(or.Left, left) || !reflect.DeepEqual(or.Right, right) {
+		t.Errorf("should preserve operands")
+	}
+}
