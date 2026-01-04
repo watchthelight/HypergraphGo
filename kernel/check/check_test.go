@@ -688,3 +688,35 @@ func TestErrorKindString(t *testing.T) {
 		}
 	}
 }
+
+// TestNewCheckerWithPrimitives tests the convenience constructor.
+func TestNewCheckerWithPrimitives(t *testing.T) {
+	checker := NewCheckerWithPrimitives()
+	if checker == nil {
+		t.Fatal("NewCheckerWithPrimitives returned nil")
+	}
+
+	// Should have primitives like Nat, Bool, etc.
+	globals := checker.Globals()
+	if !globals.Has("Nat") {
+		t.Error("Should have Nat primitive")
+	}
+	if !globals.Has("Bool") {
+		t.Error("Should have Bool primitive")
+	}
+	if !globals.Has("zero") {
+		t.Error("Should have zero primitive")
+	}
+	if !globals.Has("true") {
+		t.Error("Should have true primitive")
+	}
+
+	// Should be able to synthesize types
+	ty, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "zero"})
+	if err != nil {
+		t.Fatalf("Failed to synth zero: %v", err)
+	}
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("zero should have type Nat, got %v", ty)
+	}
+}

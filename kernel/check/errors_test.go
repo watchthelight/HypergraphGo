@@ -368,3 +368,55 @@ func TestSpan_SingleChar(t *testing.T) {
 		t.Error("Span string is empty")
 	}
 }
+
+// ============================================================================
+// Cubical Error Constructor Tests
+// ============================================================================
+
+// TestErrNotAPath tests errNotAPath construction
+func TestErrNotAPath(t *testing.T) {
+	span := NewSpan("test.hott", 5, 1, 5, 10)
+	err := errNotAPath(span, "expected path type")
+
+	if err.Kind != ErrNotAFunction {
+		t.Errorf("Expected ErrNotAFunction (reused), got %v", err.Kind)
+	}
+	if err.Span != span {
+		t.Error("Span not preserved")
+	}
+	if err.Message != "expected path type" {
+		t.Errorf("Expected message 'expected path type', got '%s'", err.Message)
+	}
+}
+
+// TestErrPathEndpointMismatch tests errPathEndpointMismatch construction
+func TestErrPathEndpointMismatch(t *testing.T) {
+	span := NewSpan("test.hott", 10, 5, 10, 20)
+	err := errPathEndpointMismatch(span, "left endpoint mismatch")
+
+	if err.Kind != ErrTypeMismatch {
+		t.Errorf("Expected ErrTypeMismatch (reused), got %v", err.Kind)
+	}
+	if err.Span != span {
+		t.Error("Span not preserved")
+	}
+	if err.Message != "left endpoint mismatch" {
+		t.Errorf("Expected message 'left endpoint mismatch', got '%s'", err.Message)
+	}
+}
+
+// TestErrUnboundIVar tests errUnboundIVar construction
+func TestErrUnboundIVar(t *testing.T) {
+	span := NewSpan("test.hott", 15, 3, 15, 5)
+	err := errUnboundIVar(span, 7)
+
+	if err.Kind != ErrUnboundVariable {
+		t.Errorf("Expected ErrUnboundVariable (reused), got %v", err.Kind)
+	}
+	if err.Span != span {
+		t.Error("Span not preserved")
+	}
+	if err.Message != "unbound interval variable 7" {
+		t.Errorf("Expected 'unbound interval variable 7', got '%s'", err.Message)
+	}
+}

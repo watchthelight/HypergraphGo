@@ -2203,3 +2203,544 @@ func TestGlue_BotFaceStuck(t *testing.T) {
 		t.Error("Glue with ⊥ face should not reduce via that branch")
 	}
 }
+
+// ============================================================================
+// checkFace Edge Cases
+// ============================================================================
+
+// TestCheckFace_FaceTop tests FaceTop is always valid.
+func TestCheckFace_FaceTop(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// FaceTop should be valid
+	err := c.checkFace(ctx, NoSpan(), ast.FaceTop{})
+	if err != nil {
+		t.Errorf("FaceTop should be valid, got error: %v", err)
+	}
+}
+
+// TestCheckFace_FaceBot tests FaceBot is always valid.
+func TestCheckFace_FaceBot(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// FaceBot should be valid
+	err := c.checkFace(ctx, NoSpan(), ast.FaceBot{})
+	if err != nil {
+		t.Errorf("FaceBot should be valid, got error: %v", err)
+	}
+}
+
+// TestCheckFace_FaceEq_BoundIVar tests FaceEq with bound interval variable.
+func TestCheckFace_FaceEq_BoundIVar(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Push interval variable to context
+	ctx := makeTestContext(nil)
+
+	// FaceEq{IVar: 0} should be valid when ivar 0 is bound
+	err := c.checkFace(ctx, NoSpan(), ast.FaceEq{IVar: 0, IsOne: false})
+	if err != nil {
+		t.Errorf("FaceEq with bound IVar should be valid, got error: %v", err)
+	}
+}
+
+// TestCheckFace_FaceEq_UnboundIVar tests FaceEq with unbound interval variable.
+func TestCheckFace_FaceEq_UnboundIVar(t *testing.T) {
+	c := NewChecker(nil)
+	// Don't push any interval variables
+	ctx := makeTestContext(nil)
+
+	// FaceEq{IVar: 0} should fail when no ivars are bound
+	err := c.checkFace(ctx, NoSpan(), ast.FaceEq{IVar: 0, IsOne: false})
+	if err == nil {
+		t.Error("FaceEq with unbound IVar should produce error")
+	}
+}
+
+// TestCheckFace_FaceAnd tests nested FaceAnd.
+func TestCheckFace_FaceAnd(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // i
+	c.PushIVar() // j
+	ctx := makeTestContext(nil)
+
+	// (i = 0) ∧ (j = 1) should be valid
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	err := c.checkFace(ctx, NoSpan(), face)
+	if err != nil {
+		t.Errorf("FaceAnd with valid sub-faces should be valid, got error: %v", err)
+	}
+}
+
+// TestCheckFace_FaceOr tests nested FaceOr.
+func TestCheckFace_FaceOr(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar()
+	ctx := makeTestContext(nil)
+
+	// (i = 0) ∨ (i = 1) should be valid
+	face := ast.FaceOr{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 0, IsOne: true},
+	}
+	err := c.checkFace(ctx, NoSpan(), face)
+	if err != nil {
+		t.Errorf("FaceOr should be valid, got error: %v", err)
+	}
+}
+
+// TestCheckFace_FaceAnd_InvalidLeft tests FaceAnd with invalid left.
+func TestCheckFace_FaceAnd_InvalidLeft(t *testing.T) {
+	c := NewChecker(nil)
+	// No ivars bound
+	ctx := makeTestContext(nil)
+
+	// (unbound ivar) ∧ ⊤ should fail on left
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false}, // Unbound
+		Right: ast.FaceTop{},
+	}
+	err := c.checkFace(ctx, NoSpan(), face)
+	if err == nil {
+		t.Error("FaceAnd with invalid left should produce error")
+	}
+}
+
+// TestCheckFace_FaceOr_InvalidRight tests FaceOr with invalid right.
+func TestCheckFace_FaceOr_InvalidRight(t *testing.T) {
+	c := NewChecker(nil)
+	// No ivars bound
+	ctx := makeTestContext(nil)
+
+	// ⊤ ∨ (unbound ivar) should fail on right
+	face := ast.FaceOr{
+		Left:  ast.FaceTop{},
+		Right: ast.FaceEq{IVar: 0, IsOne: false}, // Unbound
+	}
+	err := c.checkFace(ctx, NoSpan(), face)
+	if err == nil {
+		t.Error("FaceOr with invalid right should produce error")
+	}
+}
+
+// TestCheckFace_Nil tests nil face is valid.
+func TestCheckFace_Nil(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	err := c.checkFace(ctx, NoSpan(), nil)
+	if err != nil {
+		t.Errorf("nil face should be valid, got error: %v", err)
+	}
+}
+
+// ============================================================================
+// PathApp Edge Cases
+// ============================================================================
+
+// TestSynthPathApp_I0Endpoint tests path applied at i0 gives the type family result.
+func TestSynthPathApp_I0Endpoint(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}, ast.Sort{U: 0}})
+
+	// p : Path Type1 Type0 Type0 (type family is Type1, endpoints are Type0)
+	// p @ i0 : Type1 (the type family applied to i0)
+	pathType := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	c.globals.AddAxiom("p", pathType)
+
+	papp := ast.PathApp{
+		P: ast.Global{Name: "p"},
+		R: ast.I0{},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), papp)
+	if err != nil {
+		t.Fatalf("PathApp @ i0 synthesis failed: %v", err)
+	}
+
+	// Should be Type1 (the type family A)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthPathApp_I1Endpoint tests path applied at i1 gives the type family result.
+func TestSynthPathApp_I1Endpoint(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// p : Path Type1 Type0 Type0
+	pathType := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	c.globals.AddAxiom("p", pathType)
+
+	papp := ast.PathApp{
+		P: ast.Global{Name: "p"},
+		R: ast.I1{},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), papp)
+	if err != nil {
+		t.Fatalf("PathApp @ i1 synthesis failed: %v", err)
+	}
+
+	// Should be Type1 (the type family A)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthPathApp_IVar tests path applied at interval variable.
+func TestSynthPathApp_IVar(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Push i
+	ctx := makeTestContext(nil)
+
+	// p : Path Type1 Type0 Type0
+	pathType := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	c.globals.AddAxiom("p", pathType)
+
+	papp := ast.PathApp{
+		P: ast.Global{Name: "p"},
+		R: ast.IVar{Ix: 0},
+	}
+
+	ty, err := c.Synth(ctx, NoSpan(), papp)
+	if err != nil {
+		t.Fatalf("PathApp @ IVar synthesis failed: %v", err)
+	}
+
+	// Should be Type1 (the type family A)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthPathApp_NotAPath tests applying non-path term.
+func TestSynthPathApp_NotAPath(t *testing.T) {
+	c := NewChecker(NewGlobalEnvWithPrimitives())
+	ctx := makeTestContext(nil)
+
+	// x : Nat (not a path)
+	c.globals.AddAxiom("x", ast.Global{Name: "Nat"})
+
+	// x @ i0 should fail
+	papp := ast.PathApp{
+		P: ast.Global{Name: "x"},
+		R: ast.I0{},
+	}
+
+	_, err := c.Synth(ctx, NoSpan(), papp)
+	if err == nil {
+		t.Error("PathApp on non-path should produce error")
+	}
+}
+
+// ============================================================================
+// PathLam Checking Edge Cases
+// ============================================================================
+
+// TestCheckPathLam_ValidConstant tests checking PathLam with constant body.
+func TestCheckPathLam_ValidConstant(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// <i> Type0 should check against Path Type1 Type0 Type0
+	plam := ast.PathLam{Binder: "i", Body: ast.Sort{U: 0}}
+	expectedTy := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	err := c.Check(ctx, NoSpan(), plam, expectedTy)
+	if err != nil {
+		t.Fatalf("PathLam check failed: %v", err)
+	}
+}
+
+// TestCheckPathLam_WrongLeftEndpoint tests PathLam with wrong left endpoint.
+func TestCheckPathLam_WrongLeftEndpoint(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// <i> Type0 should NOT check against Path Type1 Type1 Type0
+	plam := ast.PathLam{Binder: "i", Body: ast.Sort{U: 0}}
+	expectedTy := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 1}, Y: ast.Sort{U: 0}}
+
+	err := c.Check(ctx, NoSpan(), plam, expectedTy)
+	if err == nil {
+		t.Error("PathLam with wrong left endpoint should fail")
+	}
+}
+
+// TestCheckPathLam_WrongRightEndpoint tests PathLam with wrong right endpoint.
+func TestCheckPathLam_WrongRightEndpoint(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// <i> Type0 should NOT check against Path Type1 Type0 Type1
+	plam := ast.PathLam{Binder: "i", Body: ast.Sort{U: 0}}
+	expectedTy := ast.Path{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 1}}
+
+	err := c.Check(ctx, NoSpan(), plam, expectedTy)
+	if err == nil {
+		t.Error("PathLam with wrong right endpoint should fail")
+	}
+}
+
+// TestCheckPathLam_AgainstPathP tests checking PathLam against PathP type.
+func TestCheckPathLam_AgainstPathP(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// <i> Type0 should check against PathP Type1 Type0 Type0
+	plam := ast.PathLam{Binder: "i", Body: ast.Sort{U: 0}}
+	expectedTy := ast.PathP{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	err := c.Check(ctx, NoSpan(), plam, expectedTy)
+	if err != nil {
+		t.Fatalf("PathLam check against PathP failed: %v", err)
+	}
+}
+
+// ============================================================================
+// Cubical Type Synthesis Tests
+// ============================================================================
+
+// TestSynthInterval tests Interval type synthesis.
+func TestSynthInterval(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.Interval{})
+	if err != nil {
+		t.Fatalf("Interval synthesis failed: %v", err)
+	}
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthI0 tests i0 synthesis.
+func TestSynthI0(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.I0{})
+	if err != nil {
+		t.Fatalf("I0 synthesis failed: %v", err)
+	}
+	if _, ok := ty.(ast.Interval); !ok {
+		t.Errorf("Expected Interval, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthI1 tests i1 synthesis.
+func TestSynthI1(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.I1{})
+	if err != nil {
+		t.Fatalf("I1 synthesis failed: %v", err)
+	}
+	if _, ok := ty.(ast.Interval); !ok {
+		t.Errorf("Expected Interval, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthIVar_Valid tests valid IVar synthesis.
+func TestSynthIVar_Valid(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Push one interval variable
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.IVar{Ix: 0})
+	if err != nil {
+		t.Fatalf("IVar synthesis failed: %v", err)
+	}
+	if _, ok := ty.(ast.Interval); !ok {
+		t.Errorf("Expected Interval, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthIVar_Unbound tests unbound IVar synthesis.
+func TestSynthIVar_Unbound(t *testing.T) {
+	c := NewChecker(nil)
+	// No interval variables pushed
+	ctx := makeTestContext(nil)
+
+	_, err := c.Synth(ctx, NoSpan(), ast.IVar{Ix: 0})
+	if err == nil {
+		t.Error("Unbound IVar should produce error")
+	}
+}
+
+// TestSynthFaceTop tests FaceTop synthesis.
+func TestSynthFaceTop(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.FaceTop{})
+	if err != nil {
+		t.Fatalf("FaceTop synthesis failed: %v", err)
+	}
+	// Should be Face type
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Face" {
+		t.Errorf("Expected Face, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthFaceBot tests FaceBot synthesis.
+func TestSynthFaceBot(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.FaceBot{})
+	if err != nil {
+		t.Fatalf("FaceBot synthesis failed: %v", err)
+	}
+	// Should be Face type
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Face" {
+		t.Errorf("Expected Face, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthFaceEq_Valid tests valid FaceEq synthesis.
+func TestSynthFaceEq_Valid(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar()
+	ctx := makeTestContext(nil)
+
+	ty, err := c.Synth(ctx, NoSpan(), ast.FaceEq{IVar: 0, IsOne: false})
+	if err != nil {
+		t.Fatalf("FaceEq synthesis failed: %v", err)
+	}
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Face" {
+		t.Errorf("Expected Face, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthFaceEq_Unbound tests FaceEq with unbound IVar.
+func TestSynthFaceEq_Unbound(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	_, err := c.Synth(ctx, NoSpan(), ast.FaceEq{IVar: 0, IsOne: false})
+	if err == nil {
+		t.Error("FaceEq with unbound IVar should produce error")
+	}
+}
+
+// TestSynthFaceAnd tests FaceAnd synthesis.
+func TestSynthFaceAnd(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar()
+	c.PushIVar()
+	ctx := makeTestContext(nil)
+
+	face := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 1, IsOne: true},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), face)
+	if err != nil {
+		t.Fatalf("FaceAnd synthesis failed: %v", err)
+	}
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Face" {
+		t.Errorf("Expected Face, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthFaceOr tests FaceOr synthesis.
+func TestSynthFaceOr(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar()
+	ctx := makeTestContext(nil)
+
+	face := ast.FaceOr{
+		Left:  ast.FaceTop{},
+		Right: ast.FaceBot{},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), face)
+	if err != nil {
+		t.Fatalf("FaceOr synthesis failed: %v", err)
+	}
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Face" {
+		t.Errorf("Expected Face, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthPartial tests Partial type synthesis.
+func TestSynthPartial(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	partial := ast.Partial{
+		Phi: ast.FaceTop{},
+		A:   ast.Sort{U: 0}, // Type0 : Type1
+	}
+	ty, err := c.Synth(ctx, NoSpan(), partial)
+	if err != nil {
+		t.Fatalf("Partial synthesis failed: %v", err)
+	}
+	// Partial φ Type0 : Type1 (since Type0 : Type1)
+	if sort, ok := ty.(ast.Sort); !ok {
+		t.Errorf("Expected Sort, got %v", ast.Sprint(ty))
+	} else if sort.U < 0 || sort.U > 2 {
+		t.Errorf("Unexpected universe level %d", sort.U)
+	}
+}
+
+// TestSynthTransport tests Transport synthesis.
+func TestSynthTransport(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// transport (λi. Type0) x where x : Type0
+	// transport preserves the element type
+	tr := ast.Transport{
+		A: ast.Sort{U: 0}, // constant type family (Type0)
+		E: ast.Var{Ix: 0}, // x : Type0
+	}
+	ty, err := c.Synth(ctx, NoSpan(), tr)
+	if err != nil {
+		t.Fatalf("Transport synthesis failed: %v", err)
+	}
+	// Result type should be Type0 (the type family)
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthSystem_Empty tests empty System fails to infer.
+func TestSynthSystem_Empty(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	sys := ast.System{Branches: nil}
+	_, err := c.Synth(ctx, NoSpan(), sys)
+	// Empty system should fail - cannot infer type
+	if err == nil {
+		t.Error("Empty System should fail to synthesize (needs annotation)")
+	}
+}
+
+// TestSynthSystem_SingleBranch tests System with one branch.
+func TestSynthSystem_SingleBranch(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	sys := ast.System{
+		Branches: []ast.SystemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Sort{U: 0}},
+		},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), sys)
+	if err != nil {
+		t.Fatalf("System synthesis failed: %v", err)
+	}
+	if ty == nil {
+		t.Error("System should have a type")
+	}
+}

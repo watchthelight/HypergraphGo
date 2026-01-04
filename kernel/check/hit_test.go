@@ -278,7 +278,13 @@ func TestContainsHIT(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "App containing HIT",
+			name:    "App containing HIT in function",
+			term:    ast.App{T: ast.Global{Name: "S1"}, U: ast.Global{Name: "x"}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "App containing HIT in argument",
 			term:    ast.App{T: ast.Global{Name: "List"}, U: ast.Global{Name: "S1"}},
 			hitName: "S1",
 			want:    true,
@@ -290,7 +296,31 @@ func TestContainsHIT(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "Path with HIT",
+			name:    "Pi with HIT in codomain",
+			term:    ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Global{Name: "S1"}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "Lam with HIT in body",
+			term:    ast.Lam{Binder: "x", Body: ast.Global{Name: "S1"}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "Lam without HIT",
+			term:    ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}},
+			hitName: "S1",
+			want:    false,
+		},
+		{
+			name:    "PathLam with HIT in body",
+			term:    ast.PathLam{Body: ast.Global{Name: "S1"}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "Path with HIT in A",
 			term: ast.Path{
 				A: ast.Global{Name: "S1"},
 				X: ast.Global{Name: "base"},
@@ -299,6 +329,70 @@ func TestContainsHIT(t *testing.T) {
 			hitName: "S1",
 			want:    true,
 		},
+		{
+			name: "Path with HIT in X",
+			term: ast.Path{
+				A: ast.Sort{U: 0},
+				X: ast.Global{Name: "S1"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "Path with HIT in Y",
+			term: ast.Path{
+				A: ast.Sort{U: 0},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "S1"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "PathP with HIT in A",
+			term: ast.PathP{
+				A: ast.Global{Name: "S1"},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "PathP with HIT in X",
+			term: ast.PathP{
+				A: ast.Sort{U: 0},
+				X: ast.Global{Name: "S1"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "PathApp with HIT in P",
+			term:    ast.PathApp{P: ast.Global{Name: "S1"}, R: ast.I0{}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "PathApp with HIT in R (unusual but valid)",
+			term:    ast.PathApp{P: ast.Global{Name: "x"}, R: ast.Global{Name: "S1"}},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "Sort never contains HIT",
+			term:    ast.Sort{U: 0},
+			hitName: "S1",
+			want:    false,
+		},
+		{
+			name:    "Var never contains HIT",
+			term:    ast.Var{Ix: 0},
+			hitName: "S1",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -306,6 +400,90 @@ func TestContainsHIT(t *testing.T) {
 			got := containsHIT(tt.term, tt.hitName)
 			if got != tt.want {
 				t.Errorf("containsHIT() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsPathResult(t *testing.T) {
+	tests := []struct {
+		name    string
+		term    ast.Term
+		hitName string
+		want    bool
+	}{
+		{
+			name: "Path with HIT in A",
+			term: ast.Path{
+				A: ast.Global{Name: "S1"},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "Path without HIT",
+			term: ast.Path{
+				A: ast.Global{Name: "Nat"},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    false,
+		},
+		{
+			name: "PathP with HIT in A",
+			term: ast.PathP{
+				A: ast.Global{Name: "S1"},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name: "PathP without HIT",
+			term: ast.PathP{
+				A: ast.Global{Name: "Nat"},
+				X: ast.Global{Name: "x"},
+				Y: ast.Global{Name: "y"},
+			},
+			hitName: "S1",
+			want:    false,
+		},
+		{
+			name: "App with Path inside",
+			term: ast.App{
+				T: ast.Path{
+					A: ast.Global{Name: "S1"},
+					X: ast.Global{Name: "x"},
+					Y: ast.Global{Name: "y"},
+				},
+				U: ast.Global{Name: "arg"},
+			},
+			hitName: "S1",
+			want:    true,
+		},
+		{
+			name:    "Global is not a path result",
+			term:    ast.Global{Name: "S1"},
+			hitName: "S1",
+			want:    false,
+		},
+		{
+			name:    "Sort is not a path result",
+			term:    ast.Sort{U: 0},
+			hitName: "S1",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPathResult(tt.term, tt.hitName)
+			if got != tt.want {
+				t.Errorf("isPathResult() = %v, want %v", got, tt.want)
 			}
 		})
 	}
