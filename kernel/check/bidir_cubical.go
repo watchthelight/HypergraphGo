@@ -604,13 +604,19 @@ func synthComp(c *Checker, context *tyctx.Ctx, span Span, comp ast.Comp) (ast.Te
 		return nil, checkErr, true
 	}
 
-	// Check tube[i0/i] = base when φ[i0/i] holds
+	// Check tube[i0/i] = base when φ[i0/i] is satisfiable
 	// This ensures the tube agrees with the base at the starting point
-	// Note: This check should really be conditional on φ[i0/i] being satisfiable
-	// For now, we perform the check unconditionally but don't fail on mismatch
-	// since the face might not be satisfiable at i0
-	tubeAtI0 := subst.ISubst(0, ast.I0{}, comp.Tube)
-	_ = c.conv(tubeAtI0, comp.Base) // Agreement check (non-fatal for now)
+	phiAtI0 := subst.ISubstFace(0, ast.I0{}, comp.Phi)
+	if !faceIsBot(phiAtI0) {
+		tubeAtI0 := subst.ISubst(0, ast.I0{}, comp.Tube)
+		if !c.conv(tubeAtI0, comp.Base) {
+			return nil, &TypeError{
+				Span:    span,
+				Kind:    ErrTypeMismatch,
+				Message: "comp: tube[i0/i] must equal base when φ[i0/i] holds",
+			}, true
+		}
+	}
 
 	// Result type is A[i1/i]
 	return subst.ISubst(0, ast.I1{}, comp.A), nil, true
@@ -644,10 +650,18 @@ func synthHComp(c *Checker, context *tyctx.Ctx, span Span, hcomp ast.HComp) (ast
 		return nil, checkErr, true
 	}
 
-	// Check tube[i0/i] = base when φ[i0/i] holds
-	// Note: This check should be conditional on φ[i0/i] being satisfiable
-	tubeAtI0 := subst.ISubst(0, ast.I0{}, hcomp.Tube)
-	_ = c.conv(tubeAtI0, hcomp.Base) // Agreement check (non-fatal for now)
+	// Check tube[i0/i] = base when φ[i0/i] is satisfiable
+	phiAtI0 := subst.ISubstFace(0, ast.I0{}, hcomp.Phi)
+	if !faceIsBot(phiAtI0) {
+		tubeAtI0 := subst.ISubst(0, ast.I0{}, hcomp.Tube)
+		if !c.conv(tubeAtI0, hcomp.Base) {
+			return nil, &TypeError{
+				Span:    span,
+				Kind:    ErrTypeMismatch,
+				Message: "hcomp: tube[i0/i] must equal base when φ[i0/i] holds",
+			}, true
+		}
+	}
 
 	// Result type is A (same as input, since A is constant)
 	return hcomp.A, nil, true
@@ -682,10 +696,18 @@ func synthFill(c *Checker, context *tyctx.Ctx, span Span, fill ast.Fill) (ast.Te
 		return nil, checkErr, true
 	}
 
-	// Check tube[i0/i] = base when φ[i0/i] holds
-	// Note: This check should be conditional on φ[i0/i] being satisfiable
-	tubeAtI0 := subst.ISubst(0, ast.I0{}, fill.Tube)
-	_ = c.conv(tubeAtI0, fill.Base) // Agreement check (non-fatal for now)
+	// Check tube[i0/i] = base when φ[i0/i] is satisfiable
+	phiAtI0 := subst.ISubstFace(0, ast.I0{}, fill.Phi)
+	if !faceIsBot(phiAtI0) {
+		tubeAtI0 := subst.ISubst(0, ast.I0{}, fill.Tube)
+		if !c.conv(tubeAtI0, fill.Base) {
+			return nil, &TypeError{
+				Span:    span,
+				Kind:    ErrTypeMismatch,
+				Message: "fill: tube[i0/i] must equal base when φ[i0/i] holds",
+			}, true
+		}
+	}
 
 	// Fill produces a value in A (the type family itself, since fill @ j has type A[j/i])
 	// For now, return the type family - caller should apply to interval

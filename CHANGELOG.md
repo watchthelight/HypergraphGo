@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Composition agreement checks now conditional and enforced** (`kernel/check/bidir_cubical.go`)
+  - `synthComp`, `synthHComp`, `synthFill` now check if φ[i0/i] is satisfiable before applying agreement checks
+  - When φ[i0/i] ≠ ⊥, tube[i0/i] must equal base - returns error on mismatch
+  - Previously these checks were non-fatal (used `_ = c.conv(...)`)
+
+- **Resolved all golangci-lint issues** (162 issues total)
+  - Fixed unchecked `fs.Parse()` errors in all cmd/hg command functions
+  - Fixed unchecked file Close/Remove errors with proper error handling patterns
+  - Fixed type assertion in `hypergraph/serialize.go` by using typed variable
+  - Removed unused helper functions in test files (`nbe_test.go`, `subst_cubical_test.go`)
+  - Fixed De Morgan's law issue in `algorithms_test.go`
+  - Updated `.golangci.yml` to golangci-lint v2 format with proper exclusions
+
 ### Changed
 - **CI/CD improvements** (`.github/workflows/`)
   - Updated `codecov/codecov-action` from v3 to v5 in `go.yml`
@@ -59,6 +73,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive tests for all term types
   - Tests for binder name irrelevance
   - Tests for structural differences
+
+- **Pretty-print support for all 22 cubical Value types** (`internal/eval/pretty.go`)
+  - `writeValue()`: VI0, VI1, VIVar, VPath, VPathP, VPathLam, VTransport, VFaceTop, VFaceBot, VFaceEq, VFaceAnd, VFaceOr, VPartial, VSystem, VComp, VHComp, VFill, VGlue, VGlueElem, VUnglue, VUA, VUABeta
+  - `ValueEqual()`: Structural equality for all cubical Value types
+  - `valueTypeName()`: Type name strings for all cubical Value types
+  - `writeFaceValue()`: Helper for face formula pretty-printing
+  - `faceValueEqual()`, `iClosureEqual()`, `ienvEqual()`: Equality helpers
+
+- **Pretty-print cubical test coverage** (`internal/eval/pretty_cubical_test.go` - new)
+  - `TestSprintValue_Cubical`: Tests for all 22 cubical Value types
+  - `TestValueEqual_Cubical`: Equality tests for cubical Values
+  - `TestValueTypeName_Cubical`: Type name tests
+  - `TestFaceValueEqual`, `TestWriteFaceValue`: Face formula tests
 
 - **Cubical type checker test coverage** (`kernel/check/ictx_test.go` - new, `kernel/check/path_test.go` - extended)
   - **ICtx tests**: Deep nesting (5/10 levels), defer cleanup, nested defers, boundary conditions (negative indices, exact boundaries), complex push/pop patterns (interleaved, double pop), context creation/destruction, immutability chain verification

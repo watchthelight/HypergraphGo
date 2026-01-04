@@ -1544,8 +1544,7 @@ func TestISubstFace_FaceOr(t *testing.T) {
 
 func TestISubstFace_Unknown(t *testing.T) {
 	t.Parallel()
-	// Unknown face type returns unchanged
-	type CustomFace struct{}
+	// Unknown face type (nil) returns unchanged
 	var custom ast.Face = nil // Edge case: type assertion handles unknown
 	result := ISubstFace(0, ast.I0{}, custom)
 	if result != custom {

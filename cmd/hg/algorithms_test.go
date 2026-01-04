@@ -43,7 +43,9 @@ func TestCmdHittingSet(t *testing.T) {
 		// A valid hitting set could be {b} (covers both edges)
 		// or {a,c} (a covers e1, c covers e2)
 		// Most greedy algorithms will pick b since it has degree 2
-		if !strings.Contains(output, "b") && !(strings.Contains(output, "a") && strings.Contains(output, "c")) {
+		containsB := strings.Contains(output, "b")
+		containsAC := strings.Contains(output, "a") && strings.Contains(output, "c")
+		if !containsB && !containsAC {
 			t.Errorf("hitting set should cover all edges, got: %s", output)
 		}
 	})
@@ -129,7 +131,7 @@ func TestCmdTransversals(t *testing.T) {
 
 		start := time.Now()
 		captureStdout(t, func() {
-			cmdTransversals([]string{"-f", path, "-timeout", "100ms"})
+			_ = cmdTransversals([]string{"-f", path, "-timeout", "100ms"})
 		})
 		elapsed := time.Since(start)
 
@@ -211,10 +213,9 @@ func TestCmdColoring(t *testing.T) {
 
 		// In a valid coloring, vertices sharing an edge should have different colors
 		// This is difficult to verify without knowing the edge structure, so just
-		// verify the output format is correct
-		if len(colors) == 0 {
-			// Can't parse, but that's OK - we're mostly testing the command runs
-		}
+		// verify the output format is correct (colors map may be empty if parsing fails,
+		// but that's OK - we're mostly testing the command runs)
+		_ = colors // Use colors to avoid unused variable warning
 	})
 
 	t.Run("missing_input_file", func(t *testing.T) {

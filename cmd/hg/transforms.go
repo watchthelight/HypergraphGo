@@ -12,7 +12,9 @@ func cmdDual(args []string) error {
 	fs := flag.NewFlagSet("dual", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	output := fs.String("o", "", "output file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *output == "" {
 		return fmt.Errorf("missing required flags: -f FILE -o OUTPUT")
@@ -37,7 +39,9 @@ func cmdTwoSection(args []string) error {
 	fs := flag.NewFlagSet("two-section", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	output := fs.String("o", "", "output file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *output == "" {
 		return fmt.Errorf("missing required flags: -f FILE -o OUTPUT")
@@ -56,7 +60,9 @@ func cmdLineGraph(args []string) error {
 	fs := flag.NewFlagSet("line-graph", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	output := fs.String("o", "", "output file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *output == "" {
 		return fmt.Errorf("missing required flags: -f FILE -o OUTPUT")
@@ -72,7 +78,7 @@ func cmdLineGraph(args []string) error {
 }
 
 // saveSimpleGraphString saves a simple graph (with string vertices) to JSON.
-func saveSimpleGraphString(vertices []string, edges []struct{ From, To string }, filename string) error {
+func saveSimpleGraphString(vertices []string, edges []struct{ From, To string }, filename string) (err error) {
 	verts := make([]string, len(vertices))
 	copy(verts, vertices)
 	slices.Sort(verts)
@@ -108,7 +114,11 @@ func saveSimpleGraphString(vertices []string, edges []struct{ From, To string },
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	enc := json.NewEncoder(f)
 	return enc.Encode(data)

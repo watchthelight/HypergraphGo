@@ -11,7 +11,9 @@ func cmdBFS(args []string) error {
 	fs := flag.NewFlagSet("bfs", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	start := fs.String("start", "", "starting vertex")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *start == "" {
 		return fmt.Errorf("missing required flags: -f FILE -start VERTEX")
@@ -35,7 +37,9 @@ func cmdDFS(args []string) error {
 	fs := flag.NewFlagSet("dfs", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	start := fs.String("start", "", "starting vertex")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *start == "" {
 		return fmt.Errorf("missing required flags: -f FILE -start VERTEX")
@@ -58,7 +62,9 @@ func cmdDFS(args []string) error {
 func cmdComponents(args []string) error {
 	fs := flag.NewFlagSet("components", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")

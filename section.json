@@ -1,0 +1,1 @@
+{"vertices": ["A","B","C"], "edges": [{"from":"A","to":"B"},{"from":"B","to":"C"},{"from":"A","to":"C"}]}

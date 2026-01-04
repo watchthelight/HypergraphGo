@@ -12,17 +12,18 @@ import (
 func (h *Hypergraph[V]) SaveJSON(w io.Writer) error {
 	vertices := h.Vertices()
 	slices.Sort(vertices)
-	data := map[string]interface{}{
-		"vertices": vertices,
-		"edges":    make(map[string][]V),
-	}
+	edges := make(map[string][]V)
 	for id, edge := range h.edges {
 		members := make([]V, 0)
 		for v := range edge.Set {
 			members = append(members, v)
 		}
 		slices.Sort(members)
-		data["edges"].(map[string][]V)[id] = members
+		edges[id] = members
+	}
+	data := map[string]interface{}{
+		"vertices": vertices,
+		"edges":    edges,
 	}
 	return json.NewEncoder(w).Encode(data)
 }

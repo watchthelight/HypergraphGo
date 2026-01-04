@@ -12,7 +12,9 @@ import (
 func cmdInfo(args []string) error {
 	fs := flag.NewFlagSet("info", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -32,7 +34,9 @@ func cmdInfo(args []string) error {
 func cmdNew(args []string) error {
 	fs := flag.NewFlagSet("new", flag.ExitOnError)
 	output := fs.String("o", "", "output file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *output == "" {
 		return fmt.Errorf("missing required flag: -o FILE")
@@ -45,7 +49,9 @@ func cmdNew(args []string) error {
 func cmdValidate(args []string) error {
 	fs := flag.NewFlagSet("validate", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -65,7 +71,9 @@ func cmdAddVertex(args []string) error {
 	file := fs.String("f", "", "input hypergraph JSON file")
 	vertex := fs.String("v", "", "vertex to add")
 	output := fs.String("o", "", "output file (default: modify in-place)")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *vertex == "" {
 		return fmt.Errorf("missing required flags: -f FILE -v VERTEX")
@@ -90,7 +98,9 @@ func cmdRemoveVertex(args []string) error {
 	file := fs.String("f", "", "input hypergraph JSON file")
 	vertex := fs.String("v", "", "vertex to remove")
 	output := fs.String("o", "", "output file (default: modify in-place)")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *vertex == "" {
 		return fmt.Errorf("missing required flags: -f FILE -v VERTEX")
@@ -117,7 +127,9 @@ func cmdHasVertex(args []string) error {
 	fs := flag.NewFlagSet("has-vertex", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	vertex := fs.String("v", "", "vertex to check")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *vertex == "" {
 		return fmt.Errorf("missing required flags: -f FILE -v VERTEX")
@@ -142,7 +154,9 @@ func cmdAddEdge(args []string) error {
 	edgeID := fs.String("id", "", "edge ID")
 	members := fs.String("m", "", "comma-separated member vertices")
 	output := fs.String("o", "", "output file (default: modify in-place)")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *edgeID == "" || *members == "" {
 		return fmt.Errorf("missing required flags: -f FILE -id ID -m MEMBERS")
@@ -174,7 +188,9 @@ func cmdRemoveEdge(args []string) error {
 	file := fs.String("f", "", "input hypergraph JSON file")
 	edgeID := fs.String("id", "", "edge ID to remove")
 	output := fs.String("o", "", "output file (default: modify in-place)")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *edgeID == "" {
 		return fmt.Errorf("missing required flags: -f FILE -id ID")
@@ -201,7 +217,9 @@ func cmdHasEdge(args []string) error {
 	fs := flag.NewFlagSet("has-edge", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	edgeID := fs.String("id", "", "edge ID to check")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *edgeID == "" {
 		return fmt.Errorf("missing required flags: -f FILE -id ID")
@@ -223,7 +241,9 @@ func cmdHasEdge(args []string) error {
 func cmdVertices(args []string) error {
 	fs := flag.NewFlagSet("vertices", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -245,7 +265,9 @@ func cmdVertices(args []string) error {
 func cmdEdges(args []string) error {
 	fs := flag.NewFlagSet("edges", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -270,7 +292,9 @@ func cmdDegree(args []string) error {
 	fs := flag.NewFlagSet("degree", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	vertex := fs.String("v", "", "vertex")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *vertex == "" {
 		return fmt.Errorf("missing required flags: -f FILE -v VERTEX")
@@ -292,7 +316,9 @@ func cmdEdgeSize(args []string) error {
 	fs := flag.NewFlagSet("edge-size", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	edgeID := fs.String("id", "", "edge ID")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *edgeID == "" {
 		return fmt.Errorf("missing required flags: -f FILE -id ID")
@@ -315,7 +341,9 @@ func cmdCopy(args []string) error {
 	fs := flag.NewFlagSet("copy", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
 	output := fs.String("o", "", "output file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" || *output == "" {
 		return fmt.Errorf("missing required flags: -f FILE -o OUTPUT")

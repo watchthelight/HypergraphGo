@@ -227,7 +227,7 @@ func TestConstructorInfo_NonRecursive(t *testing.T) {
 		RecursiveIdx: nil,
 	}
 
-	if info.RecursiveIdx != nil && len(info.RecursiveIdx) > 0 {
+	if len(info.RecursiveIdx) > 0 {
 		t.Error("Non-recursive constructor should have empty RecursiveIdx")
 	}
 }

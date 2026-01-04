@@ -12,7 +12,9 @@ import (
 func cmdHittingSet(args []string) error {
 	fs := flag.NewFlagSet("hitting-set", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -34,7 +36,9 @@ func cmdTransversals(args []string) error {
 	file := fs.String("f", "", "input hypergraph JSON file")
 	max := fs.Int("max", 100, "maximum number of transversals")
 	timeout := fs.Duration("timeout", 10*time.Second, "maximum time")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -60,7 +64,9 @@ func cmdTransversals(args []string) error {
 func cmdColoring(args []string) error {
 	fs := flag.NewFlagSet("coloring", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")
@@ -86,7 +92,9 @@ func cmdColoring(args []string) error {
 func cmdIncidence(args []string) error {
 	fs := flag.NewFlagSet("incidence", flag.ExitOnError)
 	file := fs.String("f", "", "input hypergraph JSON file")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	if *file == "" {
 		return fmt.Errorf("missing required flag: -f FILE")

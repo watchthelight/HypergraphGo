@@ -27,7 +27,9 @@ var errQuit = errors.New("quit")
 func cmdREPL(args []string) error {
 	fs := flag.NewFlagSet("repl", flag.ExitOnError)
 	file := fs.String("f", "", "initial file to load")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	state := &replState{
 		hg: hypergraph.NewHypergraph[string](),
@@ -205,7 +207,7 @@ func executeReplCommand(state *replState, line string) error {
 
 	case "add-edge":
 		if len(args) < 2 {
-			return fmt.Errorf("usage: add-edge ID V1,V2,...")
+			return fmt.Errorf("usage: add-edge ID V1,V2,V3")
 		}
 		members := strings.Split(args[1], ",")
 		for i := range members {

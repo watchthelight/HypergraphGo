@@ -74,6 +74,147 @@ func writeValue(b *bytes.Buffer, v Value) {
 		writeValue(b, val.X)
 		b.WriteString(")")
 
+	// --- Cubical Values ---
+
+	case VI0:
+		b.WriteString("i0")
+
+	case VI1:
+		b.WriteString("i1")
+
+	case VIVar:
+		b.WriteString("i{")
+		b.WriteString(strconv.Itoa(val.Level))
+		b.WriteString("}")
+
+	case VPath:
+		b.WriteString("(Path ")
+		writeValue(b, val.A)
+		b.WriteString(" ")
+		writeValue(b, val.X)
+		b.WriteString(" ")
+		writeValue(b, val.Y)
+		b.WriteString(")")
+
+	case VPathP:
+		b.WriteString("(PathP <closure> ")
+		writeValue(b, val.X)
+		b.WriteString(" ")
+		writeValue(b, val.Y)
+		b.WriteString(")")
+
+	case VPathLam:
+		b.WriteString("(<_> <closure>)")
+
+	case VTransport:
+		b.WriteString("(transport <closure> ")
+		writeValue(b, val.E)
+		b.WriteString(")")
+
+	case VFaceTop:
+		b.WriteString("⊤")
+
+	case VFaceBot:
+		b.WriteString("⊥")
+
+	case VFaceEq:
+		b.WriteString("(i{")
+		b.WriteString(strconv.Itoa(val.ILevel))
+		b.WriteString("} = ")
+		if val.IsOne {
+			b.WriteString("1")
+		} else {
+			b.WriteString("0")
+		}
+		b.WriteString(")")
+
+	case VFaceAnd:
+		b.WriteString("(")
+		writeFaceValue(b, val.Left)
+		b.WriteString(" ∧ ")
+		writeFaceValue(b, val.Right)
+		b.WriteString(")")
+
+	case VFaceOr:
+		b.WriteString("(")
+		writeFaceValue(b, val.Left)
+		b.WriteString(" ∨ ")
+		writeFaceValue(b, val.Right)
+		b.WriteString(")")
+
+	case VPartial:
+		b.WriteString("(Partial ")
+		writeFaceValue(b, val.Phi)
+		b.WriteString(" ")
+		writeValue(b, val.A)
+		b.WriteString(")")
+
+	case VSystem:
+		b.WriteString("[")
+		for i, br := range val.Branches {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			writeFaceValue(b, br.Phi)
+			b.WriteString(" ↦ ")
+			writeValue(b, br.Term)
+		}
+		b.WriteString("]")
+
+	case VComp:
+		b.WriteString("(comp <closure> [")
+		writeFaceValue(b, val.Phi)
+		b.WriteString(" ↦ <closure>] ")
+		writeValue(b, val.Base)
+		b.WriteString(")")
+
+	case VHComp:
+		b.WriteString("(hcomp ")
+		writeValue(b, val.A)
+		b.WriteString(" [")
+		writeFaceValue(b, val.Phi)
+		b.WriteString(" ↦ <closure>] ")
+		writeValue(b, val.Base)
+		b.WriteString(")")
+
+	case VFill:
+		b.WriteString("(fill <closure> [")
+		writeFaceValue(b, val.Phi)
+		b.WriteString(" ↦ <closure>] ")
+		writeValue(b, val.Base)
+		b.WriteString(")")
+
+	case VGlue:
+		b.WriteString("(Glue ")
+		writeValue(b, val.A)
+		b.WriteString(" [...])")
+
+	case VGlueElem:
+		b.WriteString("(glue [...] ")
+		writeValue(b, val.Base)
+		b.WriteString(")")
+
+	case VUnglue:
+		b.WriteString("(unglue ")
+		writeValue(b, val.G)
+		b.WriteString(")")
+
+	case VUA:
+		b.WriteString("(ua ")
+		writeValue(b, val.A)
+		b.WriteString(" ")
+		writeValue(b, val.B)
+		b.WriteString(" ")
+		writeValue(b, val.Equiv)
+		b.WriteString(")")
+
+	case VUABeta:
+		b.WriteString("(ua-β ")
+		writeValue(b, val.Equiv)
+		b.WriteString(" ")
+		writeValue(b, val.Arg)
+		b.WriteString(")")
+
 	default:
 		b.WriteString("<?value?>")
 	}
@@ -109,6 +250,44 @@ func writeHead(b *bytes.Buffer, h Head) {
 		b.WriteString(h.Glob)
 	} else {
 		b.WriteString("<?head?>")
+	}
+}
+
+// writeFaceValue writes a FaceValue to the buffer.
+func writeFaceValue(b *bytes.Buffer, f FaceValue) {
+	if f == nil {
+		b.WriteString("⊥")
+		return
+	}
+	switch fv := f.(type) {
+	case VFaceTop:
+		b.WriteString("⊤")
+	case VFaceBot:
+		b.WriteString("⊥")
+	case VFaceEq:
+		b.WriteString("(i{")
+		b.WriteString(strconv.Itoa(fv.ILevel))
+		b.WriteString("} = ")
+		if fv.IsOne {
+			b.WriteString("1")
+		} else {
+			b.WriteString("0")
+		}
+		b.WriteString(")")
+	case VFaceAnd:
+		b.WriteString("(")
+		writeFaceValue(b, fv.Left)
+		b.WriteString(" ∧ ")
+		writeFaceValue(b, fv.Right)
+		b.WriteString(")")
+	case VFaceOr:
+		b.WriteString("(")
+		writeFaceValue(b, fv.Left)
+		b.WriteString(" ∨ ")
+		writeFaceValue(b, fv.Right)
+		b.WriteString(")")
+	default:
+		b.WriteString("?face")
 	}
 }
 
@@ -192,6 +371,163 @@ func ValueEqual(v1, v2 Value) bool {
 		}
 		return false
 
+	// --- Cubical Values ---
+
+	case VI0:
+		_, ok := v2.(VI0)
+		return ok
+
+	case VI1:
+		_, ok := v2.(VI1)
+		return ok
+
+	case VIVar:
+		if val2, ok := v2.(VIVar); ok {
+			return val1.Level == val2.Level
+		}
+		return false
+
+	case VPath:
+		if val2, ok := v2.(VPath); ok {
+			return ValueEqual(val1.A, val2.A) && ValueEqual(val1.X, val2.X) && ValueEqual(val1.Y, val2.Y)
+		}
+		return false
+
+	case VPathP:
+		if val2, ok := v2.(VPathP); ok {
+			return iClosureEqual(val1.A, val2.A) && ValueEqual(val1.X, val2.X) && ValueEqual(val1.Y, val2.Y)
+		}
+		return false
+
+	case VPathLam:
+		if val2, ok := v2.(VPathLam); ok {
+			return iClosureEqual(val1.Body, val2.Body)
+		}
+		return false
+
+	case VTransport:
+		if val2, ok := v2.(VTransport); ok {
+			return iClosureEqual(val1.A, val2.A) && ValueEqual(val1.E, val2.E)
+		}
+		return false
+
+	case VFaceTop:
+		_, ok := v2.(VFaceTop)
+		return ok
+
+	case VFaceBot:
+		_, ok := v2.(VFaceBot)
+		return ok
+
+	case VFaceEq:
+		if val2, ok := v2.(VFaceEq); ok {
+			return val1.ILevel == val2.ILevel && val1.IsOne == val2.IsOne
+		}
+		return false
+
+	case VFaceAnd:
+		if val2, ok := v2.(VFaceAnd); ok {
+			return faceValueEqual(val1.Left, val2.Left) && faceValueEqual(val1.Right, val2.Right)
+		}
+		return false
+
+	case VFaceOr:
+		if val2, ok := v2.(VFaceOr); ok {
+			return faceValueEqual(val1.Left, val2.Left) && faceValueEqual(val1.Right, val2.Right)
+		}
+		return false
+
+	case VPartial:
+		if val2, ok := v2.(VPartial); ok {
+			return faceValueEqual(val1.Phi, val2.Phi) && ValueEqual(val1.A, val2.A)
+		}
+		return false
+
+	case VSystem:
+		if val2, ok := v2.(VSystem); ok {
+			if len(val1.Branches) != len(val2.Branches) {
+				return false
+			}
+			for i := range val1.Branches {
+				if !faceValueEqual(val1.Branches[i].Phi, val2.Branches[i].Phi) ||
+					!ValueEqual(val1.Branches[i].Term, val2.Branches[i].Term) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+
+	case VComp:
+		if val2, ok := v2.(VComp); ok {
+			return iClosureEqual(val1.A, val2.A) && faceValueEqual(val1.Phi, val2.Phi) &&
+				iClosureEqual(val1.Tube, val2.Tube) && ValueEqual(val1.Base, val2.Base)
+		}
+		return false
+
+	case VHComp:
+		if val2, ok := v2.(VHComp); ok {
+			return ValueEqual(val1.A, val2.A) && faceValueEqual(val1.Phi, val2.Phi) &&
+				iClosureEqual(val1.Tube, val2.Tube) && ValueEqual(val1.Base, val2.Base)
+		}
+		return false
+
+	case VFill:
+		if val2, ok := v2.(VFill); ok {
+			return iClosureEqual(val1.A, val2.A) && faceValueEqual(val1.Phi, val2.Phi) &&
+				iClosureEqual(val1.Tube, val2.Tube) && ValueEqual(val1.Base, val2.Base)
+		}
+		return false
+
+	case VGlue:
+		if val2, ok := v2.(VGlue); ok {
+			if !ValueEqual(val1.A, val2.A) || len(val1.System) != len(val2.System) {
+				return false
+			}
+			for i := range val1.System {
+				if !faceValueEqual(val1.System[i].Phi, val2.System[i].Phi) ||
+					!ValueEqual(val1.System[i].T, val2.System[i].T) ||
+					!ValueEqual(val1.System[i].Equiv, val2.System[i].Equiv) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+
+	case VGlueElem:
+		if val2, ok := v2.(VGlueElem); ok {
+			if len(val1.System) != len(val2.System) {
+				return false
+			}
+			for i := range val1.System {
+				if !faceValueEqual(val1.System[i].Phi, val2.System[i].Phi) ||
+					!ValueEqual(val1.System[i].Term, val2.System[i].Term) {
+					return false
+				}
+			}
+			return ValueEqual(val1.Base, val2.Base)
+		}
+		return false
+
+	case VUnglue:
+		if val2, ok := v2.(VUnglue); ok {
+			return ValueEqual(val1.Ty, val2.Ty) && ValueEqual(val1.G, val2.G)
+		}
+		return false
+
+	case VUA:
+		if val2, ok := v2.(VUA); ok {
+			return ValueEqual(val1.A, val2.A) && ValueEqual(val1.B, val2.B) && ValueEqual(val1.Equiv, val2.Equiv)
+		}
+		return false
+
+	case VUABeta:
+		if val2, ok := v2.(VUABeta); ok {
+			return ValueEqual(val1.Equiv, val2.Equiv) && ValueEqual(val1.Arg, val2.Arg)
+		}
+		return false
+
 	default:
 		return false
 	}
@@ -250,6 +586,71 @@ func closureEqual(c1, c2 *Closure) bool {
 	return termEqual(c1.Term, c2.Term) && envEqual(c1.Env, c2.Env)
 }
 
+// iClosureEqual compares two interval closures for structural equality.
+func iClosureEqual(c1, c2 *IClosure) bool {
+	if c1 == nil && c2 == nil {
+		return true
+	}
+	if c1 == nil || c2 == nil {
+		return false
+	}
+	return termEqual(c1.Term, c2.Term) && envEqual(c1.Env, c2.Env) && ienvEqual(c1.IEnv, c2.IEnv)
+}
+
+// ienvEqual compares two interval environments for equality.
+func ienvEqual(e1, e2 *IEnv) bool {
+	if e1 == nil && e2 == nil {
+		return true
+	}
+	if e1 == nil || e2 == nil {
+		return false
+	}
+	if len(e1.Bindings) != len(e2.Bindings) {
+		return false
+	}
+	for i, v1 := range e1.Bindings {
+		if !ValueEqual(v1, e2.Bindings[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// faceValueEqual compares two FaceValues for structural equality.
+func faceValueEqual(f1, f2 FaceValue) bool {
+	if f1 == nil && f2 == nil {
+		return true
+	}
+	if f1 == nil || f2 == nil {
+		return false
+	}
+	switch fv1 := f1.(type) {
+	case VFaceTop:
+		_, ok := f2.(VFaceTop)
+		return ok
+	case VFaceBot:
+		_, ok := f2.(VFaceBot)
+		return ok
+	case VFaceEq:
+		if fv2, ok := f2.(VFaceEq); ok {
+			return fv1.ILevel == fv2.ILevel && fv1.IsOne == fv2.IsOne
+		}
+		return false
+	case VFaceAnd:
+		if fv2, ok := f2.(VFaceAnd); ok {
+			return faceValueEqual(fv1.Left, fv2.Left) && faceValueEqual(fv1.Right, fv2.Right)
+		}
+		return false
+	case VFaceOr:
+		if fv2, ok := f2.(VFaceOr); ok {
+			return faceValueEqual(fv1.Left, fv2.Left) && faceValueEqual(fv1.Right, fv2.Right)
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 // DebugValue provides detailed debug information about a Value.
 func DebugValue(v Value) string {
 	var parts []string
@@ -281,6 +682,51 @@ func valueTypeName(v Value) string {
 		return "VId"
 	case VRefl:
 		return "VRefl"
+	// --- Cubical Values ---
+	case VI0:
+		return "VI0"
+	case VI1:
+		return "VI1"
+	case VIVar:
+		return "VIVar"
+	case VPath:
+		return "VPath"
+	case VPathP:
+		return "VPathP"
+	case VPathLam:
+		return "VPathLam"
+	case VTransport:
+		return "VTransport"
+	case VFaceTop:
+		return "VFaceTop"
+	case VFaceBot:
+		return "VFaceBot"
+	case VFaceEq:
+		return "VFaceEq"
+	case VFaceAnd:
+		return "VFaceAnd"
+	case VFaceOr:
+		return "VFaceOr"
+	case VPartial:
+		return "VPartial"
+	case VSystem:
+		return "VSystem"
+	case VComp:
+		return "VComp"
+	case VHComp:
+		return "VHComp"
+	case VFill:
+		return "VFill"
+	case VGlue:
+		return "VGlue"
+	case VGlueElem:
+		return "VGlueElem"
+	case VUnglue:
+		return "VUnglue"
+	case VUA:
+		return "VUA"
+	case VUABeta:
+		return "VUABeta"
 	default:
 		return "Unknown"
 	}

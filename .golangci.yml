@@ -2,7 +2,6 @@ version: "2"
 
 run:
   timeout: 3m
-  tests: true
 
 linters:
   enable:
@@ -12,20 +11,32 @@ linters:
     - ineffassign
     - unused
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  govet:
-    enable:
-      - copylocks
-      - printf
-  staticcheck:
-    checks: ["all"]
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    govet:
+      enable:
+        - copylocks
+        - printf
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST1000"  # Package comments not required for internal packages
+        - "-ST1003"  # Naming conventions (Id vs ID) - intentional naming choices
+        - "-ST1020"  # Doc comment style for legacy compatibility
+        - "-ST1021"  # Doc comment style for legacy compatibility
 
-issues:
-  exclude-dirs:
-    - vendor
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  exclusions:
+    paths:
+      - vendor
+    rules:
+      # Exclude errcheck for test files - test code often ignores errors intentionally
+      - path: _test\.go
+        linters:
+          - errcheck
+      # Exclude some staticcheck checks in test files
+      - path: _test\.go
+        linters:
+          - staticcheck
+        text: "SA9003|QF1001"

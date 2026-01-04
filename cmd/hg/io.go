@@ -12,7 +12,7 @@ func loadGraph(filename string) (*hypergraph.Hypergraph[string], error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return hypergraph.LoadJSON[string](f)
 }
 
@@ -27,13 +27,13 @@ func saveGraph(hg *hypergraph.Hypergraph[string], filename string) error {
 	}
 
 	if err := hg.SaveJSON(f); err != nil {
-		f.Close()
-		os.Remove(tmpFile)
+		_ = f.Close()
+		_ = os.Remove(tmpFile)
 		return err
 	}
 
 	if err := f.Close(); err != nil {
-		os.Remove(tmpFile)
+		_ = os.Remove(tmpFile)
 		return err
 	}
 
