@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-01-04
+
 ### Fixed
 - **Composition agreement checks now conditional and enforced** (`kernel/check/bidir_cubical.go`)
   - `synthComp`, `synthHComp`, `synthFill` now check if φ[i0/i] is satisfiable before applying agreement checks
@@ -39,6 +41,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced ~80 lines of duplicated code
 
 ### Added
+- **Higher Inductive Types (HITs)** - Phase 7 implementation
+  - **AST extensions** (`internal/ast/term_hit.go` - new)
+    - `PathConstructor` type for path-level constructors (with level and boundaries)
+    - `Boundary` type for interval endpoint values
+    - `HITApp` term for path constructor application to intervals
+    - `HITSpec` type for HIT declarations
+    - `Constructor` type for point constructors
+  - **Evaluation support** (`internal/eval/nbe_hit.go` - new)
+    - `VHITPathCtor` value type for evaluated path constructors
+    - `BoundaryVal` for evaluated boundary values
+    - `evalHITApp` for HIT application evaluation
+    - `lookupHITBoundaries` for boundary retrieval
+    - Path constructors reduce at interval endpoints (loop @ i0 → base)
+  - **Type checker extensions** (`kernel/check/hit.go` - new)
+    - `DeclareHIT` function for validating and registering HITs
+    - `validatePathConstructor` for path constructor well-formedness
+    - `checkHITPositivity` for strict positivity of HITs
+    - `GenerateHITRecursorType` for eliminator type generation
+    - `buildPathCaseType` for path case types (PathP)
+  - **Recursor extensions** (`internal/eval/recursor.go`)
+    - `PathConstructorInfo` and `BoundarySpec` types
+    - `IsHIT` and `PathCtors` fields in `RecursorInfo`
+    - `tryHITPathReduction` for HIT eliminator reduction
+    - Proper handling of path constructor elimination
+  - **Parser support** (`internal/parser/sexpr_cubical.go`)
+    - `parseHITApp` for parsing HIT applications
+    - `parseTermList` helper for argument lists
+    - `formatCubicalTerm` extended for HITApp output
+  - **Built-in HITs** (`kernel/check/env_hit.go` - new)
+    - **Circle (S1)**: base point and loop path
+    - **Truncation (Trunc)**: propositional truncation with inc and squash
+    - **Suspension (Susp)**: north, south points with merid path
+    - **Integers (Int)**: pos, neg constructors with zeroPath
+    - **Set Quotient (Quot)**: quot constructor with eq path
+  - **Extended Inductive struct** (`kernel/check/env.go`)
+    - `PathCtors` field for path constructors
+    - `IsHIT` flag to mark Higher Inductive Types
+    - `MaxLevel` for highest path constructor dimension
+  - **Comprehensive test suite** (`kernel/check/hit_test.go` - new)
+    - Tests for DeclareHIT, path constructor validation
+    - Tests for HIT recursor info building
+    - Tests for built-in HITs (S1, Trunc, Susp, Int, Quot)
+    - Tests for VHITPathCtor evaluation and reduction
+
 - **Dependabot configuration** (`.github/dependabot.yml`)
   - Weekly updates for GitHub Actions (`ci` prefix)
   - Weekly updates for Go modules (`deps` prefix)
