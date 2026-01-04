@@ -46,6 +46,11 @@ type Inductive struct {
 	Constructors []Constructor
 	Eliminator   string   // Name of the elimination principle
 	MutualGroup  []string // Names of other types in mutual block (nil for single inductives)
+
+	// HIT-specific fields (for Higher Inductive Types)
+	PathCtors []ast.PathConstructor // Path constructors (level >= 1)
+	IsHIT     bool                  // True if has path constructors
+	MaxLevel  int                   // Highest constructor level (1 = paths, 2 = paths of paths, etc.)
 }
 
 // MutualInductiveSpec specifies one inductive type in a mutual block.
@@ -397,6 +402,8 @@ func (g *GlobalEnv) DeclareMutual(specs []MutualInductiveSpec) error {
 // For mutual inductives with SEPARATE eliminators, only same-type recursive args
 // generate IHs. Cross-type recursion must be handled explicitly in case functions.
 // This matches the generated eliminator types where IHs are only for the current type.
+//
+// For HITs, also populates PathCtors and IsHIT fields from the inductive's path constructors.
 func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 	info := &eval.RecursorInfo{
 		ElimName:   ind.Eliminator,
@@ -405,6 +412,36 @@ func buildRecursorInfo(ind *Inductive) *eval.RecursorInfo {
 		NumIndices: ind.NumIndices,
 		NumCases:   len(ind.Constructors),
 		Ctors:      make([]eval.ConstructorInfo, len(ind.Constructors)),
+		IsHIT:      ind.IsHIT,
+	}
+
+	// Build path constructor info for HITs
+	if ind.IsHIT && len(ind.PathCtors) > 0 {
+		info.PathCtors = make([]eval.PathConstructorInfo, len(ind.PathCtors))
+		for i, pc := range ind.PathCtors {
+			// Count non-interval args in path constructor type
+			numArgs := countPathCtorArgs(pc.Type, pc.Level)
+
+			// Build boundary specs from the PathConstructor's boundaries
+			boundaries := make([]eval.BoundarySpec, len(pc.Boundaries))
+			for j, b := range pc.Boundaries {
+				// Boundaries are stored as Terms; they need to be evaluated
+				// at runtime when the recursor is applied. For now, store nil
+				// and let the evaluation handle them dynamically.
+				boundaries[j] = eval.BoundarySpec{
+					AtZeroVal: nil, // Evaluated lazily
+					AtOneVal:  nil, // Evaluated lazily
+				}
+				_ = b // b.AtZero and b.AtOne are ast.Terms
+			}
+
+			info.PathCtors[i] = eval.PathConstructorInfo{
+				Name:       pc.Name,
+				Level:      pc.Level,
+				NumArgs:    numArgs,
+				Boundaries: boundaries,
+			}
+		}
 	}
 
 	for i, c := range ind.Constructors {
@@ -509,6 +546,28 @@ func computeIndexArgPositions(argType ast.Term, dataArgPos int, numParams int, n
 	}
 
 	return positions
+}
+
+// countPathCtorArgs counts the number of non-interval arguments in a path constructor type.
+// For a path constructor with level n, the type has n trailing interval abstractions.
+// For example, loop : Path S1 base base has level 1 and 0 non-interval args.
+// For merid : A -> Path (Susp A) north south has level 1 and 1 non-interval arg (the A element).
+//
+// Note: Interval abstractions use PathLam (not Pi) in the AST, so we just count Pi args.
+// The level parameter is included for documentation and future use but not currently needed.
+func countPathCtorArgs(ty ast.Term, _ int) int {
+	// Count total Pi args (term-level arguments)
+	totalPis := 0
+	current := ty
+	for {
+		if pi, ok := current.(ast.Pi); ok {
+			totalPis++
+			current = pi.B
+		} else {
+			break
+		}
+	}
+	return totalPis
 }
 
 // validateConstructorType checks that a constructor type is well-formed.
