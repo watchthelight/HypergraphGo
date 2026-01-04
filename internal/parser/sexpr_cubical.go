@@ -34,6 +34,8 @@ func (p *SExprParser) parseCubicalForm(head string) (ast.Term, error) {
 		return p.parsePathApp()
 	case "Transport":
 		return p.parseTransport()
+	case "HITApp":
+		return p.parseHITApp()
 	}
 	return nil, nil
 }
@@ -140,6 +142,76 @@ func (p *SExprParser) parseTransport() (ast.Term, error) {
 	return ast.Transport{A: a, E: e}, nil
 }
 
+// parseHITApp parses a HIT path constructor application.
+// Syntax: (HITApp hitName ctorName (args...) (iargs...))
+func (p *SExprParser) parseHITApp() (ast.Term, error) {
+	p.skipWhitespace()
+	hitName := p.parseAtom()
+	if hitName == "" {
+		return nil, &ParseError{Pos: p.pos, Message: "expected HIT name"}
+	}
+
+	p.skipWhitespace()
+	ctorName := p.parseAtom()
+	if ctorName == "" {
+		return nil, &ParseError{Pos: p.pos, Message: "expected path constructor name"}
+	}
+
+	// Parse term arguments
+	p.skipWhitespace()
+	args, err := p.parseTermList()
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse interval arguments
+	p.skipWhitespace()
+	iargs, err := p.parseTermList()
+	if err != nil {
+		return nil, err
+	}
+
+	return ast.HITApp{
+		HITName: hitName,
+		Ctor:    ctorName,
+		Args:    args,
+		IArgs:   iargs,
+	}, nil
+}
+
+// parseTermList parses a list of terms enclosed in parentheses.
+// Syntax: (term1 term2 ... termN)
+func (p *SExprParser) parseTermList() ([]ast.Term, error) {
+	c, ok := p.peek()
+	if !ok {
+		return nil, &ParseError{Pos: p.pos, Message: "expected '(' for term list"}
+	}
+	if c != '(' {
+		return nil, &ParseError{Pos: p.pos, Message: "expected '(' for term list"}
+	}
+	p.consume()
+	p.skipWhitespace()
+
+	var terms []ast.Term
+	for {
+		c, ok := p.peek()
+		if !ok {
+			return nil, &ParseError{Pos: p.pos, Message: "unexpected EOF in term list"}
+		}
+		if c == ')' {
+			p.consume()
+			break
+		}
+		term, err := p.parseTerm()
+		if err != nil {
+			return nil, err
+		}
+		terms = append(terms, term)
+		p.skipWhitespace()
+	}
+	return terms, nil
+}
+
 // formatCubicalTerm formats cubical-specific terms.
 func formatCubicalTerm(t ast.Term) string {
 	switch tm := t.(type) {
@@ -161,6 +233,24 @@ func formatCubicalTerm(t ast.Term) string {
 		return fmt.Sprintf("(PathApp %s %s)", FormatTerm(tm.P), FormatTerm(tm.R))
 	case ast.Transport:
 		return fmt.Sprintf("(Transport %s %s)", FormatTerm(tm.A), FormatTerm(tm.E))
+	case ast.HITApp:
+		argsStr := "("
+		for i, arg := range tm.Args {
+			if i > 0 {
+				argsStr += " "
+			}
+			argsStr += FormatTerm(arg)
+		}
+		argsStr += ")"
+		iargsStr := "("
+		for i, iarg := range tm.IArgs {
+			if i > 0 {
+				iargsStr += " "
+			}
+			iargsStr += FormatTerm(iarg)
+		}
+		iargsStr += ")"
+		return fmt.Sprintf("(HITApp %s %s %s %s)", tm.HITName, tm.Ctor, argsStr, iargsStr)
 	}
 	return ""
 }
