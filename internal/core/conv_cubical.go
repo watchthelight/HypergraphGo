@@ -195,6 +195,30 @@ func alphaEqExtension(a, b ast.Term) (bool, bool) {
 		}
 		return false, true
 
+	// --- Higher Inductive Types ---
+
+	case ast.HITApp:
+		if bb, ok := b.(ast.HITApp); ok {
+			if aa.HITName != bb.HITName || aa.Ctor != bb.Ctor {
+				return false, true
+			}
+			if len(aa.Args) != len(bb.Args) || len(aa.IArgs) != len(bb.IArgs) {
+				return false, true
+			}
+			for i := range aa.Args {
+				if !AlphaEq(aa.Args[i], bb.Args[i]) {
+					return false, true
+				}
+			}
+			for i := range aa.IArgs {
+				if !AlphaEq(aa.IArgs[i], bb.IArgs[i]) {
+					return false, true
+				}
+			}
+			return true, true
+		}
+		return false, true
+
 	default:
 		return false, false
 	}

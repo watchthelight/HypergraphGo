@@ -251,6 +251,22 @@ func writeCubical(b *bytes.Buffer, t Term) bool {
 		b.WriteString(")")
 		return true
 
+	// --- Higher Inductive Types ---
+
+	case HITApp:
+		b.WriteString("(")
+		b.WriteString(t.Ctor)
+		for _, arg := range t.Args {
+			b.WriteString(" ")
+			write(b, arg)
+		}
+		for _, iarg := range t.IArgs {
+			b.WriteString(" @ ")
+			write(b, iarg)
+		}
+		b.WriteString(")")
+		return true
+
 	default:
 		return false
 	}

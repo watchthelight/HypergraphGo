@@ -159,6 +159,22 @@ func IShift(d, cutoff int, t ast.Term) ast.Term {
 			Equiv: IShift(d, cutoff, tm.Equiv),
 			Arg:   IShift(d, cutoff, tm.Arg),
 		}
+	// Higher Inductive Types - no interval binders in HITApp itself
+	case ast.HITApp:
+		args := make([]ast.Term, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = IShift(d, cutoff, arg)
+		}
+		iargs := make([]ast.Term, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = IShift(d, cutoff, iarg)
+		}
+		return ast.HITApp{
+			HITName: tm.HITName,
+			Ctor:    tm.Ctor,
+			Args:    args,
+			IArgs:   iargs,
+		}
 
 	// Standard terms - recurse without changing cutoff (no interval binders)
 	case ast.Var, ast.Sort, ast.Global:
@@ -401,6 +417,22 @@ func ISubst(j int, s ast.Term, t ast.Term) ast.Term {
 			Equiv: ISubst(j, s, tm.Equiv),
 			Arg:   ISubst(j, s, tm.Arg),
 		}
+	// Higher Inductive Types - substitute in args and interval args
+	case ast.HITApp:
+		args := make([]ast.Term, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = ISubst(j, s, arg)
+		}
+		iargs := make([]ast.Term, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = ISubst(j, s, iarg)
+		}
+		return ast.HITApp{
+			HITName: tm.HITName,
+			Ctor:    tm.Ctor,
+			Args:    args,
+			IArgs:   iargs,
+		}
 
 	// Standard terms - recurse without changing j (no interval binders)
 	case ast.Var, ast.Sort, ast.Global:
@@ -599,6 +631,22 @@ func shiftExtension(d, cutoff int, t ast.Term) (ast.Term, bool) {
 			Equiv: Shift(d, cutoff, tm.Equiv),
 			Arg:   Shift(d, cutoff, tm.Arg),
 		}, true
+	// Higher Inductive Types - no term variable binders in HITApp
+	case ast.HITApp:
+		args := make([]ast.Term, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = Shift(d, cutoff, arg)
+		}
+		iargs := make([]ast.Term, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = Shift(d, cutoff, iarg)
+		}
+		return ast.HITApp{
+			HITName: tm.HITName,
+			Ctor:    tm.Ctor,
+			Args:    args,
+			IArgs:   iargs,
+		}, true
 	default:
 		return nil, false
 	}
@@ -731,6 +779,22 @@ func substExtension(j int, s ast.Term, t ast.Term) (ast.Term, bool) {
 		return ast.UABeta{
 			Equiv: Subst(j, s, tm.Equiv),
 			Arg:   Subst(j, s, tm.Arg),
+		}, true
+	// Higher Inductive Types - no term variable binders in HITApp
+	case ast.HITApp:
+		args := make([]ast.Term, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = Subst(j, s, arg)
+		}
+		iargs := make([]ast.Term, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = Subst(j, s, iarg)
+		}
+		return ast.HITApp{
+			HITName: tm.HITName,
+			Ctor:    tm.Ctor,
+			Args:    args,
+			IArgs:   iargs,
 		}, true
 	default:
 		return nil, false
