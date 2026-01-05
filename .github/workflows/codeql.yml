@@ -7,6 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday
+  workflow_dispatch:
 
 jobs:
   analyze:
