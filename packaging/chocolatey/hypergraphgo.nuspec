@@ -17,7 +17,7 @@
     <description>Hypergraph &amp; HoTT tooling in Go</description>
     <summary>CLI tool for Hypergraph</summary>
     <releaseNotes>https://github.com/watchthelight/HypergraphGo/releases/tag/v__REPLACE__</releaseNotes>
-    <copyright>Copyright 2025 watchthelight</copyright>
+    <copyright>Copyright 2026 watchthelight</copyright>
     <tags>cli tool hypergraph</tags>
   </metadata>
   <files>

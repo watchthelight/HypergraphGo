@@ -264,13 +264,13 @@ See [`DIAGRAMS.md`](DIAGRAMS.md) for comprehensive Mermaid architecture diagrams
 | **Phase 4** | ✅ | Identity types + Cubical path types |
 | **Phase 5** | ✅ | Inductives, recursors, positivity (parameterized, indexed, mutual) |
 | **Phase 6** | ✅ | Computational univalence (Glue, comp, ua) |
-| **Phase 7** | ⏳ | Higher Inductive Types (HITs) |
+| **Phase 7** | ✅ | Higher Inductive Types (HITs) |
 | **Phase 8** | ⏳ | Elaboration and tactics |
 | **Phase 9** | ⏳ | Standard library seed |
 | **Phase 10** | ⏳ | Performance, soundness, packaging |
 
-**Current:** v1.6.0 — Computational univalence complete
-**Next:** Higher Inductive Types (HITs)
+**Current:** v1.7.0 — Higher Inductive Types complete
+**Next:** Elaboration and tactics (Phase 8)
 
 ---
 

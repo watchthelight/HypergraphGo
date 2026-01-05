@@ -3,7 +3,7 @@
 # Publish to COPR: https://copr.fedorainfracloud.org
 
 Name:           hypergraphgo
-Version:        1.3.0
+Version:        1.7.0
 Release:        1%{?dist}
 Summary:        Hypergraph & HoTT tooling in Go
 
@@ -39,6 +39,12 @@ install -Dm644 README.md %{buildroot}%{_docdir}/%{name}/README.md
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Sun Jan 05 2026 watchthelight <admin@watchthelight.org> - 1.7.0-1
+- Phase 7: Higher Inductive Types (HITs)
+- Built-in HITs: Circle, Truncation, Suspension, Integers, Quotient
+- HIT evaluation with boundary reduction
+- Comprehensive cubical type theory support
+
 * Thu Dec 05 2024 watchthelight <admin@watchthelight.org> - 1.3.0-1
 - Phase 3: Bidirectional type checking
 - macOS DMG releases
