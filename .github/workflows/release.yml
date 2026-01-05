@@ -137,7 +137,7 @@ jobs:
 
       - name: Push .deb packages to Cloudsmith
         env:
-          CLOUDSMITH_TOKEN: ${{ secrets.CLOUDSMITH_TOKEN }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_TOKEN }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -176,7 +176,7 @@ jobs:
 
       - name: Push .deb packages to Cloudsmith
         env:
-          CLOUDSMITH_TOKEN: ${{ secrets.CLOUDSMITH_TOKEN }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_TOKEN }}
         run: |
           set -euo pipefail
           shopt -s nullglob
