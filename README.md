@@ -9,9 +9,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/watchthelight/HypergraphGo/releases"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&style=flat-square&color=d4a847" alt="Release"></a>
+  <!-- CI Status Badges -->
   <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-linux.yml?branch=main&label=linux&style=flat-square" alt="CI Linux"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-windows.yml?branch=main&label=windows&style=flat-square" alt="CI Windows"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/go.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/go.yml?branch=main&label=tests&style=flat-square" alt="Tests"></a>
+</p>
+
+<p align="center">
+  <!-- Dynamic Badges from Gist -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-version.json&style=flat-square" alt="Version">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-coverage.json&style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-tests.json&style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-loc.json&style=flat-square" alt="Lines of Code">
+</p>
+
+<p align="center">
+  <!-- Static Badges -->
+  <a href="https://github.com/watchthelight/HypergraphGo/releases"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&style=flat-square&color=d4a847" alt="Release"></a>
+  <img src="https://img.shields.io/badge/go-%3E%3D1.23-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
   <a href="https://github.com/watchthelight/HypergraphGo/stargazers"><img src="https://img.shields.io/github/stars/watchthelight/HypergraphGo?style=flat-square&color=d4a847" alt="Stars"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/github/license/watchthelight/HypergraphGo?style=flat-square" alt="License"></a>
 </p>

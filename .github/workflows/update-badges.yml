@@ -1,0 +1,73 @@
+name: Update Badges
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [Go]
+    types: [completed]
+    branches: [main]
+  schedule:
+    # Run every 6 hours to keep badges fresh
+    - cron: "0 */6 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-metrics:
+    name: Update Badge Metrics
+    runs-on: ubuntu-latest
+    # Only run if Go workflow passed (when triggered by workflow_run) or on other triggers
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Generate badge metrics
+        run: ./scripts/generate-badges.sh
+
+      - name: Upload version badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-version.json
+          file_type: text
+
+      - name: Upload coverage badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-coverage.json
+          file_type: text
+
+      - name: Upload tests badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-tests.json
+          file_type: text
+
+      - name: Upload packages badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-packages.json
+          file_type: text
+
+      - name: Upload LOC badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-loc.json
+          file_type: text
