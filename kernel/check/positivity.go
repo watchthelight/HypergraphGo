@@ -419,6 +419,18 @@ func checkArgTypePositivity(indName, ctorName string, ty ast.Term, pol Polarity,
 }
 
 // OccursIn checks if a global name occurs anywhere in a term.
+//
+// This function performs a recursive traversal of the term structure to
+// determine whether the specified global name appears. It is used during
+// strict positivity checking to detect occurrences of the inductive type
+// being defined, and by IsRecursiveArg to identify recursive constructor
+// arguments.
+//
+// The function conservatively returns false for unknown term types, which
+// is safe because the positivity checker will catch unknown types separately.
+//
+// Example: For an inductive type List with constructor cons : A → List A → List A,
+// OccursIn("List", consType) returns true because List appears in the argument type.
 func OccursIn(name string, ty ast.Term) bool {
 	switch t := ty.(type) {
 	case ast.Global:
@@ -459,6 +471,22 @@ func OccursIn(name string, ty ast.Term) bool {
 
 // IsRecursiveArg checks if a constructor argument type contains a reference
 // to the inductive type being defined.
+//
+// This function is used during recursor generation to identify which
+// constructor arguments are recursive. Recursive arguments require induction
+// hypotheses (IH) in the recursor's case types.
+//
+// For example, given:
+//
+//	Nat : Type
+//	zero : Nat
+//	succ : Nat → Nat
+//
+// In the succ constructor, the Nat argument is recursive (IsRecursiveArg returns true),
+// so natElim's step case has type (n : Nat) → P n → P (succ n), where P n is the IH.
+//
+// Non-recursive arguments (like the A parameter in cons : A → List A → List A)
+// simply pass through to the case type without generating an IH.
 func IsRecursiveArg(indName string, argType ast.Term) bool {
 	return OccursIn(indName, argType)
 }
