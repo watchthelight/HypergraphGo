@@ -2,6 +2,12 @@ name: release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.7.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,6 +17,7 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     env:
       GOTOOLCHAIN: local
     steps:
@@ -33,6 +40,7 @@ jobs:
     name: Build macOS DMG
     runs-on: macos-latest
     needs: goreleaser
+    if: github.event_name == 'release'
     steps:
       - name: Download release assets
         env:
@@ -108,6 +116,7 @@ jobs:
     name: Publish .deb to Cloudsmith
     runs-on: ubuntu-latest
     needs: goreleaser
+    if: github.event_name == 'release'
     steps:
       - uses: actions/checkout@v6
 
@@ -117,6 +126,45 @@ jobs:
         run: |
           mkdir -p dist
           gh release download ${{ github.ref_name }} \
+            --pattern '*.deb' \
+            --dir dist/
+          ls -la dist/
+
+      - name: Install Cloudsmith CLI
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install --upgrade cloudsmith-cli
+
+      - name: Push .deb packages to Cloudsmith
+        env:
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          DEBS=(dist/*.deb)
+          echo "Found ${#DEBS[@]} debs"
+          for deb in "${DEBS[@]}"; do
+            echo "Uploading $deb ..."
+            cloudsmith push deb watchthelight/hottgo/ubuntu/focal   "$deb"
+            cloudsmith push deb watchthelight/hottgo/ubuntu/jammy   "$deb"
+            cloudsmith push deb watchthelight/hottgo/ubuntu/noble   "$deb"
+            cloudsmith push deb watchthelight/hottgo/debian/bookworm "$deb"
+          done
+
+  # Manual re-publish for when automatic publish fails
+  publish-deb-manual:
+    name: Publish .deb to Cloudsmith (Manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          gh release download ${{ inputs.tag }} \
             --pattern '*.deb' \
             --dir dist/
           ls -la dist/
