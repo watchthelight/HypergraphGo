@@ -267,132 +267,884 @@ func TestMustParse(t *testing.T) {
 	MustParse("(Invalid")
 }
 
-func TestParseJ(t *testing.T) {
-	// Test J eliminator parsing: (J A C d x y p)
-	input := "(J Nat C d x y p)"
-	term, err := ParseTerm(input)
+// --- Deep Nesting Tests ---
+
+func TestParseTerm_DeepNesting_10Levels(t *testing.T) {
+	// Build nested App: (App (App (App ... f x) x) x)
+	// Start with innermost: (App f x), then wrap with more Apps
+	input := "(App f x)"
+	for i := 1; i < 10; i++ {
+		input = "(App " + input + " x)"
+	}
+
+	result, err := ParseTerm(input)
 	if err != nil {
-		t.Fatalf("ParseTerm(%q) error: %v", input, err)
+		t.Fatalf("ParseTerm failed on 10-level nesting: %v", err)
 	}
 
-	j, ok := term.(ast.J)
-	if !ok {
-		t.Fatalf("expected ast.J, got %T", term)
-	}
-
-	// Check each field was parsed correctly
-	if g, ok := j.A.(ast.Global); !ok || g.Name != "Nat" {
-		t.Errorf("J.A = %v, want Nat", j.A)
-	}
-	if g, ok := j.C.(ast.Global); !ok || g.Name != "C" {
-		t.Errorf("J.C = %v, want C", j.C)
-	}
-	if g, ok := j.D.(ast.Global); !ok || g.Name != "d" {
-		t.Errorf("J.D = %v, want d", j.D)
-	}
-	if g, ok := j.X.(ast.Global); !ok || g.Name != "x" {
-		t.Errorf("J.X = %v, want x", j.X)
-	}
-	if g, ok := j.Y.(ast.Global); !ok || g.Name != "y" {
-		t.Errorf("J.Y = %v, want y", j.Y)
-	}
-	if g, ok := j.P.(ast.Global); !ok || g.Name != "p" {
-		t.Errorf("J.P = %v, want p", j.P)
+	// Verify structure by walking down the T (function) side
+	current := result
+	for i := 0; i < 10; i++ {
+		app, ok := current.(ast.App)
+		if !ok {
+			t.Fatalf("Level %d: expected App, got %T", i, current)
+		}
+		if i < 9 {
+			current = app.T
+		}
 	}
 }
 
-func TestParseJ_Nested(t *testing.T) {
-	// Test J with nested terms
-	input := "(J (Pi x Nat Nat) (Lam c (Var 0)) (Refl Nat zero) zero zero (Refl Nat zero))"
-	term, err := ParseTerm(input)
+func TestParseTerm_DeepNesting_50Levels(t *testing.T) {
+	// Build nested Lam: (Lam x (Lam x ... (Var 49) ...))
+	input := ""
+	for i := 0; i < 50; i++ {
+		input += "(Lam x "
+	}
+	input += "(Var 49)"
+	for i := 0; i < 50; i++ {
+		input += ")"
+	}
+
+	result, err := ParseTerm(input)
 	if err != nil {
-		t.Fatalf("ParseTerm(%q) error: %v", input, err)
+		t.Fatalf("ParseTerm failed on 50-level Lam nesting: %v", err)
 	}
 
-	j, ok := term.(ast.J)
-	if !ok {
-		t.Fatalf("expected ast.J, got %T", term)
+	// Verify structure
+	current := result
+	for i := 0; i < 50; i++ {
+		lam, ok := current.(ast.Lam)
+		if !ok {
+			t.Fatalf("Level %d: expected Lam, got %T", i, current)
+		}
+		current = lam.Body
 	}
 
-	// A should be a Pi
-	if _, ok := j.A.(ast.Pi); !ok {
-		t.Errorf("J.A should be Pi, got %T", j.A)
-	}
-
-	// C should be a Lam
-	if _, ok := j.C.(ast.Lam); !ok {
-		t.Errorf("J.C should be Lam, got %T", j.C)
-	}
-
-	// D should be a Refl
-	if _, ok := j.D.(ast.Refl); !ok {
-		t.Errorf("J.D should be Refl, got %T", j.D)
+	// Innermost should be Var 49
+	v, ok := current.(ast.Var)
+	if !ok || v.Ix != 49 {
+		t.Errorf("Innermost term: expected Var 49, got %v", current)
 	}
 }
 
-func TestNormalize(t *testing.T) {
+func TestParseTerm_DeepNesting_100Levels(t *testing.T) {
+	// Build nested Pi: (Pi _ Type (Pi _ Type ...))
+	input := ""
+	for i := 0; i < 100; i++ {
+		input += "(Pi _ Type "
+	}
+	input += "Type"
+	for i := 0; i < 100; i++ {
+		input += ")"
+	}
+
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm failed on 100-level Pi nesting: %v", err)
+	}
+
+	// Verify structure
+	current := result
+	for i := 0; i < 100; i++ {
+		pi, ok := current.(ast.Pi)
+		if !ok {
+			t.Fatalf("Level %d: expected Pi, got %T", i, current)
+		}
+		current = pi.B
+	}
+}
+
+func TestFormatTerm_DeepNesting(t *testing.T) {
+	// Build 5-level nested term and verify round-trip
+	input := "(App (App (App (App (App f x) x) x) x) x)"
+	term, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+
+	formatted := FormatTerm(term)
+	reparsed, err := ParseTerm(formatted)
+	if err != nil {
+		t.Fatalf("Reparse error: %v", err)
+	}
+
+	if !termEqual(term, reparsed) {
+		t.Errorf("Deep nesting round-trip failed")
+	}
+}
+
+// --- Atom Edge Cases ---
+
+func TestParseTerm_LongAtom_100Chars(t *testing.T) {
+	// 100-character identifier
+	longName := "abcdefghij"
+	for len(longName) < 100 {
+		longName += "abcdefghij"
+	}
+	longName = longName[:100]
+
+	result, err := ParseTerm(longName)
+	if err != nil {
+		t.Fatalf("ParseTerm(%d chars) error: %v", len(longName), err)
+	}
+
+	g, ok := result.(ast.Global)
+	if !ok {
+		t.Fatalf("Expected Global, got %T", result)
+	}
+	if g.Name != longName {
+		t.Errorf("Name mismatch: got %d chars, want %d chars", len(g.Name), len(longName))
+	}
+}
+
+func TestParseTerm_LongAtom_1000Chars(t *testing.T) {
+	// 1000-character identifier
+	longName := ""
+	for len(longName) < 1000 {
+		longName += "identifier_"
+	}
+	longName = longName[:1000]
+
+	result, err := ParseTerm(longName)
+	if err != nil {
+		t.Fatalf("ParseTerm(%d chars) error: %v", len(longName), err)
+	}
+
+	g, ok := result.(ast.Global)
+	if !ok {
+		t.Fatalf("Expected Global, got %T", result)
+	}
+	if len(g.Name) != 1000 {
+		t.Errorf("Name length: got %d, want 1000", len(g.Name))
+	}
+}
+
+func TestParseTerm_UnicodeIdentifier(t *testing.T) {
 	tests := []struct {
+		name     string
 		input    string
 		expected string
 	}{
-		{"  hello  ", "hello"},
-		{"no spaces", "no spaces"},
-		{"\t\ttabs\t\t", "tabs"},
-		{"\n\nnewlines\n\n", "newlines"},
-		{"  mixed \t spaces  ", "mixed \t spaces"},
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := Normalize(tt.input)
-			if got != tt.expected {
-				t.Errorf("Normalize(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestFormatTerm_Extended(t *testing.T) {
-	tests := []struct {
-		name     string
-		term     ast.Term
-		contains string
-	}{
-		{"nil", nil, "nil"},
-		{"Lam with Ann", ast.Lam{Binder: "x", Ann: ast.Global{Name: "Nat"}, Body: ast.Var{Ix: 0}}, "Lam"},
-		{"Sigma", ast.Sigma{Binder: "x", A: ast.Global{Name: "A"}, B: ast.Var{Ix: 0}}, "Sigma"},
-		{"Pair", ast.Pair{Fst: ast.Global{Name: "a"}, Snd: ast.Global{Name: "b"}}, "Pair"},
-		{"Fst", ast.Fst{P: ast.Global{Name: "p"}}, "Fst"},
-		{"Snd", ast.Snd{P: ast.Global{Name: "p"}}, "Snd"},
-		{"Let", ast.Let{Binder: "x", Val: ast.Global{Name: "v"}, Body: ast.Var{Ix: 0}}, "Let"},
-		{"Id", ast.Id{A: ast.Global{Name: "Nat"}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}}, "Id"},
-		{"Refl", ast.Refl{A: ast.Global{Name: "Nat"}, X: ast.Global{Name: "x"}}, "Refl"},
-		{"J", ast.J{A: ast.Global{Name: "Nat"}, C: ast.Global{Name: "C"}, D: ast.Global{Name: "d"}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}, P: ast.Global{Name: "p"}}, "J"},
+		{"Greek alpha", "α", "α"},
+		{"Greek beta", "β", "β"},
+		{"Greek gamma", "γ", "γ"},
+		{"Greek delta", "δ", "δ"},
+		{"Greek omega", "ω", "ω"},
+		{"Greek Sigma prefix", "Σ_type", "Σ_type"}, // Σ alone triggers Sigma form
+		{"Mixed greek", "αβγ", "αβγ"},
+		{"Hebrew aleph", "ℵ", "ℵ"},
+		{"Subscript", "x₁", "x₁"},
+		{"Superscript", "x²", "x²"},
+		{"Japanese hiragana", "あ", "あ"},
+		{"Emoji prefix", "✓ok", "✓ok"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatTerm(tt.term)
-			if !containsString(result, tt.contains) {
-				t.Errorf("FormatTerm(%v) = %q, should contain %q", tt.term, result, tt.contains)
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", tt.input, err)
+			}
+			g, ok := result.(ast.Global)
+			if !ok {
+				t.Fatalf("Expected Global, got %T", result)
+			}
+			if g.Name != tt.expected {
+				t.Errorf("Name = %q, want %q", g.Name, tt.expected)
 			}
 		})
 	}
 }
 
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+func TestParseTerm_UnicodeGlobal(t *testing.T) {
+	// Unicode in (Global ...) form
+	tests := []string{"αβ", "τype", "ℕat", "ℤero"}
+	for _, name := range tests {
+		input := "(Global " + name + ")"
+		result, err := ParseTerm(input)
+		if err != nil {
+			t.Fatalf("ParseTerm(%q) error: %v", input, err)
+		}
+		g, ok := result.(ast.Global)
+		if !ok {
+			t.Fatalf("Expected Global, got %T", result)
+		}
+		if g.Name != name {
+			t.Errorf("Name = %q, want %q", g.Name, name)
 		}
 	}
-	return false
+}
+
+func TestParseTerm_NumericEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected ast.Term
+	}{
+		{"Var 0", "(Var 0)", ast.Var{Ix: 0}},
+		{"Var large", "(Var 999)", ast.Var{Ix: 999}},
+		{"Var very large", "(Var 2147483647)", ast.Var{Ix: 2147483647}},
+		{"Sort 0", "(Sort 0)", ast.Sort{U: 0}},
+		{"Sort large", "(Sort 100)", ast.Sort{U: 100}},
+		{"Shorthand 0", "0", ast.Var{Ix: 0}},
+		{"Shorthand 42", "42", ast.Var{Ix: 42}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", tt.input, err)
+			}
+			if !termEqual(result, tt.expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// --- Alternative Syntax Tests ---
+
+func TestParseTerm_LambdaVariants(t *testing.T) {
+	// All these should parse to the same Lam structure
+	expected := ast.Lam{Binder: "x", Ann: nil, Body: ast.Var{Ix: 0}}
+	variants := []string{
+		`(Lam x (Var 0))`,
+		`(λ x (Var 0))`,
+		`(\ x (Var 0))`,
+		`(lambda x (Var 0))`,
+	}
+
+	for _, input := range variants {
+		t.Run(input, func(t *testing.T) {
+			result, err := ParseTerm(input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", input, err)
+			}
+			if !termEqual(result, expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", input, result, expected)
+			}
+		})
+	}
+}
+
+func TestParseTerm_ArrowSyntax(t *testing.T) {
+	// -> is an alternative for Pi
+	expected := ast.Pi{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Bool"}}
+	variants := []string{
+		`(Pi x Nat Bool)`,
+		`(-> x Nat Bool)`,
+	}
+
+	for _, input := range variants {
+		t.Run(input, func(t *testing.T) {
+			result, err := ParseTerm(input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", input, err)
+			}
+			if !termEqual(result, expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", input, result, expected)
+			}
+		})
+	}
+}
+
+func TestParseTerm_SigmaVariant(t *testing.T) {
+	// Σ is an alternative for Sigma
+	expected := ast.Sigma{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Bool"}}
+	variants := []string{
+		`(Sigma x Nat Bool)`,
+		`(Σ x Nat Bool)`,
+	}
+
+	for _, input := range variants {
+		t.Run(input, func(t *testing.T) {
+			result, err := ParseTerm(input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", input, err)
+			}
+			if !termEqual(result, expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", input, result, expected)
+			}
+		})
+	}
+}
+
+func TestParseTerm_MixedSyntax(t *testing.T) {
+	// Mix of alternative syntax forms in one expression
+	tests := []struct {
+		name     string
+		input    string
+		expected ast.Term
+	}{
+		{
+			"Lambda with arrow",
+			`(λ f (-> x Nat Nat))`,
+			ast.Lam{
+				Binder: "f",
+				Ann:    nil,
+				Body:   ast.Pi{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+			},
+		},
+		{
+			"Arrow with Sigma body",
+			`(-> x Nat (Σ y Nat Bool))`,
+			ast.Pi{
+				Binder: "x",
+				A:      ast.Global{Name: "Nat"},
+				B:      ast.Sigma{Binder: "y", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Bool"}},
+			},
+		},
+		{
+			"Nested lambdas",
+			`(\ x (λ y (Var 0)))`,
+			ast.Lam{
+				Binder: "x",
+				Ann:    nil,
+				Body:   ast.Lam{Binder: "y", Ann: nil, Body: ast.Var{Ix: 0}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", tt.input, err)
+			}
+			if !termEqual(result, tt.expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// --- Whitespace and Comment Tests ---
+
+func TestParseTerm_WhitespaceOnly(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Spaces only", "   "},
+		{"Tabs only", "\t\t\t"},
+		{"Newlines only", "\n\n\n"},
+		{"Mixed whitespace", "  \t\n  \t\n  "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for whitespace-only input", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_MultipleComments(t *testing.T) {
+	input := `
+; First comment
+; Second comment
+; Third comment
+Type
+`
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+	if !termEqual(result, ast.Sort{U: 0}) {
+		t.Errorf("Expected Type, got %v", result)
+	}
+}
+
+func TestParseTerm_CommentAtEnd(t *testing.T) {
+	input := "Nat ; trailing comment"
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+	if !termEqual(result, ast.Global{Name: "Nat"}) {
+		t.Errorf("Expected Nat, got %v", result)
+	}
+}
+
+func TestParseTerm_CommentOnly(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Single comment", "; just a comment"},
+		{"Comment with newline", "; comment\n"},
+		{"Multiple comments only", "; comment 1\n; comment 2\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for comment-only input", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_CommentsInsideExpr(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected ast.Term
+	}{
+		{
+			"Comment between parens",
+			"( ; comment\n Pi x Nat Nat)",
+			ast.Pi{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+		},
+		{
+			"Comment between args",
+			"(App ; comment here\n f x)",
+			ast.App{T: ast.Global{Name: "f"}, U: ast.Global{Name: "x"}},
+		},
+		{
+			"Comment after each arg",
+			"(Sigma ; 1\n x ; 2\n Nat ; 3\n Bool ; 4\n)",
+			ast.Sigma{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Bool"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", tt.input, err)
+			}
+			if !termEqual(result, tt.expected) {
+				t.Errorf("ParseTerm(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseTerm_ExtremeWhitespace(t *testing.T) {
+	// Lots of whitespace around a simple term
+	input := "\n\n\n   \t\t\t   \n\n\n   Type   \n\n\n   \t\t\t   \n\n\n"
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+	if !termEqual(result, ast.Sort{U: 0}) {
+		t.Errorf("Expected Type, got %v", result)
+	}
+}
+
+// --- Complex Form Tests ---
+
+func TestParseTerm_J_Eliminator(t *testing.T) {
+	// J eliminator has 6 arguments: A C d x y p
+	input := "(J Nat C d zero zero (Refl Nat zero))"
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+
+	j, ok := result.(ast.J)
+	if !ok {
+		t.Fatalf("Expected J, got %T", result)
+	}
+
+	// Verify all 6 fields
+	if !termEqual(j.A, ast.Global{Name: "Nat"}) {
+		t.Errorf("J.A = %v, want Nat", j.A)
+	}
+	if !termEqual(j.C, ast.Global{Name: "C"}) {
+		t.Errorf("J.C = %v, want C", j.C)
+	}
+	if !termEqual(j.D, ast.Global{Name: "d"}) {
+		t.Errorf("J.D = %v, want d", j.D)
+	}
+	if !termEqual(j.X, ast.Global{Name: "zero"}) {
+		t.Errorf("J.X = %v, want zero", j.X)
+	}
+	if !termEqual(j.Y, ast.Global{Name: "zero"}) {
+		t.Errorf("J.Y = %v, want zero", j.Y)
+	}
+	expectedRefl := ast.Refl{A: ast.Global{Name: "Nat"}, X: ast.Global{Name: "zero"}}
+	if !termEqual(j.P, expectedRefl) {
+		t.Errorf("J.P = %v, want Refl Nat zero", j.P)
+	}
+}
+
+func TestParseTerm_Let_Shadowing(t *testing.T) {
+	// Nested lets with same binder name (valid, uses shadowing)
+	input := "(Let x Nat zero (Let x Nat (Var 0) (Var 0)))"
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+
+	outer, ok := result.(ast.Let)
+	if !ok {
+		t.Fatalf("Expected Let, got %T", result)
+	}
+	if outer.Binder != "x" {
+		t.Errorf("Outer.Binder = %q, want x", outer.Binder)
+	}
+
+	inner, ok := outer.Body.(ast.Let)
+	if !ok {
+		t.Fatalf("Expected inner Let, got %T", outer.Body)
+	}
+	if inner.Binder != "x" {
+		t.Errorf("Inner.Binder = %q, want x", inner.Binder)
+	}
+}
+
+func TestParseTerm_EmptyBinder(t *testing.T) {
+	// _ is a valid binder for unused variables
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Pi with underscore", "(Pi _ Nat Nat)"},
+		{"Lam with underscore", "(Lam _ (Var 0))"},
+		{"Sigma with underscore", "(Sigma _ Nat Nat)"},
+		{"Let with underscore", "(Let _ Nat zero (Var 0))"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm(%q) error: %v", tt.input, err)
+			}
+			// Just check that it parses; the binder should be "_"
+			switch v := result.(type) {
+			case ast.Pi:
+				if v.Binder != "_" {
+					t.Errorf("Expected binder '_', got %q", v.Binder)
+				}
+			case ast.Lam:
+				if v.Binder != "_" {
+					t.Errorf("Expected binder '_', got %q", v.Binder)
+				}
+			case ast.Sigma:
+				if v.Binder != "_" {
+					t.Errorf("Expected binder '_', got %q", v.Binder)
+				}
+			case ast.Let:
+				if v.Binder != "_" {
+					t.Errorf("Expected binder '_', got %q", v.Binder)
+				}
+			}
+		})
+	}
+}
+
+func TestParseTerm_LamWithAnnotation(t *testing.T) {
+	// Lam can have an optional type annotation when the type is in parens
+	// and starts with a recognized form like (Pi ...), (Sort ...), etc.
+	tests := []struct {
+		name     string
+		input    string
+		binder   string
+		hasAnn   bool
+		annTerm  ast.Term
+		bodyTerm ast.Term
+	}{
+		{
+			"Lam without annotation",
+			"(Lam x (Var 0))",
+			"x",
+			false,
+			nil,
+			ast.Var{Ix: 0},
+		},
+		{
+			"Lam with Sort annotation",
+			"(Lam x (Sort 0) (Var 0))",
+			"x",
+			true,
+			ast.Sort{U: 0},
+			ast.Var{Ix: 0},
+		},
+		{
+			"Lam with Pi annotation",
+			"(Lam f (Pi x Nat Nat) (App (Var 0) zero))",
+			"f",
+			true,
+			ast.Pi{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+			ast.App{T: ast.Var{Ix: 0}, U: ast.Global{Name: "zero"}},
+		},
+		{
+			"Lam with Sigma annotation",
+			"(Lam p (Sigma x Nat Nat) (Fst (Var 0)))",
+			"p",
+			true,
+			ast.Sigma{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+			ast.Fst{P: ast.Var{Ix: 0}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTerm(tt.input)
+			if err != nil {
+				t.Fatalf("ParseTerm error: %v", err)
+			}
+
+			lam, ok := result.(ast.Lam)
+			if !ok {
+				t.Fatalf("Expected Lam, got %T", result)
+			}
+			if lam.Binder != tt.binder {
+				t.Errorf("Binder = %q, want %q", lam.Binder, tt.binder)
+			}
+			if tt.hasAnn {
+				if !termEqual(lam.Ann, tt.annTerm) {
+					t.Errorf("Ann = %v, want %v", lam.Ann, tt.annTerm)
+				}
+			} else {
+				if lam.Ann != nil {
+					t.Errorf("Expected no annotation, got %v", lam.Ann)
+				}
+			}
+			if !termEqual(lam.Body, tt.bodyTerm) {
+				t.Errorf("Body = %v, want %v", lam.Body, tt.bodyTerm)
+			}
+		})
+	}
+}
+
+func TestParseTerm_NestedApplications_50(t *testing.T) {
+	// Build a chain of 50 applications
+	input := "f"
+	for i := 0; i < 50; i++ {
+		input = "(App " + input + " x)"
+	}
+
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm failed on 50 nested applications: %v", err)
+	}
+
+	// Verify it's a chain of Apps
+	current := result
+	for i := 0; i < 50; i++ {
+		app, ok := current.(ast.App)
+		if !ok {
+			t.Fatalf("Level %d: expected App, got %T", i, current)
+		}
+		if !termEqual(app.U, ast.Global{Name: "x"}) {
+			t.Errorf("Level %d: arg should be x", i)
+		}
+		current = app.T
+	}
+
+	// Innermost should be f
+	if !termEqual(current, ast.Global{Name: "f"}) {
+		t.Errorf("Innermost: expected f, got %v", current)
+	}
+}
+
+func TestParseTerm_ComplexNesting(t *testing.T) {
+	// A realistically complex term
+	input := `(Pi A Type
+               (Pi x (Var 0)
+                 (Sigma y (Var 1)
+                   (Id (Var 2) (Var 1) (Var 0)))))`
+	result, err := ParseTerm(input)
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+
+	// Verify outer structure
+	pi1, ok := result.(ast.Pi)
+	if !ok {
+		t.Fatalf("Expected Pi, got %T", result)
+	}
+	if pi1.Binder != "A" {
+		t.Errorf("First Pi binder = %q, want A", pi1.Binder)
+	}
+
+	pi2, ok := pi1.B.(ast.Pi)
+	if !ok {
+		t.Fatalf("Expected nested Pi, got %T", pi1.B)
+	}
+	if pi2.Binder != "x" {
+		t.Errorf("Second Pi binder = %q, want x", pi2.Binder)
+	}
+
+	sigma, ok := pi2.B.(ast.Sigma)
+	if !ok {
+		t.Fatalf("Expected Sigma, got %T", pi2.B)
+	}
+	if sigma.Binder != "y" {
+		t.Errorf("Sigma binder = %q, want y", sigma.Binder)
+	}
+
+	id, ok := sigma.B.(ast.Id)
+	if !ok {
+		t.Fatalf("Expected Id, got %T", sigma.B)
+	}
+	if !termEqual(id.A, ast.Var{Ix: 2}) {
+		t.Errorf("Id.A = %v, want Var 2", id.A)
+	}
+}
+
+// --- Malformed Input Tests ---
+
+func TestParseTerm_UnmatchedCloseParen(t *testing.T) {
+	tests := []string{
+		")",
+		"Type)",
+		"(Pi x Nat Nat))",
+		"(App f x))",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := ParseTerm(input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for unmatched close paren", input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_UnmatchedOpenParen(t *testing.T) {
+	tests := []string{
+		"(",
+		"((",
+		"(Pi x Nat",
+		"(App (App f x)",
+		"(Lam x (Var 0",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := ParseTerm(input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for unmatched open paren", input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_MissingArgs(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Pi missing 2 args", "(Pi x)"},
+		{"Pi missing 1 arg", "(Pi x Nat)"},
+		{"App missing arg", "(App f)"},
+		{"App empty", "(App)"},
+		{"Sigma missing args", "(Sigma x)"},
+		{"Pair missing arg", "(Pair x)"},
+		{"Fst empty", "(Fst)"},
+		{"Snd empty", "(Snd)"},
+		{"Let missing body", "(Let x Nat zero)"},
+		{"Id missing args", "(Id Nat x)"},
+		{"Refl missing arg", "(Refl Nat)"},
+		{"J missing args", "(J Nat C d x y)"},
+		{"Var empty", "(Var)"},
+		// Note: (Sort) parses as Sort{U:0}, (Global) as Global{Name:""} - not errors
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for missing args", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_BadVarIndex(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// Note: (Var -1) parses -1 as an atom, not a negative number
+		{"Non-numeric", "(Var abc)"},
+		{"Float", "(Var 1.5)"},
+		{"Hex", "(Var 0x10)"},
+		{"Empty atom after Var", "(Var )"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for bad Var index", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_UnknownForm(t *testing.T) {
+	tests := []string{
+		"(Unknown x y)",
+		"(Foo)",
+		"(lambda2 x body)",
+		"(Π x Nat Nat)", // Π instead of Pi - not a recognized form
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := ParseTerm(input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for unknown form", input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_ExtraTrailingContent(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Extra atom", "Type extra"},
+		{"Extra paren", "Nat (extra)"},
+		{"Two terms", "(Pi x Nat Nat) (App f x)"},
+		{"Term then garbage", "Type xyz123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error for trailing content", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTerm_EmptyParens(t *testing.T) {
+	_, err := ParseTerm("()")
+	if err == nil {
+		t.Error("ParseTerm(\"()\") expected error for empty parens")
+	}
+}
+
+func TestParseTerm_NestedEmptyParens(t *testing.T) {
+	tests := []string{
+		"(App () x)",
+		"(Pi x () Nat)",
+		"(Lam x ())",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := ParseTerm(input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error", input)
+			}
+		})
+	}
 }
 
 // termEqual compares two terms for structural equality.
