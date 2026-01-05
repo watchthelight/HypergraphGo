@@ -9,26 +9,39 @@
 </p>
 
 <p align="center">
-  <!-- CI Status Badges -->
-  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-linux.yml?branch=main&label=linux&style=flat-square" alt="CI Linux"></a>
-  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-windows.yml?branch=main&label=windows&style=flat-square" alt="CI Windows"></a>
-  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/go.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/go.yml?branch=main&label=tests&style=flat-square" alt="Tests"></a>
+  <!-- CI/CD Status -->
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-linux.yml?branch=main&label=Linux&logo=linux&logoColor=white&style=flat-square" alt="Linux"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/ci-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/ci-windows.yml?branch=main&label=Windows&logo=windows&logoColor=white&style=flat-square" alt="Windows"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/go.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/go.yml?branch=main&label=Tests&logo=go&logoColor=white&style=flat-square" alt="Tests"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/actions/workflows/gh-pages.yml"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/gh-pages.yml?branch=main&label=Docs&logo=gitbook&logoColor=white&style=flat-square" alt="Docs"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/security/code-scanning"><img src="https://img.shields.io/github/actions/workflow/status/watchthelight/HypergraphGo/codeql.yml?branch=main&label=CodeQL&logo=github&logoColor=white&style=flat-square" alt="CodeQL"></a>
 </p>
 
 <p align="center">
-  <!-- Dynamic Badges from Gist -->
+  <!-- Dynamic Metrics from Gist -->
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-version.json&style=flat-square" alt="Version">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-coverage.json&style=flat-square" alt="Coverage">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-tests.json&style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-packages.json&style=flat-square" alt="Packages">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-loc.json&style=flat-square" alt="Lines of Code">
 </p>
 
 <p align="center">
-  <!-- Static Badges -->
-  <a href="https://github.com/watchthelight/HypergraphGo/releases"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&style=flat-square&color=d4a847" alt="Release"></a>
-  <img src="https://img.shields.io/badge/go-%3E%3D1.23-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
-  <a href="https://github.com/watchthelight/HypergraphGo/stargazers"><img src="https://img.shields.io/github/stars/watchthelight/HypergraphGo?style=flat-square&color=d4a847" alt="Stars"></a>
+  <!-- Release & Project Info -->
+  <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&label=Latest%20Release&style=flat-square&color=success" alt="Latest Release"></a>
+  <img src="https://img.shields.io/github/release-date/watchthelight/HypergraphGo?label=Released&style=flat-square" alt="Release Date">
+  <img src="https://img.shields.io/badge/Go-%3E%3D1.23-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version">
+  <a href="https://github.com/watchthelight/HypergraphGo/stargazers"><img src="https://img.shields.io/github/stars/watchthelight/HypergraphGo?style=flat-square&color=gold" alt="Stars"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/github/license/watchthelight/HypergraphGo?style=flat-square" alt="License"></a>
+</p>
+
+<p align="center">
+  <!-- Package Managers -->
+  <a href="https://github.com/watchthelight/homebrew-tap"><img src="https://img.shields.io/badge/Homebrew-tap-FBB040?style=flat-square&logo=homebrew&logoColor=white" alt="Homebrew"></a>
+  <a href="https://github.com/watchthelight/scoop-bucket"><img src="https://img.shields.io/badge/Scoop-bucket-5391FE?style=flat-square&logo=windows&logoColor=white" alt="Scoop"></a>
+  <a href="https://community.chocolatey.org/packages/hypergraphgo"><img src="https://img.shields.io/chocolatey/v/hypergraphgo?label=Chocolatey&style=flat-square&logo=chocolatey&logoColor=white" alt="Chocolatey"></a>
+  <a href="https://cloudsmith.io/~watchthelight/repos/hottgo/packages/"><img src="https://img.shields.io/badge/APT-Cloudsmith-2196F3?style=flat-square&logo=debian&logoColor=white" alt="APT/DEB"></a>
+  <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/badge/Binary-Download-4CAF50?style=flat-square&logo=github&logoColor=white" alt="Binary Download"></a>
 </p>
 
 ---
