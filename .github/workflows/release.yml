@@ -136,8 +136,8 @@ jobs:
           echo "Found ${#DEBS[@]} debs"
           for deb in "${DEBS[@]}"; do
             echo "Uploading $deb ..."
-            cloudsmith push deb watchthelight/hypergraphgo/ubuntu/focal   "$deb"
-            cloudsmith push deb watchthelight/hypergraphgo/ubuntu/jammy   "$deb"
-            cloudsmith push deb watchthelight/hypergraphgo/ubuntu/noble   "$deb"
-            cloudsmith push deb watchthelight/hypergraphgo/debian/bookworm "$deb"
+            cloudsmith push deb watchthelight/hottgo/ubuntu/focal   "$deb"
+            cloudsmith push deb watchthelight/hottgo/ubuntu/jammy   "$deb"
+            cloudsmith push deb watchthelight/hottgo/ubuntu/noble   "$deb"
+            cloudsmith push deb watchthelight/hottgo/debian/bookworm "$deb"
           done
