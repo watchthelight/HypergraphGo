@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Documentation
+*.md
+docs/
+assets/
+
+# Build artifacts
+dist/
+*.dmg
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+
+# Test artifacts
+*_test.go
+coverage.out
+cover
+
+# CI/CD
+.github/
+.goreleaser.yaml
+
+# Packaging
+packaging/
+Formula/
