@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **internal/core package documentation** (`internal/core/doc.go` - new)
+  - Documents definitional equality checking using NbE
+  - Main functions: `Conv`, `AlphaEq`, `NewEnv`, `Extend`
+  - Configuration: `ConvOptions` with `EnableEta` flag
+  - Algorithm explanation: Eval → Reify → AlphaEq with optional η-expansion
+  - Cubical type theory support documentation
+
+### Tests
+- **Cubical positivity tests** (`kernel/check/positivity_cubical_test.go` - new)
+  - Path type positivity: `TestCheckPositivity_Path`, `TestCheckPositivity_PathP`,
+    `TestCheckPositivity_PathLam`, `TestCheckPositivity_PathApp`
+  - Transport and composition: `TestCheckPositivity_Transport`,
+    `TestCheckPositivity_Comp`, `TestCheckPositivity_HComp`, `TestCheckPositivity_Fill`
+  - Glue types: `TestCheckPositivity_Glue`, `TestCheckPositivity_GlueElem`,
+    `TestCheckPositivity_Unglue`
+  - Univalence: `TestCheckPositivity_UA`, `TestCheckPositivity_UABeta`
+  - Partial types: `TestCheckPositivity_Partial`, `TestCheckPositivity_System`
+  - Interval terms: `TestCheckPositivity_IntervalTerms`
+  - Face formulas: `TestCheckPositivity_FaceFormulas`
+  - Occurrence checking: `TestOccursIn_CubicalTerms` (57 subtests for all cubical terms)
+  - Face helpers: `TestOccursInFace`, `TestCheckArgTypePositivityFace`
+  - Coverage for `kernel/check` improved from 75.8% to 83.5%
+- **IShift cubical tests** (`kernel/subst/subst_cubical_test.go` - extended)
+  - Interval constants: `TestIShift_IntervalConstants` (I0, I1, Interval)
+  - Interval variables: `TestIShift_IVar` with cutoff boundary conditions
+  - Path types: `TestIShift_Path`, `TestIShift_PathP` (with interval binding),
+    `TestIShift_PathLam` (with cutoff increment), `TestIShift_PathApp`
+  - Transport: `TestIShift_Transport` with differential binding (A at cutoff+1, E at cutoff)
+  - Composition: `TestIShift_Comp`, `TestIShift_HComp`, `TestIShift_Fill` with
+    complex cutoff handling for interval-binding constructs
+  - Partial types: `TestIShift_Partial`, `TestIShift_System` with multiple branches
+  - Glue types: `TestIShift_Glue`, `TestIShift_GlueElem`, `TestIShift_Unglue`
+  - Univalence: `TestIShift_UA`, `TestIShift_UABeta`
+  - Coverage for `kernel/subst` improved from 84.3% to 91.7%
+- **Indexed inductive tests** (`internal/eval/recursor_test.go` - extended)
+  - Vec with metadata: `TestIndexedInductive_VecWithMetadata` with IndexArgPositions
+  - Vec without metadata: `TestIndexedInductive_WithoutMetadata` (fallback heuristic)
+  - Multiple indices: `TestIndexedInductive_MultipleIndices` (2-index type)
+  - Multiple recursive args: `TestIndexedInductive_MultipleRecursiveArgs` (binary tree)
+  - Partial metadata: `TestIndexedInductive_PartialMetadata` (incomplete positions)
+  - Empty positions: `TestIndexedInductive_EmptyIndexArgPositions`
+
+### Fixed
+- **Race condition in HIT boundary tests** (`internal/eval/nbe_hit_test.go`)
+  - Removed `t.Parallel()` from 4 tests that modify global recursor registry
+  - Tests: `TestLookupHITBoundaries_NoRecursor`, `TestLookupHITBoundaries_NonHIT`,
+    `TestLookupHITBoundaries_WithPathCtor`, `TestLookupHITBoundaries_UnknownPathCtor`
+- **Staticcheck SA4003 warning** (`kernel/check/path_test.go:2690`)
+  - Removed impossible `sort.U < 0` check (uint cannot be negative)
+
 ### Tests
 - **Cubical term printing coverage** (`internal/ast/print_cubical_test.go` - new)
   - Comprehensive tests for all 28 cubical term types

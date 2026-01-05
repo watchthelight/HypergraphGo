@@ -2290,6 +2290,404 @@ func TestIShift_Default(t *testing.T) {
 }
 
 // ============================================================================
+// IShift Cubical Term Tests
+// ============================================================================
+
+func TestIShift_IntervalConstants(t *testing.T) {
+	t.Parallel()
+	// I0, I1, and Interval should be returned unchanged
+	i0 := ast.I0{}
+	i1 := ast.I1{}
+	interval := ast.Interval{}
+
+	if result := IShift(5, 0, i0); !reflect.DeepEqual(result, i0) {
+		t.Errorf("I0 should be unchanged, got %v", result)
+	}
+	if result := IShift(5, 0, i1); !reflect.DeepEqual(result, i1) {
+		t.Errorf("I1 should be unchanged, got %v", result)
+	}
+	if result := IShift(5, 0, interval); !reflect.DeepEqual(result, interval) {
+		t.Errorf("Interval should be unchanged, got %v", result)
+	}
+}
+
+func TestIShift_IVar(t *testing.T) {
+	t.Parallel()
+	// IVar at or above cutoff should be shifted
+	ivar0 := ast.IVar{Ix: 0}
+	ivar1 := ast.IVar{Ix: 1}
+	ivar5 := ast.IVar{Ix: 5}
+
+	// Shift by 2 with cutoff 1
+	if result := IShift(2, 1, ivar0); !reflect.DeepEqual(result, ast.IVar{Ix: 0}) {
+		t.Errorf("IVar{0} below cutoff 1 should be unchanged, got %v", result)
+	}
+	if result := IShift(2, 1, ivar1); !reflect.DeepEqual(result, ast.IVar{Ix: 3}) {
+		t.Errorf("IVar{1} at cutoff 1 should become IVar{3}, got %v", result)
+	}
+	if result := IShift(2, 1, ivar5); !reflect.DeepEqual(result, ast.IVar{Ix: 7}) {
+		t.Errorf("IVar{5} above cutoff 1 should become IVar{7}, got %v", result)
+	}
+}
+
+func TestIShift_Path(t *testing.T) {
+	t.Parallel()
+	// Path{A, X, Y} - no interval binders, all shifted at same cutoff
+	term := ast.Path{
+		A: ast.IVar{Ix: 0},
+		X: ast.IVar{Ix: 1},
+		Y: ast.IVar{Ix: 2},
+	}
+	result := IShift(3, 0, term)
+	path := result.(ast.Path)
+
+	if ivar, ok := path.A.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Path.A: expected IVar{3}, got %v", path.A)
+	}
+	if ivar, ok := path.X.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("Path.X: expected IVar{4}, got %v", path.X)
+	}
+	if ivar, ok := path.Y.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Path.Y: expected IVar{5}, got %v", path.Y)
+	}
+}
+
+func TestIShift_PathP(t *testing.T) {
+	t.Parallel()
+	// PathP{A, X, Y} - A binds an interval variable (cutoff+1)
+	term := ast.PathP{
+		A: ast.IVar{Ix: 0}, // Should use cutoff+1=1, so IVar{0} < 1 is unchanged
+		X: ast.IVar{Ix: 0}, // Uses cutoff=0
+		Y: ast.IVar{Ix: 1}, // Uses cutoff=0
+	}
+	result := IShift(2, 0, term)
+	pathp := result.(ast.PathP)
+
+	// A: IVar{0} at cutoff+1=1, so 0 < 1 means unchanged
+	if ivar, ok := pathp.A.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("PathP.A: expected IVar{0}, got %v", pathp.A)
+	}
+	// X: IVar{0} at cutoff=0, so 0 >= 0 means shifted by 2
+	if ivar, ok := pathp.X.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("PathP.X: expected IVar{2}, got %v", pathp.X)
+	}
+	// Y: IVar{1} at cutoff=0, so 1 >= 0 means shifted by 2
+	if ivar, ok := pathp.Y.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("PathP.Y: expected IVar{3}, got %v", pathp.Y)
+	}
+}
+
+func TestIShift_PathLam(t *testing.T) {
+	t.Parallel()
+	// PathLam binds an interval variable in Body (cutoff+1)
+	term := ast.PathLam{
+		Binder: "i",
+		Body:   ast.IVar{Ix: 1}, // At cutoff+1=1, IVar{1} >= 1 means shifted
+	}
+	result := IShift(3, 0, term)
+	plam := result.(ast.PathLam)
+
+	if plam.Binder != "i" {
+		t.Errorf("PathLam.Binder should be preserved")
+	}
+	// Body: IVar{1} at cutoff+1=1, so 1 >= 1 means shifted by 3
+	if ivar, ok := plam.Body.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("PathLam.Body: expected IVar{4}, got %v", plam.Body)
+	}
+}
+
+func TestIShift_PathApp(t *testing.T) {
+	t.Parallel()
+	// PathApp{P, R} - no interval binders
+	term := ast.PathApp{
+		P: ast.IVar{Ix: 0},
+		R: ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+	papp := result.(ast.PathApp)
+
+	if ivar, ok := papp.P.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("PathApp.P: expected IVar{2}, got %v", papp.P)
+	}
+	if ivar, ok := papp.R.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("PathApp.R: expected IVar{3}, got %v", papp.R)
+	}
+}
+
+func TestIShift_Transport(t *testing.T) {
+	t.Parallel()
+	// Transport{A, E} - A binds interval (cutoff+1), E doesn't
+	term := ast.Transport{
+		A: ast.IVar{Ix: 0}, // At cutoff+1=1, 0 < 1 means unchanged
+		E: ast.IVar{Ix: 0}, // At cutoff=0, 0 >= 0 means shifted
+	}
+	result := IShift(5, 0, term)
+	tr := result.(ast.Transport)
+
+	if ivar, ok := tr.A.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Transport.A: expected IVar{0}, got %v", tr.A)
+	}
+	if ivar, ok := tr.E.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Transport.E: expected IVar{5}, got %v", tr.E)
+	}
+}
+
+func TestIShift_Comp(t *testing.T) {
+	t.Parallel()
+	// Comp binds interval in A, Phi, Tube (cutoff+1), Base doesn't
+	term := ast.Comp{
+		IBinder: "i",
+		A:       ast.IVar{Ix: 0}, // cutoff+1
+		Phi:     ast.FaceEq{IVar: 1, IsOne: true},
+		Tube:    ast.IVar{Ix: 2}, // cutoff+1
+		Base:    ast.IVar{Ix: 0}, // cutoff
+	}
+	result := IShift(3, 0, term)
+	comp := result.(ast.Comp)
+
+	if comp.IBinder != "i" {
+		t.Errorf("Comp.IBinder should be preserved")
+	}
+	// A: IVar{0} at cutoff+1=1, 0 < 1 means unchanged
+	if ivar, ok := comp.A.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Comp.A: expected IVar{0}, got %v", comp.A)
+	}
+	// Phi: FaceEq{IVar:1} at cutoff+1=1, 1 >= 1 means shifted by 3
+	if fe, ok := comp.Phi.(ast.FaceEq); !ok || fe.IVar != 4 {
+		t.Errorf("Comp.Phi: expected FaceEq{IVar:4}, got %v", comp.Phi)
+	}
+	// Tube: IVar{2} at cutoff+1=1, 2 >= 1 means shifted by 3
+	if ivar, ok := comp.Tube.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Comp.Tube: expected IVar{5}, got %v", comp.Tube)
+	}
+	// Base: IVar{0} at cutoff=0, 0 >= 0 means shifted by 3
+	if ivar, ok := comp.Base.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Comp.Base: expected IVar{3}, got %v", comp.Base)
+	}
+}
+
+func TestIShift_HComp(t *testing.T) {
+	t.Parallel()
+	// HComp: A at cutoff, Phi/Tube at cutoff+1, Base at cutoff
+	term := ast.HComp{
+		A:    ast.IVar{Ix: 0}, // cutoff
+		Phi:  ast.FaceEq{IVar: 0, IsOne: true},
+		Tube: ast.IVar{Ix: 1}, // cutoff+1
+		Base: ast.IVar{Ix: 1}, // cutoff
+	}
+	result := IShift(2, 0, term)
+	hc := result.(ast.HComp)
+
+	// A: IVar{0} at cutoff=0, shifted by 2
+	if ivar, ok := hc.A.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("HComp.A: expected IVar{2}, got %v", hc.A)
+	}
+	// Phi: FaceEq{IVar:0} at cutoff+1=1, 0 < 1 means unchanged
+	if fe, ok := hc.Phi.(ast.FaceEq); !ok || fe.IVar != 0 {
+		t.Errorf("HComp.Phi: expected FaceEq{IVar:0}, got %v", hc.Phi)
+	}
+	// Tube: IVar{1} at cutoff+1=1, 1 >= 1 means shifted by 2
+	if ivar, ok := hc.Tube.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("HComp.Tube: expected IVar{3}, got %v", hc.Tube)
+	}
+	// Base: IVar{1} at cutoff=0, shifted by 2
+	if ivar, ok := hc.Base.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("HComp.Base: expected IVar{3}, got %v", hc.Base)
+	}
+}
+
+func TestIShift_Fill(t *testing.T) {
+	t.Parallel()
+	// Fill: A/Phi/Tube at cutoff+1, Base at cutoff
+	term := ast.Fill{
+		IBinder: "j",
+		A:       ast.IVar{Ix: 1}, // cutoff+1=1, 1 >= 1 means shifted
+		Phi:     ast.FaceTop{},
+		Tube:    ast.IVar{Ix: 0}, // cutoff+1=1, 0 < 1 means unchanged
+		Base:    ast.IVar{Ix: 0}, // cutoff=0, shifted
+	}
+	result := IShift(4, 0, term)
+	fill := result.(ast.Fill)
+
+	if fill.IBinder != "j" {
+		t.Errorf("Fill.IBinder should be preserved")
+	}
+	if ivar, ok := fill.A.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Fill.A: expected IVar{5}, got %v", fill.A)
+	}
+	if ivar, ok := fill.Tube.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Fill.Tube: expected IVar{0}, got %v", fill.Tube)
+	}
+	if ivar, ok := fill.Base.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("Fill.Base: expected IVar{4}, got %v", fill.Base)
+	}
+}
+
+func TestIShift_Partial(t *testing.T) {
+	t.Parallel()
+	// Partial{Phi, A} - no interval binders
+	term := ast.Partial{
+		Phi: ast.FaceEq{IVar: 0, IsOne: true},
+		A:   ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+	partial := result.(ast.Partial)
+
+	if fe, ok := partial.Phi.(ast.FaceEq); !ok || fe.IVar != 2 {
+		t.Errorf("Partial.Phi: expected FaceEq{IVar:2}, got %v", partial.Phi)
+	}
+	if ivar, ok := partial.A.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Partial.A: expected IVar{3}, got %v", partial.A)
+	}
+}
+
+func TestIShift_System(t *testing.T) {
+	t.Parallel()
+	// System with multiple branches - no interval binders
+	term := ast.System{
+		Branches: []ast.SystemBranch{
+			{Phi: ast.FaceEq{IVar: 0, IsOne: true}, Term: ast.IVar{Ix: 0}},
+			{Phi: ast.FaceEq{IVar: 1, IsOne: false}, Term: ast.IVar{Ix: 2}},
+		},
+	}
+	result := IShift(3, 1, term)
+	sys := result.(ast.System)
+
+	if len(sys.Branches) != 2 {
+		t.Fatalf("expected 2 branches, got %d", len(sys.Branches))
+	}
+	// Branch 0: IVar{0} < cutoff=1, unchanged
+	if fe, ok := sys.Branches[0].Phi.(ast.FaceEq); !ok || fe.IVar != 0 {
+		t.Errorf("Branch 0 Phi: expected FaceEq{IVar:0}, got %v", sys.Branches[0].Phi)
+	}
+	if ivar, ok := sys.Branches[0].Term.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("Branch 0 Term: expected IVar{0}, got %v", sys.Branches[0].Term)
+	}
+	// Branch 1: IVar{1} >= cutoff=1, shifted by 3; IVar{2} >= 1, shifted
+	if fe, ok := sys.Branches[1].Phi.(ast.FaceEq); !ok || fe.IVar != 4 {
+		t.Errorf("Branch 1 Phi: expected FaceEq{IVar:4}, got %v", sys.Branches[1].Phi)
+	}
+	if ivar, ok := sys.Branches[1].Term.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Branch 1 Term: expected IVar{5}, got %v", sys.Branches[1].Term)
+	}
+}
+
+func TestIShift_Glue(t *testing.T) {
+	t.Parallel()
+	// Glue{A, System} - no interval binders
+	term := ast.Glue{
+		A: ast.IVar{Ix: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceEq{IVar: 1, IsOne: true},
+				T:     ast.IVar{Ix: 2},
+				Equiv: ast.IVar{Ix: 3},
+			},
+		},
+	}
+	result := IShift(2, 0, term)
+	glue := result.(ast.Glue)
+
+	if ivar, ok := glue.A.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Glue.A: expected IVar{2}, got %v", glue.A)
+	}
+	if len(glue.System) != 1 {
+		t.Fatalf("expected 1 branch, got %d", len(glue.System))
+	}
+	br := glue.System[0]
+	if fe, ok := br.Phi.(ast.FaceEq); !ok || fe.IVar != 3 {
+		t.Errorf("Glue branch Phi: expected FaceEq{IVar:3}, got %v", br.Phi)
+	}
+	if ivar, ok := br.T.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("Glue branch T: expected IVar{4}, got %v", br.T)
+	}
+	if ivar, ok := br.Equiv.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("Glue branch Equiv: expected IVar{5}, got %v", br.Equiv)
+	}
+}
+
+func TestIShift_GlueElem(t *testing.T) {
+	t.Parallel()
+	// GlueElem{System, Base} - no interval binders
+	term := ast.GlueElem{
+		System: []ast.GlueElemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.IVar{Ix: 0}},
+		},
+		Base: ast.IVar{Ix: 1},
+	}
+	result := IShift(3, 0, term)
+	ge := result.(ast.GlueElem)
+
+	if len(ge.System) != 1 {
+		t.Fatalf("expected 1 branch, got %d", len(ge.System))
+	}
+	if ivar, ok := ge.System[0].Term.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("GlueElem branch Term: expected IVar{3}, got %v", ge.System[0].Term)
+	}
+	if ivar, ok := ge.Base.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("GlueElem.Base: expected IVar{4}, got %v", ge.Base)
+	}
+}
+
+func TestIShift_Unglue(t *testing.T) {
+	t.Parallel()
+	// Unglue{Ty, G} - no interval binders
+	term := ast.Unglue{
+		Ty: ast.IVar{Ix: 0},
+		G:  ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+	ug := result.(ast.Unglue)
+
+	if ivar, ok := ug.Ty.(ast.IVar); !ok || ivar.Ix != 2 {
+		t.Errorf("Unglue.Ty: expected IVar{2}, got %v", ug.Ty)
+	}
+	if ivar, ok := ug.G.(ast.IVar); !ok || ivar.Ix != 3 {
+		t.Errorf("Unglue.G: expected IVar{3}, got %v", ug.G)
+	}
+}
+
+func TestIShift_UA(t *testing.T) {
+	t.Parallel()
+	// UA{A, B, Equiv} - no interval binders
+	term := ast.UA{
+		A:     ast.IVar{Ix: 0},
+		B:     ast.IVar{Ix: 1},
+		Equiv: ast.IVar{Ix: 2},
+	}
+	result := IShift(4, 1, term)
+	ua := result.(ast.UA)
+
+	if ivar, ok := ua.A.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("UA.A: expected IVar{0}, got %v", ua.A)
+	}
+	if ivar, ok := ua.B.(ast.IVar); !ok || ivar.Ix != 5 {
+		t.Errorf("UA.B: expected IVar{5}, got %v", ua.B)
+	}
+	if ivar, ok := ua.Equiv.(ast.IVar); !ok || ivar.Ix != 6 {
+		t.Errorf("UA.Equiv: expected IVar{6}, got %v", ua.Equiv)
+	}
+}
+
+func TestIShift_UABeta(t *testing.T) {
+	t.Parallel()
+	// UABeta{Equiv, Arg} - no interval binders
+	term := ast.UABeta{
+		Equiv: ast.IVar{Ix: 1},
+		Arg:   ast.IVar{Ix: 0},
+	}
+	result := IShift(3, 1, term)
+	uab := result.(ast.UABeta)
+
+	if ivar, ok := uab.Equiv.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("UABeta.Equiv: expected IVar{4}, got %v", uab.Equiv)
+	}
+	if ivar, ok := uab.Arg.(ast.IVar); !ok || ivar.Ix != 0 {
+		t.Errorf("UABeta.Arg: expected IVar{0}, got %v", uab.Arg)
+	}
+}
+
+// ============================================================================
 // IShiftFace Tests
 // ============================================================================
 

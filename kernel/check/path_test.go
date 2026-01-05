@@ -2687,7 +2687,7 @@ func TestSynthPartial(t *testing.T) {
 	// Partial φ Type0 : Type1 (since Type0 : Type1)
 	if sort, ok := ty.(ast.Sort); !ok {
 		t.Errorf("Expected Sort, got %v", ast.Sprint(ty))
-	} else if sort.U < 0 || sort.U > 2 {
+	} else if sort.U > 2 {
 		t.Errorf("Unexpected universe level %d", sort.U)
 	}
 }

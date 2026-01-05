@@ -149,7 +149,7 @@ func TestEvalHITApp_WithArgs(t *testing.T) {
 // ============================================================================
 
 func TestLookupHITBoundaries_NoRecursor(t *testing.T) {
-	t.Parallel()
+	// Not parallel: modifies global recursor registry
 	ClearRecursorRegistry()
 	defer ClearRecursorRegistry()
 
@@ -160,7 +160,7 @@ func TestLookupHITBoundaries_NoRecursor(t *testing.T) {
 }
 
 func TestLookupHITBoundaries_NonHIT(t *testing.T) {
-	t.Parallel()
+	// Not parallel: modifies global recursor registry
 	ClearRecursorRegistry()
 	defer ClearRecursorRegistry()
 
@@ -180,7 +180,7 @@ func TestLookupHITBoundaries_NonHIT(t *testing.T) {
 }
 
 func TestLookupHITBoundaries_WithPathCtor(t *testing.T) {
-	t.Parallel()
+	// Not parallel: modifies global recursor registry
 	ClearRecursorRegistry()
 	defer ClearRecursorRegistry()
 
@@ -215,7 +215,7 @@ func TestLookupHITBoundaries_WithPathCtor(t *testing.T) {
 }
 
 func TestLookupHITBoundaries_UnknownPathCtor(t *testing.T) {
-	t.Parallel()
+	// Not parallel: modifies global recursor registry
 	ClearRecursorRegistry()
 	defer ClearRecursorRegistry()
 
