@@ -41,6 +41,7 @@
   <a href="https://github.com/watchthelight/scoop-bucket"><img src="https://img.shields.io/badge/Scoop-bucket-5391FE?style=flat-square&logo=windows&logoColor=white" alt="Scoop"></a>
   <a href="https://community.chocolatey.org/packages/hypergraphgo"><img src="https://img.shields.io/chocolatey/v/hypergraphgo?label=Chocolatey&style=flat-square&logo=chocolatey&logoColor=white" alt="Chocolatey"></a>
   <a href="https://cloudsmith.io/~watchthelight/repos/hottgo/packages/"><img src="https://img.shields.io/badge/APT-Cloudsmith-2196F3?style=flat-square&logo=debian&logoColor=white" alt="APT/DEB"></a>
+  <a href="https://aur.archlinux.org/packages/hypergraphgo"><img src="https://img.shields.io/aur/version/hypergraphgo?style=flat-square&logo=archlinux&logoColor=white&label=AUR" alt="AUR"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/badge/Binary-Download-4CAF50?style=flat-square&logo=github&logoColor=white" alt="Binary Download"></a>
 </p>
 
