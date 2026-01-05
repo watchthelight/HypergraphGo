@@ -56,7 +56,7 @@ jobs:
           echo "Linux total coverage: $total" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-linux
           path: coverage.out
