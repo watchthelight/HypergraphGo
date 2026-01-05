@@ -67,3 +67,19 @@ CLAUDE.md
 .claude/
 AUDIT_REPORT_FULL.md
 AUDIT_VERIFICATION_REPORT.md
+
+# Build binaries
+hg
+hottgo
+
+# Coverage artifacts
+cover
+coverage.out
+
+# Test artifacts
+dual.json
+section.json
+
+# Planning files
+plan*.md
+TODO.txt
