@@ -18,15 +18,6 @@
 </p>
 
 <p align="center">
-  <!-- Dynamic Metrics from Gist -->
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-version.json&style=flat-square" alt="Version">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-coverage.json&style=flat-square" alt="Coverage">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-tests.json&style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-packages.json&style=flat-square" alt="Packages">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-loc.json&style=flat-square" alt="Lines of Code">
-</p>
-
-<p align="center">
   <!-- Release & Project Info -->
   <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/github/v/release/watchthelight/HypergraphGo?sort=semver&label=Latest%20Release&style=flat-square&color=success" alt="Latest Release"></a>
   <img src="https://img.shields.io/github/release-date/watchthelight/HypergraphGo?label=Released&style=flat-square" alt="Release Date">
@@ -43,6 +34,54 @@
   <a href="https://cloudsmith.io/~watchthelight/repos/hottgo/packages/"><img src="https://img.shields.io/badge/APT-Cloudsmith-2196F3?style=flat-square&logo=debian&logoColor=white" alt="APT/DEB"></a>
   <a href="https://aur.archlinux.org/packages/hypergraphgo-bin"><img src="https://img.shields.io/aur/version/hypergraphgo-bin?style=flat-square&logo=archlinux&logoColor=white&label=AUR" alt="AUR"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/badge/Binary-Download-4CAF50?style=flat-square&logo=github&logoColor=white" alt="Binary Download"></a>
+</p>
+
+<p align="center">
+  <em>Because I love stats:</em>
+</p>
+
+<p align="center">
+  <!-- Core metrics -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-version.json&style=flat-square" alt="Version">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-coverage.json&style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-tests.json&style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-packages.json&style=flat-square" alt="Packages">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-loc.json&style=flat-square" alt="Lines of Code">
+</p>
+
+<p align="center">
+  <!-- File structure -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-files.json&style=flat-square" alt="Files">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-go-files.json&style=flat-square" alt="Go Files">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-source-files.json&style=flat-square" alt="Source">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-test-files.json&style=flat-square" alt="Test Files">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-folders.json&style=flat-square" alt="Folders">
+</p>
+
+<p align="center">
+  <!-- Code breakdown -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-functions.json&style=flat-square" alt="Functions">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-structs.json&style=flat-square" alt="Structs">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-test-funcs.json&style=flat-square" alt="Test Funcs">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-benchmarks.json&style=flat-square" alt="Benchmarks">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-deps.json&style=flat-square" alt="Dependencies">
+</p>
+
+<p align="center">
+  <!-- Architecture -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-kernel.json&style=flat-square" alt="Kernel">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-internal.json&style=flat-square" alt="Internal">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-examples.json&style=flat-square" alt="Examples">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-workflows.json&style=flat-square" alt="Workflows">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-cli.json&style=flat-square" alt="CLI Commands">
+</p>
+
+<p align="center">
+  <!-- Vitals -->
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-commits.json&style=flat-square" alt="Commits">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-releases.json&style=flat-square" alt="Releases">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-age.json&style=flat-square" alt="Age">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-todos.json&style=flat-square" alt="TODOs">
 </p>
 
 ---

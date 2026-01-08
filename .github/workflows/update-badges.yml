@@ -74,3 +74,157 @@ jobs:
           gist_id: ${{ vars.BADGE_GIST_ID }}
           file_path: .github/badges/badge-loc.json
           file_type: text
+
+      # New badges for "Because I love stats" section
+
+      - name: Upload files badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-files.json
+          file_type: text
+
+      - name: Upload go-files badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-go-files.json
+          file_type: text
+
+      - name: Upload source-files badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-source-files.json
+          file_type: text
+
+      - name: Upload test-files badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-test-files.json
+          file_type: text
+
+      - name: Upload folders badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-folders.json
+          file_type: text
+
+      - name: Upload functions badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-functions.json
+          file_type: text
+
+      - name: Upload structs badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-structs.json
+          file_type: text
+
+      - name: Upload test-funcs badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-test-funcs.json
+          file_type: text
+
+      - name: Upload benchmarks badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-benchmarks.json
+          file_type: text
+
+      - name: Upload deps badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-deps.json
+          file_type: text
+
+      - name: Upload kernel badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-kernel.json
+          file_type: text
+
+      - name: Upload internal badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-internal.json
+          file_type: text
+
+      - name: Upload examples badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-examples.json
+          file_type: text
+
+      - name: Upload workflows badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-workflows.json
+          file_type: text
+
+      - name: Upload CLI badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-cli.json
+          file_type: text
+
+      - name: Upload commits badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-commits.json
+          file_type: text
+
+      - name: Upload releases badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-releases.json
+          file_type: text
+
+      - name: Upload age badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-age.json
+          file_type: text
+
+      - name: Upload TODOs badge
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ vars.BADGE_GIST_ID }}
+          file_path: .github/badges/badge-todos.json
+          file_type: text

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **"Because I love stats" badge section** in README
+  - 24 dynamic badges across 5 rows showing project metrics
+  - Row 1: version, coverage, tests, packages, lines of code
+  - Row 2: files, go files, source files, test files, folders
+  - Row 3: functions, structs, test funcs, benchmarks, dependencies (0!)
+  - Row 4: kernel files, internal files, examples, workflows, CLI commands
+  - Row 5: commits, releases, age, TODOs (0!)
+- Extended `scripts/generate-badges.sh` with 19 new metric calculations
+- Extended `.github/workflows/update-badges.yml` with 19 new badge uploads
+- **README rewrite** for clarity and voice
+  - Added HoTT kernel quickstart with working examples
+  - Clarified "Why Go?" rationale
+  - Added concrete line counts and architecture breakdown
+  - Sharpened cooltt/redtt comparison
+  - Expanded audience section
+
 ### Changed
 - **Comprehensive diagram updates** (`DIAGRAMS.md`)
   - Added Higher Inductive Types (HITs) to master architecture diagrams
