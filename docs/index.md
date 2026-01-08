@@ -50,16 +50,19 @@ go get github.com/watchthelight/hypergraphgo
 
 ## Current Status
 
-**v1.6.0**: Computational Univalence Complete
+**v1.7.0**: Higher Inductive Types Complete
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 0–4 | ✅ | Syntax, NbE, type checking, Id types, paths |
 | Phase 5 | ✅ | Inductives, recursors, positivity (parameterized, indexed, mutual) |
 | Phase 6 | ✅ | Computational univalence (Glue, comp, ua) |
-| Phase 7+ | ⏳ | HITs, tactics, stdlib |
+| Phase 7 | ✅ | Higher Inductive Types (HITs) |
+| Phase 8 | ⏳ | Elaboration and tactics |
+| Phase 9 | ⏳ | Standard library seed |
 
 **Highlights:**
+- Higher Inductive Types: S¹, Trunc, Susp, Int, Quotients
 - Univalence axiom: `ua A B e : Path Type A B`
 - Glue types and composition operations
 - Cubical types always enabled (no build tag needed)
@@ -68,4 +71,4 @@ go get github.com/watchthelight/hypergraphgo
 
 ## License
 
-MIT License © 2025 [watchthelight](https://github.com/watchthelight)
+MIT License © 2025-2026 [watchthelight](https://github.com/watchthelight)

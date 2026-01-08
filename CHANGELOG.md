@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-01-08
+
 ### Added
 - **"Because I love stats" badge section** in README
   - 24 dynamic badges across 5 rows showing project metrics
@@ -195,7 +197,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Partial metadata: `TestIndexedInductive_PartialMetadata` (incomplete positions)
   - Empty positions: `TestIndexedInductive_EmptyIndexArgPositions`
 
+### Changed
+- **docs/index.md updated** to reflect v1.7.0 status
+  - Phase 7 (HITs) marked complete
+  - Added Phase 8 (Elaboration and tactics) and Phase 9 (Standard library seed) to roadmap
+  - Added HIT highlights: S¹, Trunc, Susp, Int, Quotients
+  - Updated copyright year to 2025-2026
+
 ### Fixed
+- **Badge workflow fixes** (`.github/workflows/update-badges.yml`)
+  - Added `fetch-depth: 0` for full git history (fixes commits/age/releases count)
+  - Pass `GH_TOKEN` to generate script for release count via gh CLI
+  - Changed from `exuanbo/actions-deploy-gist` to `gh gist edit` for badge uploads
+  - Added retry logic with 2s backoff for 409 Conflict errors
+  - Added 1s delay between uploads to avoid API rate limits
 - **Race condition in HIT boundary tests** (`internal/eval/nbe_hit_test.go`)
   - Removed `t.Parallel()` from 4 tests that modify global recursor registry
   - Tests: `TestLookupHITBoundaries_NoRecursor`, `TestLookupHITBoundaries_NonHIT`,
