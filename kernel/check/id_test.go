@@ -343,6 +343,204 @@ func TestReflTypeMismatch(t *testing.T) {
 	}
 }
 
+// TestSynthJ_ErrorInA tests that J fails when A is not a type
+func TestSynthJ_ErrorInA(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// J with A = zero (not a type)
+	j := ast.J{
+		A: zero, // zero is not a type!
+		C: ast.Lam{Binder: "y", Ann: nat, Body: ast.Lam{Binder: "p", Ann: nat, Body: nat}},
+		D: zero,
+		X: zero,
+		Y: zero,
+		P: ast.Refl{A: nat, X: zero},
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.A is not a type")
+	}
+}
+
+// TestSynthJ_ErrorInX tests that J fails when X doesn't check against A
+func TestSynthJ_ErrorInX(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// Motive: \y. \p. Nat
+	motive := ast.Lam{
+		Binder: "y",
+		Ann:    nat,
+		Body: ast.Lam{
+			Binder: "p",
+			Ann:    ast.Id{A: nat, X: ast.Global{Name: "true"}, Y: ast.Var{Ix: 0}},
+			Body:   nat,
+		},
+	}
+
+	// J with X = true (wrong type - Bool, not Nat)
+	j := ast.J{
+		A: nat,
+		C: motive,
+		D: zero,
+		X: ast.Global{Name: "true"}, // true : Bool, not Nat!
+		Y: zero,
+		P: ast.Refl{A: nat, X: zero},
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.X doesn't check against J.A")
+	}
+}
+
+// TestSynthJ_ErrorInY tests that J fails when Y doesn't check against A
+func TestSynthJ_ErrorInY(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// Motive: \y. \p. Nat
+	motive := ast.Lam{
+		Binder: "y",
+		Ann:    nat,
+		Body: ast.Lam{
+			Binder: "p",
+			Ann:    ast.Id{A: nat, X: zero, Y: ast.Var{Ix: 0}},
+			Body:   nat,
+		},
+	}
+
+	// J with Y = true (wrong type - Bool, not Nat)
+	j := ast.J{
+		A: nat,
+		C: motive,
+		D: zero,
+		X: zero,
+		Y: ast.Global{Name: "true"}, // true : Bool, not Nat!
+		P: ast.Refl{A: nat, X: zero},
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.Y doesn't check against J.A")
+	}
+}
+
+// TestSynthJ_ErrorInC tests that J fails when C doesn't check against the motive type
+func TestSynthJ_ErrorInC(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// Invalid motive - doesn't have correct type (y : A) -> Id A x y -> Type
+	badMotive := nat // just Nat, not a function
+
+	j := ast.J{
+		A: nat,
+		C: badMotive, // wrong motive type!
+		D: zero,
+		X: zero,
+		Y: zero,
+		P: ast.Refl{A: nat, X: zero},
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.C doesn't check against motive type")
+	}
+}
+
+// TestSynthJ_ErrorInD tests that J fails when D doesn't check against C x (refl A x)
+func TestSynthJ_ErrorInD(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// Motive: \y. \p. Nat
+	motive := ast.Lam{
+		Binder: "y",
+		Ann:    nat,
+		Body: ast.Lam{
+			Binder: "p",
+			Ann:    ast.Id{A: nat, X: zero, Y: ast.Var{Ix: 0}},
+			Body:   nat,
+		},
+	}
+
+	// D should be of type (C x (refl A x)) = Nat
+	// But we provide true : Bool
+	j := ast.J{
+		A: nat,
+		C: motive,
+		D: ast.Global{Name: "true"}, // wrong type - Bool, not Nat!
+		X: zero,
+		Y: zero,
+		P: ast.Refl{A: nat, X: zero},
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.D doesn't check against C x (refl A x)")
+	}
+}
+
+// TestSynthJ_ErrorInP tests that J fails when P doesn't check against Id A x y
+func TestSynthJ_ErrorInP(t *testing.T) {
+	globals := NewGlobalEnvWithPrimitives()
+	checker := NewChecker(globals)
+	context := idTestCtx()
+
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+	succZero := ast.App{T: ast.Global{Name: "succ"}, U: zero}
+
+	// Motive: \y. \p. Nat
+	motive := ast.Lam{
+		Binder: "y",
+		Ann:    nat,
+		Body: ast.Lam{
+			Binder: "p",
+			Ann:    ast.Id{A: nat, X: zero, Y: ast.Var{Ix: 0}},
+			Body:   nat,
+		},
+	}
+
+	// P should be Id Nat zero zero, but we provide just zero (wrong type)
+	j := ast.J{
+		A: nat,
+		C: motive,
+		D: succZero,
+		X: zero,
+		Y: zero,
+		P: zero, // wrong type - Nat, not Id Nat zero zero!
+	}
+
+	_, err := checker.Synth(context, NoSpan(), j)
+	if err == nil {
+		t.Error("expected error when J.P doesn't check against Id A x y")
+	}
+}
+
 // alphaEq is a helper for comparing terms (using the internal AlphaEq)
 func alphaEq(a, b ast.Term) bool {
 	// Use NbE to normalize both terms first

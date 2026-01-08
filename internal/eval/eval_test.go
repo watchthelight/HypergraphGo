@@ -48,6 +48,73 @@ func TestNormalize_AppSpine(t *testing.T) {
 	}
 }
 
+// TestNormalize_FstNeutral tests Fst on a non-pair (stuck case).
+func TestNormalize_FstNeutral(t *testing.T) {
+	// fst x where x is a variable (neutral) - should stay stuck
+	neutralTerm := ast.Global{Name: "x"}
+	fstTerm := ast.Fst{P: neutralTerm}
+	got := nf(fstTerm)
+	// Should produce "(fst x)"
+	if !strings.Contains(got, "fst") || !strings.Contains(got, "x") {
+		t.Fatalf("fst on neutral: got %q, expected to contain fst and x", got)
+	}
+}
+
+// TestNormalize_SndNeutral tests Snd on a non-pair (stuck case).
+func TestNormalize_SndNeutral(t *testing.T) {
+	// snd x where x is a variable (neutral) - should stay stuck
+	neutralTerm := ast.Global{Name: "x"}
+	sndTerm := ast.Snd{P: neutralTerm}
+	got := nf(sndTerm)
+	// Should produce "(snd x)"
+	if !strings.Contains(got, "snd") || !strings.Contains(got, "x") {
+		t.Fatalf("snd on neutral: got %q, expected to contain snd and x", got)
+	}
+}
+
+// TestNormalize_Default tests the default case for non-reducible terms.
+func TestNormalize_Default(t *testing.T) {
+	// Sort should pass through unchanged
+	sortTerm := ast.Sort{U: 0}
+	got := nf(sortTerm)
+	if got != "Type0" {
+		t.Fatalf("Sort normalization: got %q, want Type0", got)
+	}
+
+	// Pi should pass through unchanged
+	piTerm := ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	got = nf(piTerm)
+	if !strings.Contains(got, "Pi") || !strings.Contains(got, "Type0") {
+		t.Fatalf("Pi normalization: got %q, expected to contain Pi and Type0", got)
+	}
+
+	// Sigma should pass through unchanged
+	sigmaTerm := ast.Sigma{Binder: "x", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	got = nf(sigmaTerm)
+	if !strings.Contains(got, "Sigma") || !strings.Contains(got, "Type0") {
+		t.Fatalf("Sigma normalization: got %q, expected to contain Sigma and Type0", got)
+	}
+
+	// Lambda should pass through unchanged
+	lamTerm := ast.Lam{Binder: "x", Body: ast.Var{Ix: 0}}
+	got = nf(lamTerm)
+	if !strings.Contains(got, "\\") || !strings.Contains(got, "x") {
+		t.Fatalf("Lambda normalization: got %q, expected to contain lambda", got)
+	}
+}
+
+// TestNormalize_NestedBeta tests nested beta reductions.
+func TestNormalize_NestedBeta(t *testing.T) {
+	// (λx. (λy. y) x) z -> z
+	inner := ast.Lam{Binder: "y", Body: ast.Var{Ix: 0}}
+	outer := ast.Lam{Binder: "x", Body: ast.App{T: inner, U: ast.Var{Ix: 0}}}
+	app := ast.App{T: outer, U: ast.Global{Name: "z"}}
+	got := nf(app)
+	if got != "z" {
+		t.Fatalf("nested beta: got %q, want z", got)
+	}
+}
+
 // Golden tests
 func TestGolden_NormalForms(t *testing.T) {
 	dir := filepath.Join("testdata", "nf")

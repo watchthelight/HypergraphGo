@@ -744,3 +744,450 @@ func TestRecursorInfo_NumParams(t *testing.T) {
 
 	ClearRecursorRegistry()
 }
+
+// ============================================================================
+// Additional Coverage Tests
+// ============================================================================
+
+// TestMakeNeutralGlobal tests the exported helper function.
+func TestMakeNeutralGlobal(t *testing.T) {
+	val := MakeNeutralGlobal("test")
+	neutral, ok := val.(VNeutral)
+	if !ok {
+		t.Fatalf("MakeNeutralGlobal should return VNeutral, got %T", val)
+	}
+	if neutral.N.Head.Glob != "test" {
+		t.Errorf("Expected global name 'test', got %q", neutral.N.Head.Glob)
+	}
+}
+
+// TestReifyAt_VPi tests reification of Pi types.
+func TestReifyAt_VPi(t *testing.T) {
+	// Create a VPi value
+	vpi := VPi{
+		A: VSort{Level: 0},
+		B: &Closure{
+			Env:  &Env{Bindings: nil},
+			Term: ast.Sort{U: 0}, // _ : Type0 -> Type0
+		},
+	}
+	term := Reify(vpi)
+
+	if _, ok := term.(ast.Pi); !ok {
+		t.Errorf("Expected Pi, got %T", term)
+	}
+}
+
+// TestReifyAt_VSigma tests reification of Sigma types.
+func TestReifyAt_VSigma(t *testing.T) {
+	// Create a VSigma value
+	vsigma := VSigma{
+		A: VSort{Level: 0},
+		B: &Closure{
+			Env:  &Env{Bindings: nil},
+			Term: ast.Sort{U: 0},
+		},
+	}
+	term := Reify(vsigma)
+
+	if _, ok := term.(ast.Sigma); !ok {
+		t.Errorf("Expected Sigma, got %T", term)
+	}
+}
+
+// TestReifyAt_VId tests reification of identity types.
+func TestReifyAt_VId(t *testing.T) {
+	vid := VId{
+		A: VSort{Level: 0},
+		X: VGlobal{Name: "x"},
+		Y: VGlobal{Name: "y"},
+	}
+	term := Reify(vid)
+
+	if id, ok := term.(ast.Id); ok {
+		if _, okA := id.A.(ast.Sort); !okA {
+			t.Errorf("Expected Id.A to be Sort")
+		}
+	} else {
+		t.Errorf("Expected Id, got %T", term)
+	}
+}
+
+// TestReifyAt_VRefl tests reification of reflexivity proofs.
+func TestReifyAt_VRefl(t *testing.T) {
+	vrefl := VRefl{
+		A: VSort{Level: 0},
+		X: VGlobal{Name: "x"},
+	}
+	term := Reify(vrefl)
+
+	if refl, ok := term.(ast.Refl); ok {
+		if _, okA := refl.A.(ast.Sort); !okA {
+			t.Errorf("Expected Refl.A to be Sort")
+		}
+	} else {
+		t.Errorf("Expected Refl, got %T", term)
+	}
+}
+
+// TestReifyNeutralWithReifier_FstSndCases tests fst/snd neutral reification.
+func TestReifyNeutralWithReifier_FstSndCases(t *testing.T) {
+	// Test fst with spine
+	fstNeutral := Neutral{
+		Head: Head{Glob: "fst"},
+		Sp:   []Value{VGlobal{Name: "pair1"}},
+	}
+	term := reifyNeutralAt(0, fstNeutral)
+	if fstTerm, ok := term.(ast.Fst); ok {
+		if g, okG := fstTerm.P.(ast.Global); !okG || g.Name != "pair1" {
+			t.Errorf("Expected Fst of pair1, got %v", fstTerm.P)
+		}
+	} else {
+		t.Errorf("Expected Fst, got %T", term)
+	}
+
+	// Test snd with spine
+	sndNeutral := Neutral{
+		Head: Head{Glob: "snd"},
+		Sp:   []Value{VGlobal{Name: "pair2"}},
+	}
+	term2 := reifyNeutralAt(0, sndNeutral)
+	if sndTerm, ok := term2.(ast.Snd); ok {
+		if g, okG := sndTerm.P.(ast.Global); !okG || g.Name != "pair2" {
+			t.Errorf("Expected Snd of pair2, got %v", sndTerm.P)
+		}
+	} else {
+		t.Errorf("Expected Snd, got %T", term2)
+	}
+}
+
+// TestReifyNeutralWithReifier_JCase tests J neutral reification.
+func TestReifyNeutralWithReifier_JCase(t *testing.T) {
+	// Create a neutral J with 6+ arguments
+	jNeutral := Neutral{
+		Head: Head{Glob: "J"},
+		Sp: []Value{
+			VSort{Level: 0},        // A
+			VGlobal{Name: "C"},     // C
+			VGlobal{Name: "d"},     // d
+			VGlobal{Name: "x"},     // x
+			VGlobal{Name: "y"},     // y
+			VGlobal{Name: "proof"}, // p (proof)
+		},
+	}
+	term := reifyNeutralAt(0, jNeutral)
+
+	if jTerm, ok := term.(ast.J); ok {
+		if g, okG := jTerm.P.(ast.Global); !okG || g.Name != "proof" {
+			t.Errorf("Expected J proof to be 'proof', got %v", jTerm.P)
+		}
+	} else {
+		t.Errorf("Expected J, got %T", term)
+	}
+}
+
+// TestReifyNeutralWithReifier_FstSndInsufficientSpine tests insufficient args.
+func TestReifyNeutralWithReifier_FstSndInsufficientSpine(t *testing.T) {
+	// fst with empty spine - should fall through to default
+	fstNeutral := Neutral{
+		Head: Head{Glob: "fst"},
+		Sp:   []Value{}, // Empty - insufficient
+	}
+	term := reifyNeutralAt(0, fstNeutral)
+
+	// Should fall through to default case (global applied to spine)
+	if g, ok := term.(ast.Global); ok {
+		if g.Name != "fst" {
+			t.Errorf("Expected Global 'fst', got %q", g.Name)
+		}
+	} else {
+		t.Errorf("Expected Global for insufficient fst, got %T", term)
+	}
+}
+
+// TestReifyNeutralWithReifier_JInsufficientSpine tests J with insufficient args.
+func TestReifyNeutralWithReifier_JInsufficientSpine(t *testing.T) {
+	// J with only 3 arguments (needs 6)
+	jNeutral := Neutral{
+		Head: Head{Glob: "J"},
+		Sp: []Value{
+			VSort{Level: 0},
+			VGlobal{Name: "C"},
+			VGlobal{Name: "d"},
+		},
+	}
+	term := reifyNeutralAt(0, jNeutral)
+
+	// Should fall through to default case
+	if _, ok := term.(ast.App); !ok {
+		if _, ok2 := term.(ast.Global); !ok2 {
+			t.Errorf("Expected App or Global for insufficient J, got %T", term)
+		}
+	}
+}
+
+// TestNBE_DebugMode tests debug mode error handling.
+func TestNBE_DebugMode(t *testing.T) {
+	// Save original debug mode
+	origDebug := DebugMode
+
+	// Test with debug mode OFF (default)
+	DebugMode = false
+	val := evalError("test error")
+	if g, ok := val.(VGlobal); ok {
+		if g.Name != "error:test error" {
+			t.Errorf("Expected 'error:test error', got %q", g.Name)
+		}
+	} else {
+		t.Errorf("Expected VGlobal, got %T", val)
+	}
+
+	term := reifyError("test error 2")
+	if g, ok := term.(ast.Global); ok {
+		if g.Name != "error:test error 2" {
+			t.Errorf("Expected 'error:test error 2', got %q", g.Name)
+		}
+	} else {
+		t.Errorf("Expected Global, got %T", term)
+	}
+
+	// Restore debug mode
+	DebugMode = origDebug
+}
+
+// TestNBE_DebugModePanic tests that debug mode panics.
+func TestNBE_DebugModePanic(t *testing.T) {
+	origDebug := DebugMode
+	DebugMode = true
+	defer func() {
+		DebugMode = origDebug
+		if r := recover(); r == nil {
+			t.Error("Expected panic in debug mode")
+		}
+	}()
+
+	// This should panic in debug mode
+	_ = evalError("test panic")
+}
+
+// TestNBE_ReifyErrorDebugModePanic tests that reifyError panics in debug mode.
+func TestNBE_ReifyErrorDebugModePanic(t *testing.T) {
+	origDebug := DebugMode
+	DebugMode = true
+	defer func() {
+		DebugMode = origDebug
+		if r := recover(); r == nil {
+			t.Error("Expected panic in debug mode for reifyError")
+		}
+	}()
+
+	_ = reifyError("test panic")
+}
+
+// TestNBE_NatElimNonConstructorTarget tests natElim with non-constructor target.
+func TestNBE_NatElimNonConstructorTarget(t *testing.T) {
+	// natElim with a neutral target (variable) should stay stuck
+	natElim := glob("natElim")
+	motive := lam("_", glob("Nat"))
+	pz := glob("myZero")
+	ps := lam("n", lam("ih", glob("myResult")))
+	neutralTarget := vr(0) // Unbound variable
+
+	term := ast.MkApps(natElim, motive, pz, ps, neutralTarget)
+
+	// Evaluate in empty env - should stay stuck
+	env := &Env{Bindings: nil}
+	val := Eval(env, term)
+	reified := Reify(val)
+
+	// Should remain as an application (stuck)
+	if _, ok := reified.(ast.App); !ok {
+		// Could also be neutral - just verify it didn't incorrectly reduce
+		got := ast.Sprint(reified)
+		if got == "myZero" || got == "myResult" {
+			t.Errorf("natElim with neutral target should not reduce, got %s", got)
+		}
+	}
+}
+
+// TestNBE_BoolElimNonConstructorTarget tests boolElim with non-constructor target.
+func TestNBE_BoolElimNonConstructorTarget(t *testing.T) {
+	// boolElim with a neutral target (variable) should stay stuck
+	boolElim := glob("boolElim")
+	motive := lam("_", glob("Result"))
+	pt := glob("trueCase")
+	pf := glob("falseCase")
+	neutralTarget := vr(0) // Unbound variable
+
+	term := ast.MkApps(boolElim, motive, pt, pf, neutralTarget)
+
+	// Evaluate in empty env - should stay stuck
+	env := &Env{Bindings: nil}
+	val := Eval(env, term)
+	reified := Reify(val)
+
+	// Should remain as an application (stuck)
+	if _, ok := reified.(ast.App); !ok {
+		got := ast.Sprint(reified)
+		if got == "trueCase" || got == "falseCase" {
+			t.Errorf("boolElim with neutral target should not reduce, got %s", got)
+		}
+	}
+}
+
+// TestEval_LetTerm tests evaluation of Let terms.
+func TestEval_LetTerm(t *testing.T) {
+	// let x = Type0 in x
+	letTerm := ast.Let{
+		Binder: "x",
+		Val:    ast.Sort{U: 0},
+		Body:   ast.Var{Ix: 0},
+	}
+
+	got := nf(letTerm)
+	want := "Type0"
+
+	if got != want {
+		t.Errorf("Let evaluation failed: got %q, want %q", got, want)
+	}
+}
+
+// TestEval_IdTerm tests evaluation of Id type.
+func TestEval_IdTerm(t *testing.T) {
+	idTerm := ast.Id{
+		A: ast.Sort{U: 0},
+		X: glob("x"),
+		Y: glob("y"),
+	}
+
+	env := &Env{Bindings: nil}
+	val := Eval(env, idTerm)
+
+	if _, ok := val.(VId); !ok {
+		t.Errorf("Expected VId, got %T", val)
+	}
+}
+
+// TestEval_ReflTerm tests evaluation of Refl.
+func TestEval_ReflTerm(t *testing.T) {
+	reflTerm := ast.Refl{
+		A: ast.Sort{U: 0},
+		X: glob("x"),
+	}
+
+	env := &Env{Bindings: nil}
+	val := Eval(env, reflTerm)
+
+	if _, ok := val.(VRefl); !ok {
+		t.Errorf("Expected VRefl, got %T", val)
+	}
+}
+
+// TestEval_PiTerm tests evaluation of Pi type.
+func TestEval_PiTerm(t *testing.T) {
+	piTerm := ast.Pi{
+		Binder: "x",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+
+	env := &Env{Bindings: nil}
+	val := Eval(env, piTerm)
+
+	if _, ok := val.(VPi); !ok {
+		t.Errorf("Expected VPi, got %T", val)
+	}
+}
+
+// TestEval_SigmaTerm tests evaluation of Sigma type.
+func TestEval_SigmaTerm(t *testing.T) {
+	sigmaTerm := ast.Sigma{
+		Binder: "x",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+
+	env := &Env{Bindings: nil}
+	val := Eval(env, sigmaTerm)
+
+	if _, ok := val.(VSigma); !ok {
+		t.Errorf("Expected VSigma, got %T", val)
+	}
+}
+
+// TestEnv_LookupOutOfBounds tests environment lookup edge cases.
+func TestEnv_LookupOutOfBounds(t *testing.T) {
+	env := &Env{Bindings: []Value{VSort{Level: 0}}}
+
+	// Lookup negative index
+	val := env.Lookup(-1)
+	if _, ok := val.(VNeutral); !ok {
+		t.Errorf("Expected VNeutral for negative index, got %T", val)
+	}
+
+	// Lookup beyond bounds
+	val2 := env.Lookup(10)
+	if _, ok := val2.(VNeutral); !ok {
+		t.Errorf("Expected VNeutral for out-of-bounds index, got %T", val2)
+	}
+}
+
+// TestApply_VLamClosure tests applying to a lambda closure.
+func TestApply_VLamClosure(t *testing.T) {
+	// Create a closure for \x. x (identity)
+	closure := &Closure{
+		Env:  &Env{Bindings: nil},
+		Term: ast.Var{Ix: 0},
+	}
+	vlam := VLam{Body: closure}
+	arg := VGlobal{Name: "arg"}
+
+	result := Apply(vlam, arg)
+
+	if g, ok := result.(VGlobal); ok {
+		if g.Name != "arg" {
+			t.Errorf("Expected 'arg', got %q", g.Name)
+		}
+	} else {
+		t.Errorf("Expected VGlobal, got %T", result)
+	}
+}
+
+// TestApply_ToNeutral tests applying to a neutral value.
+func TestApply_ToNeutral(t *testing.T) {
+	neutral := VNeutral{N: Neutral{Head: Head{Glob: "f"}}}
+	arg := VGlobal{Name: "x"}
+
+	result := Apply(neutral, arg)
+
+	if vn, ok := result.(VNeutral); ok {
+		if len(vn.N.Sp) != 1 {
+			t.Errorf("Expected 1 spine arg, got %d", len(vn.N.Sp))
+		}
+	} else {
+		t.Errorf("Expected VNeutral, got %T", result)
+	}
+}
+
+// TestFst_Snd_OnNeutral tests Fst/Snd on neutral values.
+func TestFst_Snd_OnNeutral(t *testing.T) {
+	neutral := VNeutral{N: Neutral{Head: Head{Glob: "p"}}}
+
+	fstResult := Fst(neutral)
+	if vn, ok := fstResult.(VNeutral); ok {
+		if vn.N.Head.Glob != "fst" {
+			t.Errorf("Expected fst head, got %q", vn.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("Expected VNeutral from Fst, got %T", fstResult)
+	}
+
+	sndResult := Snd(neutral)
+	if vn, ok := sndResult.(VNeutral); ok {
+		if vn.N.Head.Glob != "snd" {
+			t.Errorf("Expected snd head, got %q", vn.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("Expected VNeutral from Snd, got %T", sndResult)
+	}
+}

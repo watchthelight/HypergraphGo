@@ -383,6 +383,117 @@ func TestParseHITApp_Errors(t *testing.T) {
 }
 
 // ============================================================================
+// Error Path Tests for Cubical Parsers
+// ============================================================================
+
+func TestParsePath_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(Path ("},              // unclosed paren
+		{"error in X", "(Path Nat ("},          // unclosed paren after A
+		{"error in Y", "(Path Nat zero ("},     // unclosed paren after X
+		{"missing Y", "(Path Nat zero)"},       // only 2 args
+		{"missing X and Y", "(Path Nat)"},      // only 1 arg
+		{"empty Path", "(Path)"},               // no args
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParsePathP_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(PathP ("},              // unclosed paren
+		{"error in X", "(PathP F ("},            // unclosed paren after A
+		{"error in Y", "(PathP F x ("},          // unclosed paren after X
+		{"missing Y", "(PathP F x)"},            // only 2 args
+		{"missing X and Y", "(PathP F)"},        // only 1 arg
+		{"empty PathP", "(PathP)"},              // no args
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParsePathLam_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in body", "(PathLam i ("},        // unclosed paren
+		{"empty PathLam", "(PathLam)"},           // no args - body error
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParsePathApp_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in path", "(PathApp ("},         // unclosed paren
+		{"error in arg", "(PathApp p ("},        // unclosed paren after path
+		{"missing arg", "(PathApp p)"},          // only path
+		{"empty PathApp", "(PathApp)"},          // no args
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseTransport_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(Transport ("},          // unclosed paren
+		{"error in E", "(Transport F ("},        // unclosed paren after A
+		{"missing E", "(Transport F)"},          // only A
+		{"empty Transport", "(Transport)"},      // no args
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+// ============================================================================
 // parseTermList Tests
 // ============================================================================
 

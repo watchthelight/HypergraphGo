@@ -939,3 +939,123 @@ func TestCheckArgTypePositivityFace(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================================
+// Extended Cubical Positivity Error Path Tests
+// ============================================================================
+
+// TestCheckPositivity_CubicalErrorPaths tests error paths in cubical positivity checking.
+func TestCheckPositivity_CubicalErrorPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		term ast.Term
+	}{
+		// PathP endpoint errors
+		{
+			"PathP X negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.PathP{A: ast.Sort{U: 0}, X: ast.Global{Name: "Bad"}, Y: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"PathP Y negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.PathP{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// PathApp R errors
+		{
+			"PathApp R negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.PathApp{P: ast.Var{Ix: 0}, R: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// Comp/HComp/Fill tube/base errors
+		{
+			"Comp Base negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Comp{A: ast.Sort{U: 0}, Phi: ast.FaceTop{}, Tube: ast.Var{Ix: 0}, Base: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"HComp Tube negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.HComp{A: ast.Sort{U: 0}, Phi: ast.FaceTop{}, Tube: ast.Global{Name: "Bad"}, Base: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"HComp Base negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.HComp{A: ast.Sort{U: 0}, Phi: ast.FaceTop{}, Tube: ast.Var{Ix: 0}, Base: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Fill Tube negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Fill{A: ast.Sort{U: 0}, Phi: ast.FaceTop{}, Tube: ast.Global{Name: "Bad"}, Base: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// Glue system errors
+		{
+			"Glue Equiv negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Glue{A: ast.Sort{U: 0}, System: []ast.GlueBranch{{Phi: ast.FaceTop{}, T: ast.Sort{U: 0}, Equiv: ast.Global{Name: "Bad"}}}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// GlueElem system errors
+		{
+			"GlueElem system Term negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.GlueElem{System: []ast.GlueElemBranch{{Phi: ast.FaceTop{}, Term: ast.Global{Name: "Bad"}}}, Base: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// Unglue G error
+		{
+			"Unglue G negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Unglue{Ty: ast.Sort{U: 0}, G: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// UA B and Equiv errors
+		{
+			"UA B negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.UA{A: ast.Sort{U: 0}, B: ast.Global{Name: "Bad"}, Equiv: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"UA Equiv negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.UA{A: ast.Sort{U: 0}, B: ast.Sort{U: 0}, Equiv: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+
+		// UABeta Arg error
+		{
+			"UABeta Arg negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.UABeta{Equiv: ast.Var{Ix: 0}, Arg: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctors := []Constructor{{Name: "mk", Type: tt.term}}
+			err := CheckPositivity("Bad", ctors)
+			if err == nil {
+				t.Errorf("CheckPositivity expected error for %s", tt.name)
+			}
+		})
+	}
+}
+
+// TestOccursInFace_AllBranches tests all branches of occursInFace.
+func TestOccursInFace_AllBranches(t *testing.T) {
+	// Default case with unknown face type
+	type unknownFace struct{}
+
+	// Test nested face formulas
+	tests := []struct {
+		name string
+		face ast.Face
+	}{
+		{"deeply nested FaceAnd left", ast.FaceAnd{
+			Left:  ast.FaceAnd{Left: ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}}, Right: ast.FaceEq{IVar: 0, IsOne: true}},
+			Right: ast.FaceBot{},
+		}},
+		{"deeply nested FaceOr right", ast.FaceOr{
+			Left:  ast.FaceTop{},
+			Right: ast.FaceOr{Left: ast.FaceAnd{Left: ast.FaceEq{IVar: 1, IsOne: false}, Right: ast.FaceTop{}}, Right: ast.FaceBot{}},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := occursInFace("T", tt.face)
+			if result {
+				t.Errorf("occursInFace should return false for face formulas")
+			}
+		})
+	}
+}

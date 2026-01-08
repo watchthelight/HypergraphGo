@@ -2464,3 +2464,514 @@ func TestEvalCubical_Closures(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// Additional PathApply Tests for Coverage
+// =============================================================================
+
+// TestPathApply_VFill_Endpoints tests PathApply with VFill at interval endpoints.
+func TestPathApply_VFill_Endpoints(t *testing.T) {
+	t.Parallel()
+	base := VGlobal{Name: "base"}
+	fill := VFill{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: base,
+	}
+
+	t.Run("Fill @ i0 = base", func(t *testing.T) {
+		got := PathApply(fill, VI0{})
+		if g, ok := got.(VGlobal); ok {
+			if g.Name != "base" {
+				t.Errorf("got %s, want base", g.Name)
+			}
+		} else {
+			t.Errorf("got %T, want VGlobal (base)", got)
+		}
+	})
+
+	t.Run("Fill @ i1 = comp result", func(t *testing.T) {
+		got := PathApply(fill, VI1{})
+		// At i1, fill returns comp result
+		if got == nil {
+			t.Error("PathApply VFill @ i1 should not return nil")
+		}
+	})
+
+	t.Run("Fill @ neutral interval = stuck", func(t *testing.T) {
+		got := PathApply(fill, VIVar{Level: 0})
+		if n, ok := got.(VNeutral); ok {
+			if n.N.Head.Glob != "@" {
+				t.Errorf("got head %q, want @", n.N.Head.Glob)
+			}
+		} else {
+			t.Errorf("got %T, want VNeutral (stuck)", got)
+		}
+	})
+}
+
+// TestPathApply_VPath_NeutralInterval tests VPath with neutral interval.
+func TestPathApply_VPath_NeutralInterval(t *testing.T) {
+	t.Parallel()
+	path := VPath{
+		A: VSort{Level: 0},
+		X: VGlobal{Name: "x"},
+		Y: VGlobal{Name: "y"},
+	}
+
+	got := PathApply(path, VIVar{Level: 0})
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "@" {
+			t.Errorf("got head %q, want @", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral (stuck)", got)
+	}
+}
+
+// TestPathApply_VPathP_NeutralInterval tests VPathP with neutral interval.
+func TestPathApply_VPathP_NeutralInterval(t *testing.T) {
+	t.Parallel()
+	pathP := VPathP{
+		A: &IClosure{Term: ast.Sort{U: 0}},
+		X: VGlobal{Name: "x"},
+		Y: VGlobal{Name: "y"},
+	}
+
+	got := PathApply(pathP, VIVar{Level: 0})
+	if n, ok := got.(VNeutral); ok {
+		if n.N.Head.Glob != "@" {
+			t.Errorf("got head %q, want @", n.N.Head.Glob)
+		}
+	} else {
+		t.Errorf("got %T, want VNeutral (stuck)", got)
+	}
+}
+
+// TestPathApply_VHITPathCtor tests PathApply with HIT path constructors.
+func TestPathApply_VHITPathCtor(t *testing.T) {
+	t.Parallel()
+
+	hitPath := VHITPathCtor{
+		HITName:    "S1",
+		CtorName:   "loop",
+		Args:       nil,
+		IArgs:      nil,
+		Boundaries: nil,
+	}
+
+	got := PathApply(hitPath, VI0{})
+	if got == nil {
+		t.Error("PathApply on VHITPathCtor should not return nil")
+	}
+}
+
+// =============================================================================
+// Additional EvalCubical Tests for Coverage
+// =============================================================================
+
+// TestEvalCubical_HITApp tests HITApp evaluation.
+func TestEvalCubical_HITApp(t *testing.T) {
+	t.Parallel()
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "base",
+		Args:    nil,
+	}
+
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("HITApp should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_UABeta tests UABeta evaluation.
+func TestEvalCubical_UABeta(t *testing.T) {
+	t.Parallel()
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.UABeta{
+		Equiv: ast.Global{Name: "eq"},
+		Arg:   ast.Global{Name: "x"},
+	}
+
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("UABeta should not evaluate to nil")
+	}
+}
+
+// TestReifyFaceAt_Comprehensive tests face reification.
+func TestReifyFaceAt_Comprehensive(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		face FaceValue
+	}{
+		{"FaceTop", VFaceTop{}},
+		{"FaceBot", VFaceBot{}},
+		{"FaceEq i0", VFaceEq{ILevel: 0, IsOne: false}},
+		{"FaceEq i1", VFaceEq{ILevel: 0, IsOne: true}},
+		{"FaceAnd", VFaceAnd{Left: VFaceEq{ILevel: 0, IsOne: false}, Right: VFaceEq{ILevel: 1, IsOne: true}}},
+		{"FaceOr", VFaceOr{Left: VFaceEq{ILevel: 0, IsOne: false}, Right: VFaceEq{ILevel: 1, IsOne: true}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			term := reifyFaceAt(0, 5, tt.face)
+			if term == nil {
+				t.Errorf("reifyFaceAt returned nil for %T", tt.face)
+			}
+		})
+	}
+}
+
+// TestReifyAt_UnhandledValue tests reification of values that might hit default cases.
+func TestReifyAt_UnhandledValue(t *testing.T) {
+	t.Parallel()
+
+	values := []Value{
+		VGlobal{Name: "x"},
+		VSort{Level: 0},
+		VI0{},
+		VI1{},
+		VIVar{Level: 0},
+		VFaceTop{},
+		VFaceBot{},
+	}
+
+	for _, v := range values {
+		t.Run(SprintValue(v), func(t *testing.T) {
+			term := reifyAt(0, v)
+			if term == nil {
+				t.Errorf("reifyAt returned nil for %T", v)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Additional EvalCubical Edge Case Tests
+// =============================================================================
+
+// TestEvalCubical_GlueEmptySystem tests Glue with empty system.
+func TestEvalCubical_GlueEmptySystem(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.Glue{
+		A:      ast.Sort{U: 0},
+		System: nil, // Empty system
+	}
+	got := EvalCubical(env, ienv, term)
+	// Glue with empty system returns the base type: Glue [] A = A
+	if _, ok := got.(VSort); !ok {
+		t.Errorf("got %T, want VSort (Glue with empty system simplifies to base type)", got)
+	}
+}
+
+// TestEvalCubical_GlueWithBranches tests Glue with multiple branches.
+func TestEvalCubical_GlueWithBranches(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VI0{})
+
+	term := ast.Glue{
+		A: ast.Sort{U: 0},
+		System: []ast.GlueBranch{
+			{
+				Phi:   ast.FaceEq{IVar: 0, IsOne: true},
+				T:     ast.Sort{U: 0},
+				Equiv: ast.Global{Name: "eq"},
+			},
+		},
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("Glue with branches should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_GlueElemEmptySystem tests GlueElem with empty system.
+func TestEvalCubical_GlueElemEmptySystem(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.GlueElem{
+		Base:   ast.Global{Name: "base"},
+		System: nil, // Empty system
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("GlueElem with empty system should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_GlueElemWithBranches tests GlueElem with branches.
+func TestEvalCubical_GlueElemWithBranches(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VI0{})
+
+	term := ast.GlueElem{
+		Base: ast.Global{Name: "base"},
+		System: []ast.GlueElemBranch{
+			{
+				Phi:  ast.FaceEq{IVar: 0, IsOne: true},
+				Term: ast.Global{Name: "term"},
+			},
+		},
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("GlueElem with branches should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_UnglueNilTy tests Unglue with nil type.
+func TestEvalCubical_UnglueNilTy(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.Unglue{
+		G:  ast.Global{Name: "g"},
+		Ty: nil,
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("Unglue should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_HITAppWithTermArgs tests HITApp with term arguments.
+func TestEvalCubical_HITAppWithTermArgs(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.HITApp{
+		HITName: "Trunc",
+		Ctor:    "inc",
+		Args:    []ast.Term{ast.Global{Name: "x"}},
+		IArgs:   nil,
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("HITApp with term args should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_CompWithFaceEq tests Comp with FaceEq.
+func TestEvalCubical_CompWithFaceEq(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VIVar{Level: 0})
+
+	term := ast.Comp{
+		A:    ast.Sort{U: 0},
+		Phi:  ast.FaceEq{IVar: 0, IsOne: true},
+		Base: ast.Global{Name: "base"},
+		Tube: ast.Global{Name: "tube"},
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("Comp with FaceEq should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_HCompWithFaceAnd tests HComp with FaceAnd.
+func TestEvalCubical_HCompWithFaceAnd(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VIVar{Level: 0}).Extend(VIVar{Level: 1})
+
+	term := ast.HComp{
+		A: ast.Sort{U: 0},
+		Phi: ast.FaceAnd{
+			Left:  ast.FaceEq{IVar: 0, IsOne: true},
+			Right: ast.FaceEq{IVar: 1, IsOne: false},
+		},
+		Base: ast.Global{Name: "base"},
+		Tube: ast.Global{Name: "tube"},
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("HComp with FaceAnd should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_FillWithFaceOr tests Fill with FaceOr.
+func TestEvalCubical_FillWithFaceOr(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv().Extend(VIVar{Level: 0}).Extend(VIVar{Level: 1})
+
+	term := ast.Fill{
+		A: ast.Sort{U: 0},
+		Phi: ast.FaceOr{
+			Left:  ast.FaceEq{IVar: 0, IsOne: true},
+			Right: ast.FaceEq{IVar: 1, IsOne: true},
+		},
+		Base: ast.Global{Name: "base"},
+		Tube: ast.Global{Name: "tube"},
+	}
+	got := EvalCubical(env, ienv, term)
+	if got == nil {
+		t.Error("Fill with FaceOr should not evaluate to nil")
+	}
+}
+
+// TestEvalCubical_UASimple tests UA evaluation.
+func TestEvalCubical_UASimple(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 0},
+		Equiv: ast.Global{Name: "eq"},
+	}
+	got := EvalCubical(env, ienv, term)
+	if _, ok := got.(VUA); !ok {
+		t.Errorf("got %T, want VUA", got)
+	}
+}
+
+// TestEvalCubical_PathPWithClosure tests PathP evaluation.
+func TestEvalCubical_PathPWithClosure(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	term := ast.PathP{
+		A: ast.Sort{U: 0},
+		X: ast.Global{Name: "x"},
+		Y: ast.Global{Name: "y"},
+	}
+	got := EvalCubical(env, ienv, term)
+	if pp, ok := got.(VPathP); ok {
+		if pp.A == nil {
+			t.Error("PathP closure should not be nil")
+		}
+	} else {
+		t.Errorf("got %T, want VPathP", got)
+	}
+}
+
+// TestPathApply_VFill tests PathApply with VFill at endpoints.
+func TestPathApply_VFill(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	fill := VFill{
+		A:    &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "tube"}},
+		Base: VGlobal{Name: "base"},
+	}
+
+	// Apply at i0
+	got := PathApply(fill, VI0{})
+	if got == nil {
+		t.Error("PathApply VFill @ i0 should not return nil")
+	}
+
+	// Apply at i1
+	got = PathApply(fill, VI1{})
+	if got == nil {
+		t.Error("PathApply VFill @ i1 should not return nil")
+	}
+}
+
+// TestPathApply_VUA tests PathApply with VUA at endpoints.
+func TestPathApply_VUAEndpoints(t *testing.T) {
+	ua := VUA{
+		A:     VSort{Level: 0},
+		B:     VSort{Level: 0},
+		Equiv: VGlobal{Name: "eq"},
+	}
+
+	// Apply at i0 - should return A
+	got := PathApply(ua, VI0{})
+	if s, ok := got.(VSort); ok {
+		if s.Level != 0 {
+			t.Errorf("UA @ i0 should return Type0")
+		}
+	}
+
+	// Apply at i1 - should return B
+	got = PathApply(ua, VI1{})
+	if s, ok := got.(VSort); ok {
+		if s.Level != 0 {
+			t.Errorf("UA @ i1 should return Type0")
+		}
+	}
+
+	// Apply at neutral interval - returns Glue B [(i=0) ↦ (A, e)]
+	got = PathApply(ua, VIVar{Level: 0})
+	if _, ok := got.(VGlue); !ok {
+		t.Errorf("UA @ neutral interval should return VGlue, got %T", got)
+	}
+}
+
+// TestTryEvalCubical_MoreCases tests tryEvalCubical with additional term types.
+func TestTryEvalCubical_MoreCases(t *testing.T) {
+	env := &Env{}
+
+	tests := []struct {
+		name string
+		term ast.Term
+	}{
+		{"PathP", ast.PathP{A: ast.Sort{U: 0}, X: ast.Global{Name: "x"}, Y: ast.Global{Name: "y"}}},
+		{"PathLam", ast.PathLam{Binder: "i", Body: ast.Global{Name: "x"}}},
+		{"Glue empty", ast.Glue{A: ast.Sort{U: 0}, System: nil}},
+		{"GlueElem empty", ast.GlueElem{Base: ast.Global{Name: "x"}, System: nil}},
+		{"Unglue", ast.Unglue{G: ast.Global{Name: "g"}, Ty: nil}},
+		{"UA", ast.UA{A: ast.Sort{U: 0}, B: ast.Sort{U: 0}, Equiv: ast.Global{Name: "eq"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, handled := tryEvalCubical(env, tt.term)
+			if !handled {
+				t.Errorf("tryEvalCubical should handle %T", tt.term)
+			}
+			if val == nil {
+				t.Errorf("tryEvalCubical returned nil for %T", tt.term)
+			}
+		})
+	}
+}
+
+// TestTryReifyCubical_MoreValues tests tryReifyCubical with additional value types.
+func TestTryReifyCubical_MoreValues(t *testing.T) {
+	env := &Env{}
+	ienv := EmptyIEnv()
+
+	values := []struct {
+		name  string
+		value Value
+	}{
+		{"VPath", VPath{A: VSort{Level: 0}, X: VGlobal{Name: "x"}, Y: VGlobal{Name: "y"}}},
+		{"VPathP", VPathP{A: &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}, X: VGlobal{Name: "x"}, Y: VGlobal{Name: "y"}}},
+		{"VPathLam", VPathLam{Body: &IClosure{Env: env, IEnv: ienv, Term: ast.Global{Name: "x"}}}},
+		{"VTransport", VTransport{A: &IClosure{Env: env, IEnv: ienv, Term: ast.Sort{U: 0}}, E: VGlobal{Name: "e"}}},
+		{"VPartial", VPartial{Phi: VFaceTop{}, A: VSort{Level: 0}}},
+		{"VSystem empty", VSystem{Branches: nil}},
+		{"VGlue empty", VGlue{A: VSort{Level: 0}, System: nil}},
+		{"VGlueElem empty", VGlueElem{System: nil, Base: VGlobal{Name: "x"}}},
+		{"VUnglue", VUnglue{Ty: VSort{Level: 0}, G: VGlobal{Name: "g"}}},
+		{"VUA", VUA{A: VSort{Level: 0}, B: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}},
+	}
+
+	for _, tt := range values {
+		t.Run(tt.name, func(t *testing.T) {
+			term, handled := tryReifyCubical(0, tt.value)
+			if !handled {
+				t.Errorf("tryReifyCubical should handle %T", tt.value)
+			}
+			if term == nil {
+				t.Errorf("tryReifyCubical returned nil for %T", tt.value)
+			}
+		})
+	}
+}

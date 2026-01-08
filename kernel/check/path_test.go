@@ -33,6 +33,57 @@ func TestPathTypeFormation(t *testing.T) {
 	}
 }
 
+// TestPathTypeFormation_ErrorInA tests Path type error when A is not a type.
+func TestPathTypeFormation_ErrorInA(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Path (unbound x) x x - unbound variable in A position
+	pathType := ast.Path{
+		A: ast.Var{Ix: 5}, // unbound variable
+		X: ast.Var{Ix: 0},
+		Y: ast.Var{Ix: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathType)
+	if err == nil {
+		t.Error("Expected error for invalid A in Path")
+	}
+}
+
+// TestPathTypeFormation_ErrorInX tests Path type error when X doesn't type-check.
+func TestPathTypeFormation_ErrorInX(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Path Type0 Type1 x - Type1 is not of type Type0
+	pathType := ast.Path{
+		A: ast.Sort{U: 0},
+		X: ast.Sort{U: 1}, // Type1 : Type2, not Type0
+		Y: ast.Var{Ix: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathType)
+	if err == nil {
+		t.Error("Expected error for invalid X in Path")
+	}
+}
+
+// TestPathTypeFormation_ErrorInY tests Path type error when Y doesn't type-check.
+func TestPathTypeFormation_ErrorInY(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// Path Type0 x Type1 - Type1 is not of type Type0
+	pathType := ast.Path{
+		A: ast.Sort{U: 0},
+		X: ast.Var{Ix: 0},
+		Y: ast.Sort{U: 1}, // Type1 : Type2, not Type0
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathType)
+	if err == nil {
+		t.Error("Expected error for invalid Y in Path")
+	}
+}
+
 // TestPathPTypeFormation verifies that PathP A x y : Type type-checks.
 func TestPathPTypeFormation(t *testing.T) {
 	c := NewChecker(nil)
@@ -56,6 +107,89 @@ func TestPathPTypeFormation(t *testing.T) {
 	// Should synthesize to Type1 (A : Type1, so PathP A x y : Type1)
 	if sort, ok := ty.(ast.Sort); !ok || sort.U != 1 {
 		t.Errorf("Expected Type1, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestPathPTypeFormation_ErrorInA tests PathP error when A[i0/i] is not a type.
+func TestPathPTypeFormation_ErrorInA(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// PathP with unbound variable in A position
+	pathPType := ast.PathP{
+		A: ast.Var{Ix: 5}, // unbound variable
+		X: ast.Var{Ix: 0},
+		Y: ast.Var{Ix: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathPType)
+	if err == nil {
+		t.Error("Expected error for invalid A in PathP")
+	}
+}
+
+// TestPathPTypeFormation_ErrorInX tests PathP error when X doesn't type-check.
+func TestPathPTypeFormation_ErrorInX(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// PathP Type0 Type1 x - Type1 is not of type Type0
+	pathPType := ast.PathP{
+		A: ast.Sort{U: 0},
+		X: ast.Sort{U: 1}, // Type1 : Type2, not Type0
+		Y: ast.Var{Ix: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathPType)
+	if err == nil {
+		t.Error("Expected error for invalid X in PathP")
+	}
+}
+
+// TestPathPTypeFormation_ErrorInY tests PathP error when Y doesn't type-check.
+func TestPathPTypeFormation_ErrorInY(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// PathP Type0 x Type1 - Type1 is not of type Type0
+	pathPType := ast.PathP{
+		A: ast.Sort{U: 0},
+		X: ast.Var{Ix: 0},
+		Y: ast.Sort{U: 1}, // Type1 : Type2, not Type0
+	}
+	_, err := c.Synth(ctx, NoSpan(), pathPType)
+	if err == nil {
+		t.Error("Expected error for invalid Y in PathP")
+	}
+}
+
+// TestSynthPartial_ErrorInFace tests Partial error when face is invalid.
+func TestSynthPartial_ErrorInFace(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// Partial with unbound interval variable
+	partial := ast.Partial{
+		Phi: ast.FaceEq{IVar: 0, IsOne: true}, // unbound i
+		A:   ast.Sort{U: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), partial)
+	if err == nil {
+		t.Error("Expected error for invalid face in Partial")
+	}
+}
+
+// TestSynthPartial_ErrorInA tests Partial error when A is not a type.
+func TestSynthPartial_ErrorInA(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// Partial with unbound variable in A
+	partial := ast.Partial{
+		Phi: ast.FaceTop{},
+		A:   ast.Var{Ix: 5}, // unbound variable
+	}
+	_, err := c.Synth(ctx, NoSpan(), partial)
+	if err == nil {
+		t.Error("Expected error for invalid A in Partial")
 	}
 }
 
@@ -2742,5 +2876,299 @@ func TestSynthSystem_SingleBranch(t *testing.T) {
 	}
 	if ty == nil {
 		t.Error("System should have a type")
+	}
+}
+
+// TestSynthGlueElem tests GlueElem synthesis.
+func TestSynthGlueElem(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// glue [] Type0 - empty system with Type0 base
+	glueElem := ast.GlueElem{
+		System: nil,
+		Base:   ast.Sort{U: 0},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), glueElem)
+	if err != nil {
+		t.Fatalf("GlueElem synthesis failed: %v", err)
+	}
+	// Result should be a Glue type
+	if _, ok := ty.(ast.Glue); !ok {
+		t.Errorf("Expected Glue type, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthGlueElem_WithBranch tests GlueElem with face branches.
+func TestSynthGlueElem_WithBranch(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// glue [⊤ ↦ Type1] Type0
+	glueElem := ast.GlueElem{
+		System: []ast.GlueElemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Sort{U: 1}},
+		},
+		Base: ast.Sort{U: 0},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), glueElem)
+	if err != nil {
+		t.Fatalf("GlueElem with branch synthesis failed: %v", err)
+	}
+	glue, ok := ty.(ast.Glue)
+	if !ok {
+		t.Fatalf("Expected Glue type, got %v", ast.Sprint(ty))
+	}
+	// Base type should be Type1 (synthesized from Sort{U:0})
+	if sort, ok := glue.A.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Glue base Type1, got %v", ast.Sprint(glue.A))
+	}
+}
+
+// TestSynthGlueElem_InvalidFace tests GlueElem with invalid face formula.
+func TestSynthGlueElem_InvalidFace(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// glue [(i=0) ↦ Type1] Type0 - i is unbound
+	glueElem := ast.GlueElem{
+		System: []ast.GlueElemBranch{
+			{Phi: ast.FaceEq{IVar: 0, IsOne: false}, Term: ast.Sort{U: 1}},
+		},
+		Base: ast.Sort{U: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), glueElem)
+	if err == nil {
+		t.Error("GlueElem with unbound IVar should fail")
+	}
+}
+
+// TestSynthUnglue tests Unglue synthesis with Glue type annotation.
+func TestSynthUnglue(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// unglue g where g has type annotation Glue Type0 []
+	unglue := ast.Unglue{
+		Ty: ast.Glue{A: ast.Sort{U: 0}, System: nil},
+		G:  ast.Sort{U: 0}, // placeholder glue element
+	}
+	ty, err := c.Synth(ctx, NoSpan(), unglue)
+	if err != nil {
+		t.Fatalf("Unglue synthesis failed: %v", err)
+	}
+	// Result should be the base type Type0
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthUnglue_FromGlueType tests Unglue when G synthesizes to Glue type.
+func TestSynthUnglue_FromGlueType(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext(nil)
+
+	// unglue (Glue Type0 []) - G is a Glue type itself
+	// When G is a Glue type, Synth(G) returns Type (universe of Glue), not Glue itself
+	// The synthUnglue function then falls back to returning the synthesized type
+	unglue := ast.Unglue{
+		G: ast.Glue{A: ast.Sort{U: 0}, System: nil},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), unglue)
+	if err != nil {
+		t.Fatalf("Unglue from Glue synthesis failed: %v", err)
+	}
+	// Returns Type1 since Glue Type0 [] : Type1
+	if ty == nil {
+		t.Error("Unglue should have a type")
+	}
+}
+
+// TestSynthUnglue_StuckCase tests Unglue when type cannot be determined from Glue.
+func TestSynthUnglue_StuckCase(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// unglue x where x : Type0 (not a Glue type)
+	unglue := ast.Unglue{
+		G: ast.Var{Ix: 0},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), unglue)
+	if err != nil {
+		t.Fatalf("Unglue stuck case should not error: %v", err)
+	}
+	// Returns the synthesized type since we can't determine Glue structure
+	if ty == nil {
+		t.Error("Unglue should have a type")
+	}
+}
+
+// TestSynthUA tests UA synthesis.
+func TestSynthUA(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{
+		// e : some equivalence-like type (Sigma (f : A -> B). isEquiv f)
+		ast.Sigma{
+			Binder: "f",
+			A:      ast.Pi{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}},
+			B:      ast.Sort{U: 0}, // placeholder for isEquiv
+		},
+	})
+
+	// ua Type0 Type0 e : Path Type1 Type0 Type0
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 0},
+		Equiv: ast.Var{Ix: 0},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), ua)
+	if err != nil {
+		t.Fatalf("UA synthesis failed: %v", err)
+	}
+	path, ok := ty.(ast.Path)
+	if !ok {
+		t.Fatalf("Expected Path type, got %v", ast.Sprint(ty))
+	}
+	// Path Type1 Type0 Type0
+	if sort, ok := path.A.(ast.Sort); !ok || sort.U != 1 {
+		t.Errorf("Expected Path over Type1, got %v", ast.Sprint(path.A))
+	}
+}
+
+// TestSynthUA_UniverseMismatch tests UA with mismatched universe levels.
+func TestSynthUA_UniverseMismatch(t *testing.T) {
+	c := NewChecker(nil)
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// ua Type0 Type1 e - mismatched universes
+	ua := ast.UA{
+		A:     ast.Sort{U: 0},
+		B:     ast.Sort{U: 1},
+		Equiv: ast.Var{Ix: 0},
+	}
+	_, err := c.Synth(ctx, NoSpan(), ua)
+	if err == nil {
+		t.Error("UA with mismatched universes should fail")
+	}
+}
+
+// TestSynthUABeta tests UABeta synthesis.
+func TestSynthUABeta(t *testing.T) {
+	c := NewChecker(nil)
+
+	// ua-β e a where e : Equiv A B = Σ(f : A → B). isEquiv f
+	// and a : A
+	// The checker validates both subterms and extracts target type if possible
+
+	// Context: e : Σ(f : Type0 → Type0). Type0, a : Type0
+	ctx := makeTestContext([]ast.Term{
+		ast.Sort{U: 0}, // a : Type0 (Ix 0)
+		ast.Sigma{
+			Binder: "f",
+			A:      ast.Pi{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}},
+			B:      ast.Sort{U: 0}, // isEquiv placeholder
+		}, // e : Equiv Type0 Type0 (Ix 1)
+	})
+
+	uab := ast.UABeta{
+		Equiv: ast.Var{Ix: 1}, // e at index 1
+		Arg:   ast.Var{Ix: 0}, // a at index 0
+	}
+	ty, err := c.Synth(ctx, NoSpan(), uab)
+	if err != nil {
+		t.Fatalf("UABeta synthesis failed: %v", err)
+	}
+	// Result should be Type0 (codomain B of the equivalence function)
+	// When equiv is Sigma with Pi{A, B} as first component, result is B
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthUABeta_NotSigma tests UABeta when equiv is not a Sigma type.
+func TestSynthUABeta_NotSigma(t *testing.T) {
+	c := NewChecker(nil)
+
+	// ua-β Type0 Type0 - equiv is not a Sigma type
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+	uab := ast.UABeta{
+		Equiv: ast.Sort{U: 0}, // not a proper equivalence
+		Arg:   ast.Var{Ix: 0},
+	}
+	ty, err := c.Synth(ctx, NoSpan(), uab)
+	// Should still succeed but return arg type since we can't extract B
+	if err != nil {
+		t.Fatalf("UABeta with non-Sigma equiv should not error: %v", err)
+	}
+	if ty == nil {
+		t.Error("UABeta should have a type")
+	}
+}
+
+// TestSynthFill tests Fill synthesis.
+func TestSynthFill(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval var for Fill
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// fill Type0 ⊤ (λi. x) x where x : Type0
+	fill := ast.Fill{
+		A:    ast.Sort{U: 0}, // constant type family
+		Phi:  ast.FaceTop{},
+		Tube: ast.Var{Ix: 0}, // tube
+		Base: ast.Var{Ix: 0}, // base
+	}
+	ty, err := c.Synth(ctx, NoSpan(), fill)
+	if err != nil {
+		t.Fatalf("Fill synthesis failed: %v", err)
+	}
+	// Result type should be Type0
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
+	}
+}
+
+// TestSynthComp tests Comp synthesis.
+func TestSynthComp(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval var for Comp
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// comp Type0 ⊤ (λi. x) x
+	comp := ast.Comp{
+		A:    ast.Sort{U: 0}, // constant type family
+		Phi:  ast.FaceTop{},
+		Tube: ast.Var{Ix: 0}, // tube
+		Base: ast.Var{Ix: 0}, // base
+	}
+	ty, err := c.Synth(ctx, NoSpan(), comp)
+	if err != nil {
+		t.Fatalf("Comp synthesis failed: %v", err)
+	}
+	if ty == nil {
+		t.Error("Comp should have a type")
+	}
+}
+
+// TestSynthHComp tests HComp synthesis.
+func TestSynthHComp(t *testing.T) {
+	c := NewChecker(nil)
+	c.PushIVar() // Need interval var for HComp
+	ctx := makeTestContext([]ast.Term{ast.Sort{U: 0}})
+
+	// hcomp Type0 ⊤ (λi. x) x
+	hcomp := ast.HComp{
+		A:    ast.Sort{U: 0},
+		Phi:  ast.FaceTop{},
+		Tube: ast.Var{Ix: 0}, // tube
+		Base: ast.Var{Ix: 0}, // base
+	}
+	ty, err := c.Synth(ctx, NoSpan(), hcomp)
+	if err != nil {
+		t.Fatalf("HComp synthesis failed: %v", err)
+	}
+	// Result type should be Type0
+	if sort, ok := ty.(ast.Sort); !ok || sort.U != 0 {
+		t.Errorf("Expected Type0, got %v", ast.Sprint(ty))
 	}
 }

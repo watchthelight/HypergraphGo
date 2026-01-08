@@ -76,7 +76,7 @@ release:
 brews:
   - name: hg
     ids: [universal]
-    skip_upload: true
+    skip_upload: false
     repository:
       owner: watchthelight
       name: homebrew-tap

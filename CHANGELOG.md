@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Comprehensive diagram updates** (`DIAGRAMS.md`)
+  - Added Higher Inductive Types (HITs) to master architecture diagrams
+  - New Section 13: Higher Inductive Types with 8 mermaid diagrams:
+    - HIT Architecture Overview (AST, eval, check, built-ins)
+    - HITSpec Structure class diagram
+    - HIT Evaluation Flow (endpoint reduction)
+    - Built-in HITs (S1, Trunc, Susp, Int, Quot)
+    - HIT Eliminator Type Construction
+    - HIT Declaration Pipeline sequence diagram
+    - RecursorInfo for HITs class diagram
+  - Updated Type System Summary to include HITs section
+  - Updated Computation Rules with HIT reduction rules
+  - Updated GlobalEnv/Inductive class diagram with HIT fields
+  - HIT components styled with purple (#8250df) to distinguish from cubical (green)
+  - Updated Summary section with cubical and HIT coverage
+
+### Tests
+
+- **Resolve tests** (`internal/ast/resolve_test.go` - extended)
+  - Added 40+ tests covering all RTerm cases: Sort, Pi, Sigma, Pair, Fst, Snd, Let, Id, Refl, J
+  - Error path coverage for unbound variables in all subterms
+  - Coverage for `Resolve` improved from 53.8% to 99.0%
+  - Coverage for `internal/ast` improved to 98.8%
+
+- **Cubical type synthesis tests** (`kernel/check/path_test.go` - extended)
+  - GlueElem: `TestSynthGlueElem`, `TestSynthGlueElem_WithBranch`, `TestSynthGlueElem_InvalidFace`
+  - Unglue: `TestSynthUnglue`, `TestSynthUnglue_FromGlueType`, `TestSynthUnglue_StuckCase`
+  - UA: `TestSynthUA`, `TestSynthUA_UniverseMismatch`
+  - UABeta: `TestSynthUABeta`, `TestSynthUABeta_NotSigma`
+  - Composition operations: `TestSynthFill`, `TestSynthComp`, `TestSynthHComp`
+  - Coverage for `synthGlueElem` improved from 0% to 83.3%
+  - Coverage for `synthUnglue` improved from 0% to 77.8%
+  - Coverage for `kernel/check` improved from 83.8% to 85.5%
+
+- **Recursor buildRecursorCallWithIndices tests** (`internal/eval/recursor_test.go` - extended)
+  - Integration tests via tryGenericRecursorReduction
+  - Tests for multiple indices, out of bounds, negative position, incomplete metadata
+  - Coverage for `buildRecursorCallWithIndices` improved from 36% to 92%
+  - Coverage for `internal/eval` improved from 80.8% to 87.6%
+
+- **NbE and equality tests** (`internal/eval/nbe_cubical_test.go`, `internal/eval/equality_test.go` - extended)
+  - PathApply tests for VFill, VPath, VPathP, VHITPathCtor
+  - EvalCubical tests for HITApp and UABeta
+  - ValueEqual tests for VComp, VHComp, VFill, VGlue, VGlueElem, VUA, VUnglue, VHITPathCtor
+  - Environment equality tests: envEqual, ienvEqual, closureEqual, faceValueEqual
+
+- **EvalCubical comprehensive tests** (`internal/eval/nbe_cubical_test.go` - extended)
+  - Glue/GlueElem: `TestEvalCubical_GlueEmptySystem`, `TestEvalCubical_GlueWithBranches`,
+    `TestEvalCubical_GlueElemEmptySystem`, `TestEvalCubical_GlueElemWithBranches`
+  - Unglue: `TestEvalCubical_UnglueNilTy`
+  - HITApp: `TestEvalCubical_HITAppWithTermArgs`
+  - Composition: `TestEvalCubical_CompWithFaceEq`, `TestEvalCubical_HCompWithFaceAnd`,
+    `TestEvalCubical_FillWithFaceOr`
+  - Univalence: `TestEvalCubical_UASimple`, `TestPathApply_VUAEndpoints`
+  - PathP: `TestEvalCubical_PathPWithClosure`
+  - PathApply: `TestPathApply_VFill` for fill @ i0/i1/neutral
+  - tryEvalCubical: `TestTryEvalCubical_MoreCases` with additional term types
+  - tryReifyCubical: `TestTryReifyCubical_MoreValues` with additional value types
+  - Coverage for `EvalCubical` improved from 69.8% to 99.2%
+
+- **Normalize edge case tests** (`internal/eval/eval_test.go` - extended)
+  - `TestNormalize_FstNeutral`: Fst on non-pair (stuck case)
+  - `TestNormalize_SndNeutral`: Snd on non-pair (stuck case)
+  - `TestNormalize_Default`: Sort, Pi, Sigma, Lambda pass-through
+  - `TestNormalize_NestedBeta`: Nested beta reductions
+  - Coverage for `Normalize` improved to 100%
+
+- Coverage for `internal/eval` improved from 88.6% to 91.5%
+
+- **IShift edge case tests** (`kernel/subst/subst_cubical_test.go` - extended)
+  - Face formulas as direct Term input: `TestIShift_FaceEq_AsDirectTerm_BelowCutoff`,
+    `TestIShift_FaceEq_AsDirectTerm_AboveCutoff`, `TestIShift_FaceEq_AsDirectTerm_AtCutoff`,
+    `TestIShift_FaceAnd_AsDirectTerm`, `TestIShift_FaceOr_AsDirectTerm`, `TestIShift_FaceTopBot_AsDirectTerm`
+  - Negative shift: `TestIShift_NegativeShift`, `TestIShift_NegativeShift_Path`
+  - Zero shift: `TestIShift_ZeroShift`, `TestIShift_ZeroShift_Complex`
+  - Cutoff boundary: `TestIShift_IVar_ExactCutoff`, `TestIShift_IVar_OneBelowCutoff`
+  - Empty structures: `TestIShift_System_Empty`, `TestIShift_Glue_EmptySystem`, `TestIShift_GlueElem_EmptySystem`
+  - Nested structures: `TestIShift_NestedPathApp`, `TestIShift_NestedBindersCutoffPropagation`,
+    `TestIShift_DeepNestedSystem`
+  - Edge cases: `TestIShift_LargeShift`, `TestIShift_HITApp_EmptyArgs`
+  - Coverage for `kernel/subst` improved from 91.7% to 93.6%
+
+- **Recursor indexed inductive tests** (`kernel/check/recursor_test.go` - extended)
+  - `extractUniverseLevel`: `TestExtractUniverseLevel_DirectSort`, `TestExtractUniverseLevel_SinglePi`,
+    `TestExtractUniverseLevel_NestedPi`, `TestExtractUniverseLevel_DeeplyNestedPi`, `TestExtractUniverseLevel_Fallback`
+  - `isRecursiveArgTypeMulti`: 10 tests for mutual inductive detection including higher-order cases
+  - `buildAppliedInductiveFull`: `TestBuildAppliedInductiveFull_NoParams_NoIndices`,
+    `TestBuildAppliedInductiveFull_OneParam_NoIndices`, `TestBuildAppliedInductiveFull_OneParam_OneIndex`,
+    `TestBuildAppliedInductiveFull_TwoParams_TwoIndices`
+  - `buildMotiveTypeFull`: `TestBuildMotiveTypeFull_NoIndices`, `TestBuildMotiveTypeFull_WithIndices`
+
+- **Mutual positivity tests** (`kernel/check/positivity_test.go` - extended)
+  - Tests for `checkArgTypePositivityMulti` covering all term types: Sigma, Lam, Pair, Fst/Snd, Let, Id, Refl, J, Var, Sort, App
+  - Coverage for `checkArgTypePositivityMulti` improved from 22.4% to 74.1%
+
+- **Identity type and J tests** (`kernel/check/id_test.go` - extended)
+  - Error path tests for `synthJ`: A not a type, X/Y type mismatch, invalid motive C, invalid base case D, invalid proof P
+  - Coverage for `synthJ` improved from 66.7% to 100%
+
+- **Cubical type error path tests** (`kernel/check/path_test.go` - extended)
+  - Path type formation: `TestPathTypeFormation_ErrorInA/X/Y`
+  - PathP type formation: `TestPathPTypeFormation_ErrorInA/X/Y`
+  - Partial type synthesis: `TestSynthPartial_ErrorInFace/A`
+  - Coverage for `synthPath` improved from 62.5% to 100%
+  - Coverage for `synthPathP` improved from 69.2% to 92.3%
+  - Coverage for `synthPartial` improved from 66.7% to 100%
+
+- **Parser error path tests** (`internal/parser/sexpr_test.go`, `sexpr_cubical_test.go` - extended)
+  - FormatTerm: `TestFormatTerm_Nil`, `TestFormatTerm_LamWithoutAnn`, `TestFormatTerm_SortHigherLevel`
+  - Normalize: `TestNormalize` with 6 cases
+  - Parse error tests: `TestParseJ_Errors`, `TestParseSigma_Errors`, `TestParseLet_Errors`, `TestParseId_Errors`,
+    `TestParseRefl_Errors`, `TestParsePair_Errors`, `TestParseGlobal_WithParen`, `TestParseSort_InvalidLevel`
+  - Cubical parse errors: `TestParsePath_Errors`, `TestParsePathP_Errors`, `TestParsePathLam_Errors`,
+    `TestParsePathApp_Errors`, `TestParseTransport_Errors`
+  - Coverage for `internal/parser` improved from 87.9% to 94.6%
+  - Coverage for `Normalize` improved from 0% to 100%
+
+- **Recursor helper function tests** (`kernel/check/recursor_test.go` - continued)
+  - `paramName`/`indexName`: name generation tests for parameter and index naming
+  - `buildIHType`: `TestBuildIHType_NoIndices`, `TestBuildIHType_WithIndices`
+  - `extractIndicesFromType`: 4 tests for index extraction including edge cases
+  - `extractConstructorIndices`: `TestExtractConstructorIndices_Simple`
+  - `shiftIndexExpr`: `TestShiftIndexExpr_Variable`, `TestShiftIndexExpr_Global`
+  - Indexed inductives: `TestGenerateRecursorType_Vec`, `TestGenerateRecursorType_Fin`,
+    `TestBuildCaseTypeFull_VecCons`
+  - Coverage for `kernel/check` improved from 75.8% to 83.8%
+
 ### Added
 - **internal/core package documentation** (`internal/core/doc.go` - new)
   - Documents definitional equality checking using NbE
@@ -176,6 +304,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TestExecuteReplCommand_SaveError`: save with invalid path error
   - `TestExecuteReplCommand_LoadShorthand`: unknown colon command error
   - Coverage improved from 79.7% to 81.6% for `cmd/hg` package
+- **Alpha-equality extension tests** (`internal/core/conv_cubical_test.go` - extended)
+  - `TestAlphaEqExtension_TypeMismatch`: 24 test cases for cubical type vs non-cubical mismatches
+  - `TestAlphaEqFace_TypeMismatch`: face formula type mismatch tests
+  - `TestAlphaEqExtension_SameCubicalTypeMismatch`: same-type field mismatches
+  - `TestAlphaEqExtension_DefaultCase`: default branch coverage
+  - `TestAlphaEqExtension_GlueElemSystemLengthMismatch`: system branch count differences
+  - `TestAlphaEqExtension_CrossCubicalMismatch`: cross-cubical type comparisons
+  - Coverage for `alphaEqExtension` improved from 76% to 100%
+  - Coverage for `alphaEqFace` improved from 78.9% to 94.7%
+  - Coverage for `internal/core` improved from 87.6% to 99.1%
+- **Positivity checker tests** (`kernel/check/positivity_test.go`, `positivity_cubical_test.go` - extended)
+  - `TestCheckArgTypePositivity_AllPaths`: 12 test cases for J, Id, Refl, Pair, Let, etc.
+  - `TestCheckArgTypePositivityMulti_AllPaths`: 7 test cases for mutual inductives
+  - `TestCheckPositivity_CubicalErrorPaths`: 14 test cases for PathP, PathApp, Comp, HComp, Fill, Glue, UA, UABeta
+  - `TestOccursInFace_AllBranches`: face formula occurrence tests
+  - Coverage for `checkArgTypePositivity` improved from 65.5% to 92.7%
+  - Coverage for `checkArgTypePositivityMulti` improved from 74.1% to 84.5%
+  - Coverage for `kernel/check` improved from 88.4% to 90.2%
+- **Cubical type checking tests** (`kernel/check/bidir_cubical_test.go` - new)
+  - Glue type synthesis: `TestSynthGlue_UniverseLevelMismatch`, `TestSynthGlue_EquivError`, `TestSynthGlue_FaceError`, `TestSynthGlue_TypeError`, `TestSynthGlue_ANotType`
+  - HComp synthesis: `TestSynthHComp_ANotType`, `TestSynthHComp_FaceError`, `TestSynthHComp_BaseError`, `TestSynthHComp_TubeError`, `TestSynthHComp_TubeBaseDisagreement`
+  - System synthesis: `TestSynthSystem_FirstTermError`, `TestSynthSystem_SubsequentTermError`, `TestSynthSystem_SubsequentFaceError`, `TestCheckSystemAgreement_Disagreement`
+  - Transport synthesis: `TestSynthTransport_ANotType`, `TestSynthTransport_EError`
+  - Comp synthesis: `TestSynthComp_ANotType`, `TestSynthComp_FaceError`, `TestSynthComp_BaseError`, `TestSynthComp_TubeError`, `TestSynthComp_TubeBaseDisagreement`
+  - Fill synthesis: `TestSynthFill_ANotType`, `TestSynthFill_FaceError`, `TestSynthFill_BaseError`, `TestSynthFill_TubeError`, `TestSynthFill_TubeBaseDisagreement`
+  - PathApp synthesis: `TestSynthPathApp_NotPath`, `TestSynthPathApp_PathCaseRError`, `TestSynthPathApp_PathPCaseRError`, `TestSynthPathApp_PathPSynthError`
+  - UA synthesis: `TestSynthUA_UniverseLevelMismatch`, `TestSynthUA_EquivError`, `TestSynthUA_BNotType`
+  - Unglue synthesis: `TestSynthUnglue_WithTypeAnnotation`, `TestSynthUnglue_WithNonGlueAnnotation`, `TestSynthUnglue_SynthError`
+  - PathLam checking: `TestCheckPathLam_PathCase`, `TestCheckPathLam_PathCaseBodyError`, `TestCheckPathLam_PathCaseLeftMismatch`, `TestCheckPathLam_PathCaseRightMismatch`, `TestCheckPathLam_NotPathType`, `TestCheckPathLam_PathPCaseBodyError`, `TestCheckPathLam_PathPCaseLeftMismatch`, `TestCheckPathLam_PathPCaseRightMismatch`
+  - UABeta synthesis: `TestSynthUABeta_EquivError`, `TestSynthUABeta_ArgError`, `TestSynthUABeta_WithSigmaPiEquiv`
+  - GlueElem synthesis: `TestSynthGlueElem_BaseError`, `TestSynthGlueElem_FaceError`, `TestSynthGlueElem_TermError`
+  - Face checking: `TestCheckFace_DefaultCase`, `TestCheckFace_FaceOrRightError`
+  - faceIsBot: `TestFaceIsBot_AllCases` (10 test cases), `TestFaceIsBot_DefaultCase`
+  - collectFaceEqs: `TestCollectFaceEqs` (6 test cases)
+  - PathLam synthesis: `TestSynthPathLam_BodyError`
+  - 20+ functions improved to 100% coverage including: synthPathApp, synthTransport, checkPathLam, checkSystemAgreement, faceIsBot, collectFaceEqs, synthComp, synthHComp, synthFill, synthGlue, synthGlueElem
+  - Coverage for `kernel/check` improved from 90.2% to 93.1%
+- **NbE coverage tests** (`internal/eval/nbe_test.go` - extended)
+  - `TestMakeNeutralGlobal`: exported helper function coverage
+  - Value reification: `TestReifyAt_VPi`, `TestReifyAt_VSigma`, `TestReifyAt_VId`, `TestReifyAt_VRefl`
+  - Neutral reification: `TestReifyNeutralWithReifier_FstSndCases`, `TestReifyNeutralWithReifier_JCase`, `TestReifyNeutralWithReifier_FstSndInsufficientSpine`, `TestReifyNeutralWithReifier_JInsufficientSpine`
+  - Debug mode: `TestNBE_DebugMode`, `TestNBE_DebugModePanic`, `TestNBE_ReifyErrorDebugModePanic`
+  - Eliminator stuck cases: `TestNBE_NatElimNonConstructorTarget`, `TestNBE_BoolElimNonConstructorTarget`
+  - Term evaluation: `TestEval_LetTerm`, `TestEval_IdTerm`, `TestEval_ReflTerm`, `TestEval_PiTerm`, `TestEval_SigmaTerm`
+  - Environment: `TestEnv_LookupOutOfBounds`
+  - Application: `TestApply_VLamClosure`, `TestApply_ToNeutral`
+  - Projections: `TestFst_Snd_OnNeutral`
+  - Coverage for `evalError` improved from 66.7% to 100%
+  - Coverage for `reifyError` improved from 66.7% to 100%
+  - Coverage for `MakeNeutralGlobal` improved from 0% to 100%
+  - Coverage for `Eval` improved from 88.4% to 97.7%
+  - Coverage for `reifyAt` improved from 74.2% to 96.8%
+  - Coverage for `reifyNeutralWithReifier` improved to 100%
+  - Coverage for `internal/eval` improved from 87.6% to 88.6%
 
 ## [1.7.0] - 2026-01-04
 

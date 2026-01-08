@@ -41,129 +41,113 @@
   <a href="https://github.com/watchthelight/scoop-bucket"><img src="https://img.shields.io/badge/Scoop-bucket-5391FE?style=flat-square&logo=windows&logoColor=white" alt="Scoop"></a>
   <a href="https://community.chocolatey.org/packages/hypergraphgo"><img src="https://img.shields.io/chocolatey/v/hypergraphgo?label=Chocolatey&style=flat-square&logo=chocolatey&logoColor=white" alt="Chocolatey"></a>
   <a href="https://cloudsmith.io/~watchthelight/repos/hottgo/packages/"><img src="https://img.shields.io/badge/APT-Cloudsmith-2196F3?style=flat-square&logo=debian&logoColor=white" alt="APT/DEB"></a>
-  <a href="https://aur.archlinux.org/packages/hypergraphgo"><img src="https://img.shields.io/aur/version/hypergraphgo?style=flat-square&logo=archlinux&logoColor=white&label=AUR" alt="AUR"></a>
+  <a href="https://aur.archlinux.org/packages/hypergraphgo-bin"><img src="https://img.shields.io/aur/version/hypergraphgo-bin?style=flat-square&logo=archlinux&logoColor=white&label=AUR" alt="AUR"></a>
   <a href="https://github.com/watchthelight/HypergraphGo/releases/latest"><img src="https://img.shields.io/badge/Binary-Download-4CAF50?style=flat-square&logo=github&logoColor=white" alt="Binary Download"></a>
 </p>
 
 ---
 
-## The Short Version
+A standalone cubical type theory kernel, about 17K lines of Go. Small enough to read, complete enough to use. Univalence computes. HITs reduce. Compiles to a single binary with no runtime dependencies.
 
-A production-quality Go library for:
-- **Hypergraph theory** — generic vertex types, transforms, algorithms
-- **HoTT kernel** — normalization by evaluation, bidirectional typing, identity types, cubical path types
-- **CLI tools** — `hg` for hypergraphs, `hottgo` for type checking
+Why Go? Single-binary deployment, fast compilation, and the code is readable if you don't know ML-family languages. Good for embedding in other tools.
 
----
+## Who This Is For
 
-## Why This Exists
+- **PL researchers** who want to study cubical type theory without fighting a proof assistant's elaborator
+- **Tool builders** who need a type theory backend they can actually embed and control
+- **HoTT learners** who want to see how the internals work: NbE, bidirectional checking, path types
+- **Go developers** curious about dependent types
+- **Anyone who wants a kernel**, not a proof assistant—if you're building your own tooling on top, this is the layer you'd otherwise have to write yourself
 
-Hypergraphs generalize graphs by allowing edges (hyperedges) to connect any number of vertices. This library provides a flexible, efficient, and idiomatic Go implementation with rich operations, transforms, and algorithms.
+## What's Here
 
-The HoTT kernel implements a cutting-edge type theory foundation:
-- **Normalization by Evaluation (NbE)** with closure-based semantic domain
-- **Definitional equality** with optional η-rules for Π/Σ types
-- **De Bruijn indices** with bidirectional type checking
-- **Cubical type theory** foundations for univalent mathematics
+**HoTT Kernel** — A from-scratch cubical type theory: NbE-based normalization, bidirectional type checking, identity types, path types, Glue types, composition, transport, HITs.
 
----
+**Hypergraph Library** — Generic hypergraph operations in Go. Vertices, edges, transforms (dual, 2-section, line graph), algorithms (BFS, hitting set, coloring).
 
-## Highlights
+## The HoTT Kernel
 
-### v1.6.0: Computational Univalence
+The implementation follows the same general approach as cooltt, redtt, and Andras Kovacs' elaboration-zoo: NbE for normalization, closure-based semantic domain, de Bruijn indices in core. The difference is scope—this is a kernel only, not a proof assistant. No elaborator, no tactic language, no implicit arguments. You get the type theory and nothing else, which makes it easier to understand and easier to build on.
 
-**Univalence Axiom (ua):**
-- `ua A B e : Path Type A B` — converts equivalences to paths between types
-- Computation: `(ua e) @ i0 = A`, `(ua e) @ i1 = B`
-- Intermediate: `(ua e) @ i = Glue B [(i=0) ↦ (A, e)]`
-
-**Glue Types:**
-- `Glue A [φ ↦ (T, e)] : Type` — glue types for univalence
-- `glue [φ ↦ t] a` — glue element constructor
-- `unglue g : A` — extract base from glue element
-- Computation: `Glue A [⊤ ↦ (T, e)] = T`
-
-**Composition Operations:**
-- `comp^i A [φ ↦ u] a₀ : A[i1/i]` — heterogeneous composition
-- `hcomp A [φ ↦ u] a₀ : A` — homogeneous composition
-- `fill^i A [φ ↦ u] a₀` — fill operation for paths
-
-**Face Formulas & Partial Types:**
-- Face formulas: `⊤`, `⊥`, `(i=0)`, `(i=1)`, `φ∧ψ`, `φ∨ψ`
-- `Partial φ A` — partial elements defined when φ is satisfied
-- `System` — systems of compatible partial elements
-
-**Cubical Types Always Enabled:**
-- No build tags required — cubical features available in default build
-- Path types, interval, transport, composition all built-in
-
-### Inductives & Recursors
-
-**Mutual Inductives (v1.6.0):**
-- `DeclareMutual` API for mutually recursive types (e.g., Even/Odd)
-- Cross-type positivity checking via `CheckMutualPositivity`
-- Separate eliminators per type in mutual block
-
-**Parameterized & Indexed Inductives (v1.5.8+):**
-- **Parameterized types**: `List : Type -> Type`, `Vec : Type -> Nat -> Type`
-- **Indexed types**: Automatic parameter/index analysis from constructor results
-- **Eliminator generation**: Full support for params and indices in motives
-
-**Core Inductives (v1.5.3+):**
-- **User-defined inductives**: `DeclareInductive` with full validation pipeline
-- **Recursor generation**: Automatic eliminator type generation with IH binders
-- **Generic reduction**: Registry-based recursor reduction for arbitrary inductives
-- **Built-in primitives**: `Nat`, `Bool` with `natElim`, `boolElim`
-
-### Identity Types & Path Types
-
-**Martin-Löf Identity Types:**
-- `Id A x y` for propositional equality
-- `refl A x : Id A x x` and `J` eliminator
-
-**Cubical Path Types:**
-- `Path A x y`, `PathP A x y` for cubical equality
-- `<i> t` path abstraction, `p @ r` path application
-- `transport A e : A[i1/i]` with constant reduction
-
-### Bidirectional Type Checking
-
-- `Synth`/`Check`/`CheckIsType` API at `kernel/check`
-- Structured error types with source spans
-- Global environment with axioms, definitions, inductives, primitives
-
----
-
-## Quickstart
+### Quickstart
 
 ```bash
-go get github.com/watchthelight/hypergraphgo
+# Synthesize the type of a reflexivity proof
+$ hottgo -synth "(Refl (Global Nat) (Global zero))"
+(Refl Nat zero) : (Id Nat zero zero)
+
+# Construct a path and apply it at an endpoint
+$ hottgo -eval "(PathApp (PathLam i (Global zero)) i0)"
+zero
+
+# Check that Type has a universe level
+$ hottgo -synth "Type"
+Type : (Sort 1)
 ```
+
+The syntax is S-expressions with explicit de Bruijn indices. `(Global x)` references a defined name, `(Var n)` references a bound variable. Built-in types include `Nat`, `Bool`, and the interval `I` with endpoints `i0`, `i1`.
+
+### Implemented
+
+**Computational Univalence**
+
+`ua` converts equivalences to paths. When you apply a ua-path at an intermediate point, you get a Glue type—not a stuck term. Transport along `ua e` actually uses `e` to move data across. No axioms blocking computation.
+
+```
+ua A B e : Path Type A B
+(ua e) @ i0 = A
+(ua e) @ i1 = B
+(ua e) @ i = Glue B [(i=0) ↦ (A, e)]
+```
+
+**Glue Types**
+
+The mechanism behind univalence. Glue types let you attach a type `T` to a base type `A` along a face, mediated by an equivalence. Composition through Glue types computes—you get actual normal forms, not neutral terms waiting for more information.
+
+**Composition & Transport**
+
+`comp`, `hcomp`, `fill`, `transport`. Transport through a constant family reduces to the identity. Composition in Π, Σ, Path types computes.
+
+**Higher Inductive Types**
+
+Path constructors that compute. The circle S¹ with `loop : Path S¹ base base`. Propositional truncation. Suspensions. Quotients.
+
+**Inductives & Eliminators**
+
+User-defined inductive types with automatic eliminator generation. Parameterized types like `List A`, indexed types like `Vec A n`, mutual recursion like Even/Odd. Strict positivity checking. Generic recursor reduction.
+
+**Bidirectional Type Checking**
+
+`Synth` infers, `Check` verifies, errors come back with source spans and structured information. The kernel boundary is clean—parsing, name resolution, elaboration happen outside; the kernel only sees well-formed core terms.
+
+### Technical Details
+
+| Feature | Implementation |
+|---------|----------------|
+| Normalization | NbE with closure-based domain |
+| Equality | Conversion by normalization + structural compare |
+| Binding | De Bruijn indices (core), names (surface) |
+| Identity | Martin-Löf Id with J eliminator |
+| Paths | `Path A x y`, `PathP A x y`, `<i> t`, `p @ r` |
+| Interval | `I` with `i0`, `i1`, meets, joins, connections |
+| Faces | `(i=0)`, `(i=1)`, `φ∧ψ`, `φ∨ψ`, partial types |
+| Glue | `Glue A [φ ↦ (T,e)]`, `glue`, `unglue` |
+| Universes | Predicative cumulative tower, explicit levels |
+
+## Hypergraph Library
+
+Hypergraphs generalize graphs—edges connect any number of vertices, not just two. The library is generic over vertex types, provides standard transforms, and includes common algorithms.
 
 ```go
-package main
+hg := hypergraph.NewHypergraph[string]()
+hg.AddEdge("E1", []string{"A", "B", "C"})
+hg.AddEdge("E2", []string{"B", "C", "D"})
 
-import (
-    "fmt"
-    "github.com/watchthelight/hypergraphgo/hypergraph"
-)
-
-func main() {
-    hg := hypergraph.NewHypergraph[string]()
-    _ = hg.AddEdge("E1", []string{"A", "B", "C"})
-    fmt.Println("Vertices:", hg.Vertices())
-    fmt.Println("Edges:", hg.Edges())
-}
+dual := hg.Dual()           // swap vertices and edges
+section := hg.TwoSection()  // project to ordinary graph
 ```
 
-Run the examples:
-
-```bash
-go run ./examples/basic
-go run ./examples/algorithms
-```
-
----
+Algorithms: BFS/DFS traversal, connected components, greedy hitting set, minimal transversals, vertex coloring.
 
 ## Installation
 
@@ -173,149 +157,87 @@ go run ./examples/algorithms
 go get github.com/watchthelight/hypergraphgo
 ```
 
-### APT (Cloudsmith)
+### Homebrew (macOS/Linux)
+
+```bash
+brew install watchthelight/tap/hypergraphgo
+```
+
+### APT (Debian/Ubuntu)
 
 ```bash
 curl -1sLf 'https://dl.cloudsmith.io/public/watchthelight/hottgo/setup.deb.sh' | sudo -E bash
 sudo apt install hypergraphgo
 ```
 
-### Other Package Managers
+### Other
 
-[![AUR](https://img.shields.io/aur/version/hypergraphgo?label=AUR&logo=archlinux&style=flat-square)](https://aur.archlinux.org/packages/hypergraphgo)
+[![AUR](https://img.shields.io/aur/version/hypergraphgo-bin?label=AUR&logo=archlinux&style=flat-square)](https://aur.archlinux.org/packages/hypergraphgo-bin)
 [![choco](https://img.shields.io/chocolatey/v/hypergraphgo?label=choco&style=flat-square)](https://community.chocolatey.org/packages/hypergraphgo)
 
----
+Or grab a binary from [releases](https://github.com/watchthelight/HypergraphGo/releases/latest).
 
 ## CLI
 
-### Hypergraph CLI (`hg`)
-
-Full-featured CLI for hypergraph operations with 22 commands organized into categories:
+### `hg` — Hypergraph Operations
 
 ```bash
-# Core operations
-hg new -o graph.json                           # Create empty hypergraph
-hg info -f graph.json                          # Display statistics
-hg add-vertex -f graph.json -v A               # Add vertex
-hg add-edge -f graph.json -id E1 -m A,B,C      # Add hyperedge
-hg vertices -f graph.json                      # List vertices
-hg edges -f graph.json                         # List edges with members
-
-# Transforms
-hg dual -f graph.json -o dual.json             # Compute dual hypergraph
-hg two-section -f graph.json -o section.json   # Compute 2-section graph
-hg line-graph -f graph.json -o line.json       # Compute line graph
-
-# Algorithms
-hg bfs -f graph.json -start A                  # Breadth-first search
-hg components -f graph.json                    # Connected components
-hg hitting-set -f graph.json                   # Greedy hitting set
-hg coloring -f graph.json                      # Vertex coloring
-
-# Interactive mode
-hg repl                                        # Start REPL
-hg repl -f graph.json                          # Load file into REPL
-
-# Help
-hg help                                        # Show all commands
-hg help <command>                              # Command-specific help
+hg new -o graph.json              # create empty hypergraph
+hg add-edge -f graph.json -id E1 -m A,B,C
+hg dual -f graph.json -o dual.json
+hg bfs -f graph.json -start A
+hg repl                           # interactive mode
 ```
 
-### HoTT CLI (`hottgo`)
+22 commands covering creation, modification, transforms, algorithms, and REPL.
+
+### `hottgo` — Type Checking
 
 ```bash
-hottgo --version
-hottgo --check FILE        # Type-check S-expression terms
-hottgo --eval EXPR         # Evaluate an expression
-hottgo --synth EXPR        # Synthesize the type
+hottgo --check FILE       # type-check a file
+hottgo --eval EXPR        # evaluate expression
+hottgo --synth EXPR       # synthesize type
 ```
 
-Interactive REPL with `:eval`, `:synth`, `:quit` commands.
-
----
+REPL mode with `:eval`, `:synth`, `:quit`.
 
 ## Architecture
 
-The kernel follows strict design principles documented in [`DESIGN.md`](DESIGN.md):
+Design docs: [`DESIGN.md`](DESIGN.md), [`DIAGRAMS.md`](DIAGRAMS.md)
 
-- **Kernel boundary** — minimal, total, panic-free
-- **De Bruijn indices** — core terms only; surface syntax keeps user names
-- **NbE conversion** — no ad-hoc reductions outside documented rules
-- **Strict positivity** — validated for all inductive definitions
-
-See [`DIAGRAMS.md`](DIAGRAMS.md) for comprehensive Mermaid architecture diagrams covering:
-- Package dependencies
-- Term and value type hierarchies
-- Bidirectional type checking flow
-- NbE pipeline (Eval → Apply → Reify)
-- J elimination and conversion checking
-
----
+The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, panic-free. De Bruijn indices only. NbE conversion with no ad-hoc reductions. Strict positivity validation. Everything outside the kernel (parsing, elaboration, tactics) gets re-checked after expansion. The supporting code in `internal/` adds another 7K lines for AST, evaluation, and parsing.
 
 ## Roadmap
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| **Phase 0** | ✅ | Ground rules and interfaces |
-| **Phase 1** | ✅ | Syntax, binding, pretty printing |
-| **Phase 2** | ✅ | Normalization and definitional equality |
-| **Phase 3** | ✅ | Bidirectional type checking |
-| **Phase 4** | ✅ | Identity types + Cubical path types |
-| **Phase 5** | ✅ | Inductives, recursors, positivity (parameterized, indexed, mutual) |
-| **Phase 6** | ✅ | Computational univalence (Glue, comp, ua) |
-| **Phase 7** | ✅ | Higher Inductive Types (HITs) |
-| **Phase 8** | ⏳ | Elaboration and tactics |
-| **Phase 9** | ⏳ | Standard library seed |
-| **Phase 10** | ⏳ | Performance, soundness, packaging |
+| 0 | ✅ | Ground rules and interfaces |
+| 1 | ✅ | Syntax, binding, pretty printing |
+| 2 | ✅ | Normalization and definitional equality |
+| 3 | ✅ | Bidirectional type checking |
+| 4 | ✅ | Identity types + Cubical path types |
+| 5 | ✅ | Inductives, recursors, positivity |
+| 6 | ✅ | Computational univalence (Glue, comp, ua) |
+| 7 | ✅ | Higher Inductive Types |
+| 8 | ⏳ | Elaboration and tactics |
+| 9 | ⏳ | Standard library seed |
+| 10 | ⏳ | Performance, soundness, packaging |
 
-**Current:** v1.7.0 — Higher Inductive Types complete
-**Next:** Elaboration and tactics (Phase 8)
-
----
-
-## Releases & Packaging
-
-Releases are automated via [GoReleaser](https://goreleaser.com/). See:
-- [`.goreleaser.yaml`](.goreleaser.yaml) for build configuration
-- [`CHANGELOG.md`](CHANGELOG.md) for version history
-- [`RELEASING.md`](RELEASING.md) for release process
-
-**Release a new version:**
-
-```bash
-./scripts/release.sh patch   # or minor | major | 1.2.3
-```
-
-This updates `VERSION`, creates tag `vX.Y.Z`, and pushes to `origin`.
-
----
-
-## Algorithms
-
-- **Greedy hitting set**: polynomial time heuristic
-- **Minimal transversals**: exponential, supports cutoffs
-- **Greedy coloring**: heuristic
-- **Transforms**: dual, 2-section, line graph
-- **Traversal**: BFS/DFS connectivity
-
----
+Current: **v1.7.0** — HITs complete. Next: elaboration.
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md). The short version:
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Short version:
 
-- Small PRs. One logical change per PR.
-- Tests required. If it's not tested, it doesn't exist.
+- Small PRs. One change per PR.
+- Tests required. No exceptions.
 - CHANGELOG entry required.
-- Kernel boundaries are sacred. Don't blur them.
+- Kernel boundaries are sacred.
 
-If your PR is a hot take, open an issue first. It saves everyone grief.
-
----
+Hot take? Open an issue first.
 
 ## License
 
-MIT License © 2025 [watchthelight](https://github.com/watchthelight)
+MIT © 2025 [watchthelight](https://github.com/watchthelight)
 
-See [`LICENSE.md`](LICENSE.md) for full text.
+See [`LICENSE.md`](LICENSE.md).

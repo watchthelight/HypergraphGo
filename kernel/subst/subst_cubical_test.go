@@ -2961,3 +2961,466 @@ func TestSimplifyFaceOrAST_NoSimplification(t *testing.T) {
 		t.Errorf("should preserve operands")
 	}
 }
+
+// ============================================================================
+// IShift Edge Case Tests
+// ============================================================================
+
+// --- FaceEq as direct Term input to IShift ---
+
+func TestIShift_FaceEq_AsDirectTerm_BelowCutoff(t *testing.T) {
+	t.Parallel()
+	// FaceEq with IVar < cutoff should remain unchanged
+	term := ast.FaceEq{IVar: 0, IsOne: false}
+	result := IShift(5, 2, term)
+
+	eq, ok := result.(ast.FaceEq)
+	if !ok {
+		t.Fatalf("expected FaceEq, got %T", result)
+	}
+	if eq.IVar != 0 || eq.IsOne != false {
+		t.Errorf("FaceEq{0, false} should be unchanged, got FaceEq{%d, %v}", eq.IVar, eq.IsOne)
+	}
+}
+
+func TestIShift_FaceEq_AsDirectTerm_AboveCutoff(t *testing.T) {
+	t.Parallel()
+	// FaceEq with IVar >= cutoff should be shifted
+	term := ast.FaceEq{IVar: 3, IsOne: true}
+	result := IShift(2, 1, term)
+
+	eq, ok := result.(ast.FaceEq)
+	if !ok {
+		t.Fatalf("expected FaceEq, got %T", result)
+	}
+	// IVar 3 >= cutoff 1, shifted by 2 => 5
+	if eq.IVar != 5 || eq.IsOne != true {
+		t.Errorf("expected FaceEq{5, true}, got FaceEq{%d, %v}", eq.IVar, eq.IsOne)
+	}
+}
+
+func TestIShift_FaceEq_AsDirectTerm_AtCutoff(t *testing.T) {
+	t.Parallel()
+	// FaceEq with IVar == cutoff should be shifted
+	term := ast.FaceEq{IVar: 2, IsOne: false}
+	result := IShift(3, 2, term)
+
+	eq, ok := result.(ast.FaceEq)
+	if !ok {
+		t.Fatalf("expected FaceEq, got %T", result)
+	}
+	// IVar 2 >= cutoff 2, shifted by 3 => 5
+	if eq.IVar != 5 {
+		t.Errorf("expected IVar 5, got %d", eq.IVar)
+	}
+}
+
+// --- FaceAnd as direct Term input to IShift ---
+
+func TestIShift_FaceAnd_AsDirectTerm(t *testing.T) {
+	t.Parallel()
+	term := ast.FaceAnd{
+		Left:  ast.FaceEq{IVar: 0, IsOne: false},
+		Right: ast.FaceEq{IVar: 2, IsOne: true},
+	}
+	result := IShift(3, 1, term)
+
+	and, ok := result.(ast.FaceAnd)
+	if !ok {
+		t.Fatalf("expected FaceAnd, got %T", result)
+	}
+	left := and.Left.(ast.FaceEq)
+	right := and.Right.(ast.FaceEq)
+	// Left IVar 0 < cutoff 1, unchanged
+	if left.IVar != 0 {
+		t.Errorf("Left: expected IVar 0, got %d", left.IVar)
+	}
+	// Right IVar 2 >= cutoff 1, shifted by 3 => 5
+	if right.IVar != 5 {
+		t.Errorf("Right: expected IVar 5, got %d", right.IVar)
+	}
+}
+
+// --- FaceOr as direct Term input to IShift ---
+
+func TestIShift_FaceOr_AsDirectTerm(t *testing.T) {
+	t.Parallel()
+	term := ast.FaceOr{
+		Left:  ast.FaceEq{IVar: 1, IsOne: true},
+		Right: ast.FaceEq{IVar: 3, IsOne: false},
+	}
+	result := IShift(2, 2, term)
+
+	or, ok := result.(ast.FaceOr)
+	if !ok {
+		t.Fatalf("expected FaceOr, got %T", result)
+	}
+	left := or.Left.(ast.FaceEq)
+	right := or.Right.(ast.FaceEq)
+	// Left IVar 1 < cutoff 2, unchanged
+	if left.IVar != 1 {
+		t.Errorf("Left: expected IVar 1, got %d", left.IVar)
+	}
+	// Right IVar 3 >= cutoff 2, shifted by 2 => 5
+	if right.IVar != 5 {
+		t.Errorf("Right: expected IVar 5, got %d", right.IVar)
+	}
+}
+
+// --- FaceTop/FaceBot as direct Term input to IShift ---
+
+func TestIShift_FaceTopBot_AsDirectTerm(t *testing.T) {
+	t.Parallel()
+	topResult := IShift(5, 0, ast.FaceTop{})
+	botResult := IShift(5, 0, ast.FaceBot{})
+
+	if _, ok := topResult.(ast.FaceTop); !ok {
+		t.Errorf("FaceTop should be unchanged, got %T", topResult)
+	}
+	if _, ok := botResult.(ast.FaceBot); !ok {
+		t.Errorf("FaceBot should be unchanged, got %T", botResult)
+	}
+}
+
+// --- Negative shift (d < 0) ---
+
+func TestIShift_NegativeShift(t *testing.T) {
+	t.Parallel()
+	// Negative shift decrements indices above cutoff
+	term := ast.IVar{Ix: 5}
+	result := IShift(-2, 3, term)
+
+	ivar, ok := result.(ast.IVar)
+	if !ok {
+		t.Fatalf("expected IVar, got %T", result)
+	}
+	// IVar 5 >= cutoff 3, shifted by -2 => 3
+	if ivar.Ix != 3 {
+		t.Errorf("expected IVar{3}, got IVar{%d}", ivar.Ix)
+	}
+}
+
+func TestIShift_NegativeShift_Path(t *testing.T) {
+	t.Parallel()
+	term := ast.Path{
+		A: ast.IVar{Ix: 4},
+		X: ast.IVar{Ix: 1},
+		Y: ast.IVar{Ix: 6},
+	}
+	result := IShift(-3, 2, term)
+
+	path, ok := result.(ast.Path)
+	if !ok {
+		t.Fatalf("expected Path, got %T", result)
+	}
+	// A: IVar{4} >= 2, shifted to 1
+	if a, ok := path.A.(ast.IVar); !ok || a.Ix != 1 {
+		t.Errorf("Path.A: expected IVar{1}, got %v", path.A)
+	}
+	// X: IVar{1} < 2, unchanged
+	if x, ok := path.X.(ast.IVar); !ok || x.Ix != 1 {
+		t.Errorf("Path.X: expected IVar{1}, got %v", path.X)
+	}
+	// Y: IVar{6} >= 2, shifted to 3
+	if y, ok := path.Y.(ast.IVar); !ok || y.Ix != 3 {
+		t.Errorf("Path.Y: expected IVar{3}, got %v", path.Y)
+	}
+}
+
+// --- Zero shift (d = 0) ---
+
+func TestIShift_ZeroShift(t *testing.T) {
+	t.Parallel()
+	term := ast.IVar{Ix: 5}
+	result := IShift(0, 0, term)
+
+	ivar, ok := result.(ast.IVar)
+	if !ok {
+		t.Fatalf("expected IVar, got %T", result)
+	}
+	if ivar.Ix != 5 {
+		t.Errorf("zero shift should preserve IVar, got %d", ivar.Ix)
+	}
+}
+
+func TestIShift_ZeroShift_Complex(t *testing.T) {
+	t.Parallel()
+	// Zero shift on complex structure should preserve everything
+	term := ast.PathP{
+		A: ast.IVar{Ix: 3},
+		X: ast.IVar{Ix: 0},
+		Y: ast.IVar{Ix: 2},
+	}
+	result := IShift(0, 0, term)
+
+	pathp, ok := result.(ast.PathP)
+	if !ok {
+		t.Fatalf("expected PathP, got %T", result)
+	}
+	// A is under binder so cutoff+1, but d=0 means no change
+	if a, ok := pathp.A.(ast.IVar); !ok || a.Ix != 3 {
+		t.Errorf("PathP.A: expected IVar{3}, got %v", pathp.A)
+	}
+	if x, ok := pathp.X.(ast.IVar); !ok || x.Ix != 0 {
+		t.Errorf("PathP.X: expected IVar{0}, got %v", pathp.X)
+	}
+	if y, ok := pathp.Y.(ast.IVar); !ok || y.Ix != 2 {
+		t.Errorf("PathP.Y: expected IVar{2}, got %v", pathp.Y)
+	}
+}
+
+// --- IVar at exact cutoff boundary ---
+
+func TestIShift_IVar_ExactCutoff(t *testing.T) {
+	t.Parallel()
+	// IVar at exactly cutoff should be shifted
+	term := ast.IVar{Ix: 3}
+	result := IShift(2, 3, term)
+
+	ivar, ok := result.(ast.IVar)
+	if !ok {
+		t.Fatalf("expected IVar, got %T", result)
+	}
+	// IVar 3 >= cutoff 3, shifted by 2 => 5
+	if ivar.Ix != 5 {
+		t.Errorf("expected IVar{5}, got IVar{%d}", ivar.Ix)
+	}
+}
+
+func TestIShift_IVar_OneBelowCutoff(t *testing.T) {
+	t.Parallel()
+	// IVar just below cutoff should not be shifted
+	term := ast.IVar{Ix: 2}
+	result := IShift(5, 3, term)
+
+	ivar, ok := result.(ast.IVar)
+	if !ok {
+		t.Fatalf("expected IVar, got %T", result)
+	}
+	// IVar 2 < cutoff 3, unchanged
+	if ivar.Ix != 2 {
+		t.Errorf("expected IVar{2} unchanged, got IVar{%d}", ivar.Ix)
+	}
+}
+
+// --- Empty System branches ---
+
+func TestIShift_System_Empty(t *testing.T) {
+	t.Parallel()
+	term := ast.System{Branches: []ast.SystemBranch{}}
+	result := IShift(3, 0, term)
+
+	sys, ok := result.(ast.System)
+	if !ok {
+		t.Fatalf("expected System, got %T", result)
+	}
+	if len(sys.Branches) != 0 {
+		t.Errorf("empty System should remain empty, got %d branches", len(sys.Branches))
+	}
+}
+
+// --- Empty Glue/GlueElem systems ---
+
+func TestIShift_Glue_EmptySystem(t *testing.T) {
+	t.Parallel()
+	term := ast.Glue{
+		A:      ast.IVar{Ix: 2},
+		System: []ast.GlueBranch{},
+	}
+	result := IShift(1, 0, term)
+
+	glue, ok := result.(ast.Glue)
+	if !ok {
+		t.Fatalf("expected Glue, got %T", result)
+	}
+	if a, ok := glue.A.(ast.IVar); !ok || a.Ix != 3 {
+		t.Errorf("Glue.A: expected IVar{3}, got %v", glue.A)
+	}
+	if len(glue.System) != 0 {
+		t.Errorf("empty Glue system should remain empty")
+	}
+}
+
+func TestIShift_GlueElem_EmptySystem(t *testing.T) {
+	t.Parallel()
+	term := ast.GlueElem{
+		System: []ast.GlueElemBranch{},
+		Base:   ast.IVar{Ix: 1},
+	}
+	result := IShift(2, 0, term)
+
+	ge, ok := result.(ast.GlueElem)
+	if !ok {
+		t.Fatalf("expected GlueElem, got %T", result)
+	}
+	if len(ge.System) != 0 {
+		t.Errorf("empty GlueElem system should remain empty")
+	}
+	if base, ok := ge.Base.(ast.IVar); !ok || base.Ix != 3 {
+		t.Errorf("GlueElem.Base: expected IVar{3}, got %v", ge.Base)
+	}
+}
+
+// --- Nested structures ---
+
+func TestIShift_NestedPathApp(t *testing.T) {
+	t.Parallel()
+	// Nested PathApp: ((P @ r1) @ r2)
+	term := ast.PathApp{
+		P: ast.PathApp{
+			P: ast.IVar{Ix: 3},
+			R: ast.IVar{Ix: 1},
+		},
+		R: ast.IVar{Ix: 2},
+	}
+	result := IShift(2, 2, term)
+
+	outer, ok := result.(ast.PathApp)
+	if !ok {
+		t.Fatalf("expected PathApp, got %T", result)
+	}
+	inner, ok := outer.P.(ast.PathApp)
+	if !ok {
+		t.Fatalf("expected nested PathApp, got %T", outer.P)
+	}
+	// Inner P: IVar{3} >= 2, shifted to 5
+	if p, ok := inner.P.(ast.IVar); !ok || p.Ix != 5 {
+		t.Errorf("inner.P: expected IVar{5}, got %v", inner.P)
+	}
+	// Inner R: IVar{1} < 2, unchanged
+	if r, ok := inner.R.(ast.IVar); !ok || r.Ix != 1 {
+		t.Errorf("inner.R: expected IVar{1}, got %v", inner.R)
+	}
+	// Outer R: IVar{2} >= 2, shifted to 4
+	if r, ok := outer.R.(ast.IVar); !ok || r.Ix != 4 {
+		t.Errorf("outer.R: expected IVar{4}, got %v", outer.R)
+	}
+}
+
+func TestIShift_NestedBindersCutoffPropagation(t *testing.T) {
+	t.Parallel()
+	// PathLam inside PathLam: λi. λj. IVar{3}
+	// Outer binds 1 ivar, inner binds another
+	term := ast.PathLam{
+		Binder: "i",
+		Body: ast.PathLam{
+			Binder: "j",
+			Body:   ast.IVar{Ix: 3}, // cutoff should be 2 here
+		},
+	}
+	result := IShift(1, 0, term)
+
+	outer, ok := result.(ast.PathLam)
+	if !ok {
+		t.Fatalf("expected PathLam, got %T", result)
+	}
+	inner, ok := outer.Body.(ast.PathLam)
+	if !ok {
+		t.Fatalf("expected nested PathLam, got %T", outer.Body)
+	}
+	// IVar{3}: cutoff starts at 0, +1 for outer, +1 for inner = 2
+	// IVar{3} >= 2, shifted by 1 => 4
+	if ivar, ok := inner.Body.(ast.IVar); !ok || ivar.Ix != 4 {
+		t.Errorf("innermost body: expected IVar{4}, got %v", inner.Body)
+	}
+}
+
+func TestIShift_DeepNestedSystem(t *testing.T) {
+	t.Parallel()
+	// System with multiple branches containing nested terms
+	term := ast.System{
+		Branches: []ast.SystemBranch{
+			{
+				Phi:  ast.FaceEq{IVar: 2, IsOne: true},
+				Term: ast.PathApp{P: ast.IVar{Ix: 3}, R: ast.IVar{Ix: 0}},
+			},
+			{
+				Phi: ast.FaceAnd{
+					Left:  ast.FaceEq{IVar: 1, IsOne: false},
+					Right: ast.FaceEq{IVar: 4, IsOne: true},
+				},
+				Term: ast.IVar{Ix: 5},
+			},
+		},
+	}
+	result := IShift(2, 2, term)
+
+	sys, ok := result.(ast.System)
+	if !ok {
+		t.Fatalf("expected System, got %T", result)
+	}
+	if len(sys.Branches) != 2 {
+		t.Fatalf("expected 2 branches, got %d", len(sys.Branches))
+	}
+
+	// Branch 0 Phi: FaceEq{2, true} >= 2, shifted to 4
+	phi0 := sys.Branches[0].Phi.(ast.FaceEq)
+	if phi0.IVar != 4 {
+		t.Errorf("branch 0 Phi: expected IVar 4, got %d", phi0.IVar)
+	}
+
+	// Branch 0 Term: PathApp with shifted IVars
+	papp := sys.Branches[0].Term.(ast.PathApp)
+	if p, ok := papp.P.(ast.IVar); !ok || p.Ix != 5 {
+		t.Errorf("branch 0 PathApp.P: expected IVar{5}, got %v", papp.P)
+	}
+	if r, ok := papp.R.(ast.IVar); !ok || r.Ix != 0 {
+		t.Errorf("branch 0 PathApp.R: expected IVar{0}, got %v", papp.R)
+	}
+
+	// Branch 1 Phi: FaceAnd with shifted IVars
+	phi1 := sys.Branches[1].Phi.(ast.FaceAnd)
+	left := phi1.Left.(ast.FaceEq)
+	right := phi1.Right.(ast.FaceEq)
+	if left.IVar != 1 {
+		t.Errorf("branch 1 FaceAnd.Left: expected IVar 1, got %d", left.IVar)
+	}
+	if right.IVar != 6 {
+		t.Errorf("branch 1 FaceAnd.Right: expected IVar 6, got %d", right.IVar)
+	}
+
+	// Branch 1 Term: IVar{5} >= 2, shifted to 7
+	if term1, ok := sys.Branches[1].Term.(ast.IVar); !ok || term1.Ix != 7 {
+		t.Errorf("branch 1 Term: expected IVar{7}, got %v", sys.Branches[1].Term)
+	}
+}
+
+// --- Large shift value ---
+
+func TestIShift_LargeShift(t *testing.T) {
+	t.Parallel()
+	term := ast.IVar{Ix: 0}
+	result := IShift(1000, 0, term)
+
+	ivar, ok := result.(ast.IVar)
+	if !ok {
+		t.Fatalf("expected IVar, got %T", result)
+	}
+	if ivar.Ix != 1000 {
+		t.Errorf("expected IVar{1000}, got IVar{%d}", ivar.Ix)
+	}
+}
+
+// --- HITApp with empty args ---
+
+func TestIShift_HITApp_EmptyArgs(t *testing.T) {
+	t.Parallel()
+	term := ast.HITApp{
+		HITName: "S1",
+		Ctor:    "loop",
+		Args:    []ast.Term{},
+		IArgs:   []ast.Term{},
+	}
+	result := IShift(3, 0, term)
+
+	hit, ok := result.(ast.HITApp)
+	if !ok {
+		t.Fatalf("expected HITApp, got %T", result)
+	}
+	if hit.HITName != "S1" || hit.Ctor != "loop" {
+		t.Errorf("HITApp name/ctor should be preserved")
+	}
+	if len(hit.Args) != 0 || len(hit.IArgs) != 0 {
+		t.Errorf("empty args should remain empty")
+	}
+}

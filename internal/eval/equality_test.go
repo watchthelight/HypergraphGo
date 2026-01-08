@@ -598,3 +598,479 @@ func TestValueEqual_VSystem(t *testing.T) {
 		t.Error("VSystem should not equal VSort")
 	}
 }
+
+// ============================================================================
+// VComp, VHComp, VFill Equality Tests
+// ============================================================================
+
+func TestValueEqual_VComp(t *testing.T) {
+	t.Parallel()
+	comp1 := VComp{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	comp2 := VComp{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	comp3 := VComp{
+		A:    &IClosure{Term: ast.Sort{U: 1}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+
+	if !ValueEqual(comp1, comp2) {
+		t.Error("identical VComp should be equal")
+	}
+	if ValueEqual(comp1, comp3) {
+		t.Error("VComp with different A should not be equal")
+	}
+	if ValueEqual(comp1, VGlobal{Name: "x"}) {
+		t.Error("VComp should not equal VGlobal")
+	}
+}
+
+func TestValueEqual_VHComp(t *testing.T) {
+	t.Parallel()
+	hcomp1 := VHComp{
+		A:    VSort{Level: 0},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	hcomp2 := VHComp{
+		A:    VSort{Level: 0},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	hcomp3 := VHComp{
+		A:    VSort{Level: 1},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+
+	if !ValueEqual(hcomp1, hcomp2) {
+		t.Error("identical VHComp should be equal")
+	}
+	if ValueEqual(hcomp1, hcomp3) {
+		t.Error("VHComp with different A should not be equal")
+	}
+	if ValueEqual(hcomp1, VGlobal{Name: "x"}) {
+		t.Error("VHComp should not equal VGlobal")
+	}
+}
+
+func TestValueEqual_VFill(t *testing.T) {
+	t.Parallel()
+	fill1 := VFill{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	fill2 := VFill{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceTop{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+	fill3 := VFill{
+		A:    &IClosure{Term: ast.Sort{U: 0}},
+		Phi:  VFaceBot{},
+		Tube: &IClosure{Term: ast.Var{Ix: 0}},
+		Base: VGlobal{Name: "x"},
+	}
+
+	if !ValueEqual(fill1, fill2) {
+		t.Error("identical VFill should be equal")
+	}
+	if ValueEqual(fill1, fill3) {
+		t.Error("VFill with different Phi should not be equal")
+	}
+	if ValueEqual(fill1, VGlobal{Name: "x"}) {
+		t.Error("VFill should not equal VGlobal")
+	}
+}
+
+// ============================================================================
+// VGlue and VGlueElem Equality Tests
+// ============================================================================
+
+func TestValueEqual_VGlue(t *testing.T) {
+	t.Parallel()
+	glue1 := VGlue{
+		A:      VSort{Level: 0},
+		System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}},
+	}
+	glue2 := VGlue{
+		A:      VSort{Level: 0},
+		System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}},
+	}
+	glue3 := VGlue{
+		A:      VSort{Level: 1},
+		System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}},
+	}
+	glue4 := VGlue{
+		A:      VSort{Level: 0},
+		System: []VGlueBranch{},
+	}
+	glue5 := VGlue{
+		A:      VSort{Level: 0},
+		System: []VGlueBranch{{Phi: VFaceBot{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}},
+	}
+
+	if !ValueEqual(glue1, glue2) {
+		t.Error("identical VGlue should be equal")
+	}
+	if ValueEqual(glue1, glue3) {
+		t.Error("VGlue with different A should not be equal")
+	}
+	if ValueEqual(glue1, glue4) {
+		t.Error("VGlue with different System length should not be equal")
+	}
+	if ValueEqual(glue1, glue5) {
+		t.Error("VGlue with different System Phi should not be equal")
+	}
+	if ValueEqual(glue1, VGlobal{Name: "x"}) {
+		t.Error("VGlue should not equal VGlobal")
+	}
+}
+
+func TestValueEqual_VGlueElem(t *testing.T) {
+	t.Parallel()
+	elem1 := VGlueElem{
+		System: []VGlueElemBranch{{Phi: VFaceTop{}, Term: VGlobal{Name: "t"}}},
+		Base:   VGlobal{Name: "b"},
+	}
+	elem2 := VGlueElem{
+		System: []VGlueElemBranch{{Phi: VFaceTop{}, Term: VGlobal{Name: "t"}}},
+		Base:   VGlobal{Name: "b"},
+	}
+	elem3 := VGlueElem{
+		System: []VGlueElemBranch{{Phi: VFaceBot{}, Term: VGlobal{Name: "t"}}},
+		Base:   VGlobal{Name: "b"},
+	}
+	elem4 := VGlueElem{
+		System: []VGlueElemBranch{},
+		Base:   VGlobal{Name: "b"},
+	}
+
+	if !ValueEqual(elem1, elem2) {
+		t.Error("identical VGlueElem should be equal")
+	}
+	if ValueEqual(elem1, elem3) {
+		t.Error("VGlueElem with different System Phi should not be equal")
+	}
+	if ValueEqual(elem1, elem4) {
+		t.Error("VGlueElem with different System length should not be equal")
+	}
+	if ValueEqual(elem1, VGlobal{Name: "x"}) {
+		t.Error("VGlueElem should not equal VGlobal")
+	}
+}
+
+func TestValueEqual_VUA(t *testing.T) {
+	t.Parallel()
+	ua1 := VUA{A: VSort{Level: 0}, B: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}
+	ua2 := VUA{A: VSort{Level: 0}, B: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}
+	ua3 := VUA{A: VSort{Level: 1}, B: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}
+
+	if !ValueEqual(ua1, ua2) {
+		t.Error("identical VUA should be equal")
+	}
+	if ValueEqual(ua1, ua3) {
+		t.Error("VUA with different A should not be equal")
+	}
+	if ValueEqual(ua1, VGlobal{Name: "x"}) {
+		t.Error("VUA should not equal VGlobal")
+	}
+}
+
+func TestValueEqual_VUnglue(t *testing.T) {
+	t.Parallel()
+	ug1 := VUnglue{
+		Ty: VGlue{A: VSort{Level: 0}, System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}}},
+		G:  VGlobal{Name: "x"},
+	}
+	ug2 := VUnglue{
+		Ty: VGlue{A: VSort{Level: 0}, System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}}},
+		G:  VGlobal{Name: "x"},
+	}
+	ug3 := VUnglue{
+		Ty: VGlue{A: VSort{Level: 1}, System: []VGlueBranch{{Phi: VFaceTop{}, T: VSort{Level: 0}, Equiv: VGlobal{Name: "eq"}}}},
+		G:  VGlobal{Name: "x"},
+	}
+
+	if !ValueEqual(ug1, ug2) {
+		t.Error("identical VUnglue should be equal")
+	}
+	if ValueEqual(ug1, ug3) {
+		t.Error("VUnglue with different Ty should not be equal")
+	}
+	if ValueEqual(ug1, VGlobal{Name: "x"}) {
+		t.Error("VUnglue should not equal VGlobal")
+	}
+}
+
+// ============================================================================
+// Environment Equality Tests (envEqual, ienvEqual, closureEqual)
+// ============================================================================
+
+func TestEnvEqual_BothNil(t *testing.T) {
+	t.Parallel()
+	if !envEqual(nil, nil) {
+		t.Error("two nil envs should be equal")
+	}
+}
+
+func TestEnvEqual_OneNil(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: []Value{VSort{Level: 0}}}
+	if envEqual(env, nil) {
+		t.Error("non-nil env should not equal nil")
+	}
+	if envEqual(nil, env) {
+		t.Error("nil should not equal non-nil env")
+	}
+}
+
+func TestEnvEqual_DifferentLengths(t *testing.T) {
+	t.Parallel()
+	env1 := &Env{Bindings: []Value{VSort{Level: 0}}}
+	env2 := &Env{Bindings: []Value{VSort{Level: 0}, VSort{Level: 1}}}
+	if envEqual(env1, env2) {
+		t.Error("envs with different lengths should not be equal")
+	}
+}
+
+func TestEnvEqual_SameBindings(t *testing.T) {
+	t.Parallel()
+	env1 := &Env{Bindings: []Value{VSort{Level: 0}, VGlobal{Name: "x"}}}
+	env2 := &Env{Bindings: []Value{VSort{Level: 0}, VGlobal{Name: "x"}}}
+	if !envEqual(env1, env2) {
+		t.Error("envs with same bindings should be equal")
+	}
+}
+
+func TestEnvEqual_DifferentBindings(t *testing.T) {
+	t.Parallel()
+	env1 := &Env{Bindings: []Value{VSort{Level: 0}}}
+	env2 := &Env{Bindings: []Value{VSort{Level: 1}}}
+	if envEqual(env1, env2) {
+		t.Error("envs with different bindings should not be equal")
+	}
+}
+
+func TestEnvEqual_EmptyBindings(t *testing.T) {
+	t.Parallel()
+	env1 := &Env{Bindings: []Value{}}
+	env2 := &Env{Bindings: []Value{}}
+	if !envEqual(env1, env2) {
+		t.Error("empty envs should be equal")
+	}
+}
+
+func TestIenvEqual_BothNil(t *testing.T) {
+	t.Parallel()
+	if !ienvEqual(nil, nil) {
+		t.Error("two nil ienvs should be equal")
+	}
+}
+
+func TestIenvEqual_OneNil(t *testing.T) {
+	t.Parallel()
+	ienv := &IEnv{Bindings: []Value{VI0{}}}
+	if ienvEqual(ienv, nil) {
+		t.Error("non-nil ienv should not equal nil")
+	}
+	if ienvEqual(nil, ienv) {
+		t.Error("nil should not equal non-nil ienv")
+	}
+}
+
+func TestIenvEqual_DifferentLengths(t *testing.T) {
+	t.Parallel()
+	ienv1 := &IEnv{Bindings: []Value{VI0{}}}
+	ienv2 := &IEnv{Bindings: []Value{VI0{}, VI1{}}}
+	if ienvEqual(ienv1, ienv2) {
+		t.Error("ienvs with different lengths should not be equal")
+	}
+}
+
+func TestIenvEqual_SameBindings(t *testing.T) {
+	t.Parallel()
+	ienv1 := &IEnv{Bindings: []Value{VI0{}, VI1{}, VIVar{Level: 0}}}
+	ienv2 := &IEnv{Bindings: []Value{VI0{}, VI1{}, VIVar{Level: 0}}}
+	if !ienvEqual(ienv1, ienv2) {
+		t.Error("ienvs with same bindings should be equal")
+	}
+}
+
+func TestIenvEqual_DifferentBindings(t *testing.T) {
+	t.Parallel()
+	ienv1 := &IEnv{Bindings: []Value{VI0{}}}
+	ienv2 := &IEnv{Bindings: []Value{VI1{}}}
+	if ienvEqual(ienv1, ienv2) {
+		t.Error("ienvs with different bindings should not be equal")
+	}
+}
+
+func TestIenvEqual_EmptyBindings(t *testing.T) {
+	t.Parallel()
+	ienv1 := &IEnv{Bindings: []Value{}}
+	ienv2 := &IEnv{Bindings: []Value{}}
+	if !ienvEqual(ienv1, ienv2) {
+		t.Error("empty ienvs should be equal")
+	}
+}
+
+func TestClosureEqual_BothNil(t *testing.T) {
+	t.Parallel()
+	if !closureEqual(nil, nil) {
+		t.Error("two nil closures should be equal")
+	}
+}
+
+func TestClosureEqual_OneNil(t *testing.T) {
+	t.Parallel()
+	c := &Closure{Term: ast.Var{Ix: 0}}
+	if closureEqual(c, nil) {
+		t.Error("non-nil closure should not equal nil")
+	}
+	if closureEqual(nil, c) {
+		t.Error("nil should not equal non-nil closure")
+	}
+}
+
+func TestClosureEqual_SameTermAndEnv(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: []Value{VSort{Level: 0}}}
+	c1 := &Closure{Term: ast.Var{Ix: 0}, Env: env}
+	c2 := &Closure{Term: ast.Var{Ix: 0}, Env: env}
+	if !closureEqual(c1, c2) {
+		t.Error("closures with same term and env should be equal")
+	}
+}
+
+func TestClosureEqual_DifferentTerms(t *testing.T) {
+	t.Parallel()
+	c1 := &Closure{Term: ast.Var{Ix: 0}}
+	c2 := &Closure{Term: ast.Var{Ix: 1}}
+	if closureEqual(c1, c2) {
+		t.Error("closures with different terms should not be equal")
+	}
+}
+
+func TestClosureEqual_DifferentEnvs(t *testing.T) {
+	t.Parallel()
+	c1 := &Closure{Term: ast.Var{Ix: 0}, Env: &Env{Bindings: []Value{VSort{Level: 0}}}}
+	c2 := &Closure{Term: ast.Var{Ix: 0}, Env: &Env{Bindings: []Value{VSort{Level: 1}}}}
+	if closureEqual(c1, c2) {
+		t.Error("closures with different envs should not be equal")
+	}
+}
+
+func TestIClosureEqual_BothNil(t *testing.T) {
+	t.Parallel()
+	if !iClosureEqual(nil, nil) {
+		t.Error("two nil iclosures should be equal")
+	}
+}
+
+func TestIClosureEqual_OneNil(t *testing.T) {
+	t.Parallel()
+	c := &IClosure{Term: ast.IVar{Ix: 0}}
+	if iClosureEqual(c, nil) {
+		t.Error("non-nil iclosure should not equal nil")
+	}
+	if iClosureEqual(nil, c) {
+		t.Error("nil should not equal non-nil iclosure")
+	}
+}
+
+func TestIClosureEqual_SameAll(t *testing.T) {
+	t.Parallel()
+	env := &Env{Bindings: []Value{VSort{Level: 0}}}
+	ienv := &IEnv{Bindings: []Value{VI0{}}}
+	c1 := &IClosure{Term: ast.IVar{Ix: 0}, Env: env, IEnv: ienv}
+	c2 := &IClosure{Term: ast.IVar{Ix: 0}, Env: env, IEnv: ienv}
+	if !iClosureEqual(c1, c2) {
+		t.Error("iclosures with same term, env, and ienv should be equal")
+	}
+}
+
+func TestIClosureEqual_DifferentIEnv(t *testing.T) {
+	t.Parallel()
+	c1 := &IClosure{Term: ast.IVar{Ix: 0}, IEnv: &IEnv{Bindings: []Value{VI0{}}}}
+	c2 := &IClosure{Term: ast.IVar{Ix: 0}, IEnv: &IEnv{Bindings: []Value{VI1{}}}}
+	if iClosureEqual(c1, c2) {
+		t.Error("iclosures with different ienvs should not be equal")
+	}
+}
+
+// ============================================================================
+// Additional FaceValueEqual Tests
+// ============================================================================
+
+func TestFaceValueEqual_BothNil(t *testing.T) {
+	t.Parallel()
+	if !faceValueEqual(nil, nil) {
+		t.Error("two nil faces should be equal")
+	}
+}
+
+func TestFaceValueEqual_OneNil(t *testing.T) {
+	t.Parallel()
+	if faceValueEqual(VFaceTop{}, nil) {
+		t.Error("non-nil face should not equal nil")
+	}
+	if faceValueEqual(nil, VFaceTop{}) {
+		t.Error("nil should not equal non-nil face")
+	}
+}
+
+func TestFaceValueEqual_UnknownType(t *testing.T) {
+	t.Parallel()
+	// Test with types that might fall through to default case
+	// VFaceAnd vs VFaceOr
+	and := VFaceAnd{Left: VFaceTop{}, Right: VFaceBot{}}
+	or := VFaceOr{Left: VFaceTop{}, Right: VFaceBot{}}
+	if faceValueEqual(and, or) {
+		t.Error("VFaceAnd should not equal VFaceOr")
+	}
+}
+
+// ============================================================================
+// ValueEqual Default Case Tests
+// ============================================================================
+
+func TestValueEqual_UnknownType(t *testing.T) {
+	t.Parallel()
+	// Test that unknown types return false
+	// VHITPathCtor is a complex type that might hit the default case
+	hit := VHITPathCtor{HITName: "S1", CtorName: "loop"}
+	if ValueEqual(hit, VSort{Level: 0}) {
+		t.Error("VHITPathCtor should not equal VSort")
+	}
+}
+
+func TestValueEqual_VHITPathCtor(t *testing.T) {
+	t.Parallel()
+	h1 := VHITPathCtor{HITName: "S1", CtorName: "loop", Args: []Value{VGlobal{Name: "x"}}}
+	h2 := VHITPathCtor{HITName: "S1", CtorName: "loop", Args: []Value{VGlobal{Name: "x"}}}
+	h3 := VHITPathCtor{HITName: "S1", CtorName: "loop2", Args: []Value{VGlobal{Name: "x"}}}
+
+	if !ValueEqual(h1, h2) {
+		t.Error("identical VHITPathCtor should be equal")
+	}
+	if ValueEqual(h1, h3) {
+		t.Error("VHITPathCtor with different CtorName should not be equal")
+	}
+}

@@ -1217,3 +1217,215 @@ func termEqual(a, b ast.Term) bool {
 	}
 	return false
 }
+
+// ============================================================================
+// FormatTerm Tests
+// ============================================================================
+
+func TestFormatTerm_Nil(t *testing.T) {
+	result := FormatTerm(nil)
+	if result != "nil" {
+		t.Errorf("FormatTerm(nil) = %q, want %q", result, "nil")
+	}
+}
+
+func TestFormatTerm_LamWithoutAnn(t *testing.T) {
+	// Test Lam without annotation
+	lam := ast.Lam{Binder: "x", Ann: nil, Body: ast.Var{Ix: 0}}
+	result := FormatTerm(lam)
+	expected := "(Lam x (Var 0))"
+	if result != expected {
+		t.Errorf("FormatTerm(Lam without ann) = %q, want %q", result, expected)
+	}
+}
+
+func TestFormatTerm_SortHigherLevel(t *testing.T) {
+	// Test Sort with non-zero level
+	sort := ast.Sort{U: 5}
+	result := FormatTerm(sort)
+	expected := "(Sort 5)"
+	if result != expected {
+		t.Errorf("FormatTerm(Sort 5) = %q, want %q", result, expected)
+	}
+}
+
+// ============================================================================
+// Normalize Tests
+// ============================================================================
+
+func TestNormalize(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"trim leading space", "  Type", "Type"},
+		{"trim trailing space", "Type  ", "Type"},
+		{"trim both", "  Type  ", "Type"},
+		{"already clean", "Type", "Type"},
+		{"empty input", "", ""},
+		{"only whitespace", "   ", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Normalize(tt.input)
+			if result != tt.expected {
+				t.Errorf("Normalize(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Additional Error Path Tests
+// ============================================================================
+
+func TestParseJ_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(J ("},
+		{"error in C", "(J Nat ("},
+		{"error in D", "(J Nat C ("},
+		{"error in X", "(J Nat C D ("},
+		{"error in Y", "(J Nat C D X ("},
+		{"error in P", "(J Nat C D X Y ("},
+		{"missing args", "(J)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseSigma_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(Sigma x ("},
+		{"error in B", "(Sigma x Nat ("},
+		{"missing args", "(Sigma)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseLet_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in ann", "(Let x ("},
+		{"error in val", "(Let x Nat ("},
+		{"error in body", "(Let x Nat zero ("},
+		{"missing args", "(Let)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseId_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(Id ("},
+		{"error in X", "(Id Nat ("},
+		{"error in Y", "(Id Nat zero ("},
+		{"missing args", "(Id)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseRefl_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in A", "(Refl ("},
+		{"error in X", "(Refl Nat ("},
+		{"missing args", "(Refl)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParsePair_Errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"error in fst", "(Pair ("},
+		{"error in snd", "(Pair zero ("},
+		{"missing args", "(Pair)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTerm(tt.input)
+			if err == nil {
+				t.Errorf("ParseTerm(%q) expected error, got nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestParseGlobal_WithParen(t *testing.T) {
+	// (Global foo) should parse to Global{Name: "foo"}
+	result, err := ParseTerm("(Global foo)")
+	if err != nil {
+		t.Fatalf("ParseTerm error: %v", err)
+	}
+	g, ok := result.(ast.Global)
+	if !ok {
+		t.Fatalf("Expected Global, got %T", result)
+	}
+	if g.Name != "foo" {
+		t.Errorf("Global.Name = %q, want %q", g.Name, "foo")
+	}
+}
+
+func TestParseSort_InvalidLevel(t *testing.T) {
+	// (Sort abc) should fail - non-numeric level
+	_, err := ParseTerm("(Sort abc)")
+	if err == nil {
+		t.Error("ParseTerm((Sort abc)) expected error, got nil")
+	}
+}

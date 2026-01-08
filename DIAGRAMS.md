@@ -136,6 +136,14 @@ flowchart LR
                     T33["UABeta{e,a}"]
                 end
             end
+
+            subgraph HIT_TERMS["Higher Inductive Types"]
+                direction LR
+                T34["HITApp{HIT,Ctor,Args,IArgs}"]
+                T35["HITSpec{Name,PathCtors}"]
+                T36["PathConstructor{Level,Boundaries}"]
+                T37["Boundary{AtZero,AtOne}"]
+            end
         end
     end
 
@@ -225,6 +233,11 @@ flowchart LR
                     V23["VUA{A,B,Equiv}"]
                     V24["VUABeta{Equiv,Arg}"]
                 end
+
+                subgraph HITVAL["Higher Inductives"]
+                    V25["VHITPathCtor{HIT,Ctor,Boundaries}"]
+                    V26["BoundaryVal{AtZero,AtOne}"]
+                end
             end
 
             subgraph STRUCTURES["Supporting Structures"]
@@ -313,7 +326,11 @@ flowchart LR
     style CVAL stroke:#2da44e
     style GVAL stroke:#2da44e
     style UVAL stroke:#2da44e
+    style HITVAL stroke:#8250df,stroke-width:2px
     style STRUCTURES stroke:#666
+
+    %% HIT components - purple stroke
+    style HIT_TERMS stroke:#8250df,stroke-width:2px
 
     style CONV stroke:#888,stroke-width:2px
 ```
@@ -378,6 +395,14 @@ flowchart TB
                 PS1["CheckPositivity"]
                 PS2["checkArgTypePositivity"]
                 PS3["occursIn"]
+            end
+
+            subgraph HIT_CHECK["HIT Checking"]
+                direction TB
+                HC1["DeclareHIT"]
+                HC2["validatePathConstructor"]
+                HC3["checkHITPositivity"]
+                HC4["GenerateHITRecursorType"]
             end
         end
 
@@ -458,6 +483,13 @@ flowchart TB
                 RE3["tryGenericRecursorReduction"]
                 RE4["buildRecursorCall"]
             end
+
+            subgraph HIT_EVAL["HIT Evaluation"]
+                HE1["evalHITApp"]
+                HE2["lookupHITBoundaries"]
+                HE3["tryHITPathReduction"]
+                HE4["VHITPathCtor"]
+            end
         end
 
         subgraph SYNTAX["internal/ast"]
@@ -489,6 +521,12 @@ flowchart TB
                 TB7["Comp · HComp · Fill"]
                 TB8["Glue · GlueElem · Unglue"]
                 TB9["UA{A,B,Equiv} · UABeta{Equiv,Arg}"]
+            end
+
+            subgraph TERM_HIT["HIT Terms"]
+                TH1["HITApp{HITName,Ctor,Args,IArgs}"]
+                TH2["HITSpec · PathConstructor"]
+                TH3["Boundary{AtZero,AtOne}"]
             end
 
             subgraph PRINT["Printing"]
@@ -523,6 +561,11 @@ flowchart TB
             VB7["VComp · VHComp · VFill"]
             VB8["VGlue · VGlueElem · VUnglue"]
             VB9["VUA{A,B,Equiv} · VUABeta{Equiv,Arg}"]
+        end
+
+        subgraph VALUES_HIT["HIT Values"]
+            VH1["VHITPathCtor{HIT,Ctor,Boundaries}"]
+            VH2["BoundaryVal{AtZero,AtOne}"]
         end
 
         subgraph STRUCTURES["Structures"]
@@ -590,11 +633,17 @@ flowchart TB
 
     style TERM_CORE stroke:#666
     style TERM_CUB stroke:#2da44e,stroke-width:2px
+    style TERM_HIT stroke:#8250df,stroke-width:2px
     style PRINT stroke:#666
 
     style VALUES_CORE stroke:#666
     style VALUES_CUB stroke:#2da44e,stroke-width:2px
+    style VALUES_HIT stroke:#8250df,stroke-width:2px
     style STRUCTURES stroke:#666
+
+    %% HIT component styling
+    style HIT_CHECK stroke:#8250df,stroke-width:2px
+    style HIT_EVAL stroke:#8250df,stroke-width:2px
 ```
 
 ---
@@ -633,13 +682,25 @@ flowchart LR
         I6["Mutual<br/>mutual recursion"]
     end
 
+    subgraph HITS["Higher Inductive Types"]
+        direction TB
+        H1["Point Constructors<br/>e.g., base : S1"]
+        H2["Path Constructors<br/>e.g., loop : Path S1 base base"]
+        H3["Boundaries<br/>loop @ i0 = base"]
+        H4["HIT Elimination<br/>PathP cases"]
+        H5["Built-in HITs<br/>S1, Trunc, Susp, Int, Quot"]
+    end
+
     MLTT --> CUBICAL
     MLTT --> INDUCTIVE
+    INDUCTIVE --> HITS
     CUBICAL --> |"ua computes"| MLTT
+    CUBICAL --> |"path ctors"| HITS
 
     style MLTT stroke:#666,stroke-width:2px
     style CUBICAL stroke:#2da44e,stroke-width:2px
     style INDUCTIVE stroke:#666,stroke-width:2px
+    style HITS stroke:#8250df,stroke-width:2px
 ```
 
 ---
@@ -688,12 +749,22 @@ flowchart TB
         F4["⊥ ∨ φ → φ"]
     end
 
+    subgraph HIT_RULES["HIT Computation"]
+        H1["loop @ i0 → base"]
+        H2["loop @ i1 → base"]
+        H3["merid a @ i0 → north"]
+        H4["merid a @ i1 → south"]
+        H5["S1-elim P pbase ploop base → pbase"]
+        H6["S1-elim P pbase ploop (loop@i) → ploop@i"]
+    end
+
     style BETA stroke:#666,stroke-width:2px
     style PATH_COMP stroke:#2da44e,stroke-width:2px
     style COMP_RULES stroke:#2da44e,stroke-width:2px
     style GLUE_RULES stroke:#2da44e,stroke-width:2px
     style UA_RULES stroke:#2da44e,stroke-width:2px
     style FACE_SIMP stroke:#2da44e,stroke-width:2px
+    style HIT_RULES stroke:#8250df,stroke-width:2px
 ```
 
 ---
@@ -712,6 +783,7 @@ flowchart TB
 10. [Conversion Checking](#10-conversion-checking)
 11. [Context and Environment Management](#11-context-and-environment-management)
 12. [Complete Type Checking Pipeline](#12-complete-type-checking-pipeline)
+13. [Higher Inductive Types (HITs)](#13-higher-inductive-types-hits)
 
 ---
 
@@ -1569,8 +1641,16 @@ classDiagram
     class Inductive {
         +Name string
         +Type Term
+        +NumParams int
+        +ParamTypes []Term
+        +NumIndices int
+        +IndexTypes []Term
         +Constructors []Constructor
         +Eliminator string
+        +PathCtors []PathConstructor
+        +IsHIT bool
+        +MaxLevel int
+        +MutualGroup []string
     }
 
     class Primitive {
@@ -1695,17 +1775,304 @@ sequenceDiagram
 
 ---
 
+## 13. Higher Inductive Types (HITs)
+
+Higher Inductive Types extend ordinary inductive types with **path constructors** that create paths (equalities) between elements, not just elements themselves.
+
+### HIT Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph AST["internal/ast/term_hit.go"]
+        direction TB
+        A1["HITSpec{Name, PathCtors}"]
+        A2["PathConstructor{Level, Boundaries}"]
+        A3["Boundary{AtZero, AtOne}"]
+        A4["HITApp{HITName, Ctor, Args, IArgs}"]
+        A5["Constructor{Name, Type}"]
+
+        A1 --> A2
+        A2 --> A3
+        A1 --> A5
+    end
+
+    subgraph EVAL["internal/eval/nbe_hit.go"]
+        direction TB
+        E1["VHITPathCtor{HITName, CtorName, Boundaries}"]
+        E2["BoundaryVal{AtZero, AtOne}"]
+        E3["evalHITApp(hit, ctor, args, iargs)"]
+        E4["lookupHITBoundaries(hit, ctor)"]
+        E5["tryHITPathReduction(info, args)"]
+
+        E1 --> E2
+        E3 --> E1
+        E4 --> E2
+    end
+
+    subgraph CHECK["kernel/check/hit.go"]
+        direction TB
+        C1["DeclareHIT(spec)"]
+        C2["validatePathConstructor(ctor)"]
+        C3["checkHITPositivity(name, ctors)"]
+        C4["GenerateHITRecursorType(ind)"]
+        C5["buildPathCaseType(ind, pc)"]
+
+        C1 --> C2
+        C1 --> C3
+        C1 --> C4
+        C4 --> C5
+    end
+
+    subgraph BUILTIN["kernel/check/env_hit.go"]
+        direction TB
+        B1["S1 (Circle)"]
+        B2["Trunc (Truncation)"]
+        B3["Susp (Suspension)"]
+        B4["Int (Integers)"]
+        B5["Quot (Quotient)"]
+    end
+
+    AST --> EVAL
+    AST --> CHECK
+    CHECK --> BUILTIN
+    EVAL --> CHECK
+
+    style AST stroke:#8250df,stroke-width:2px
+    style EVAL stroke:#8250df,stroke-width:2px
+    style CHECK stroke:#8250df,stroke-width:2px
+    style BUILTIN stroke:#8250df,stroke-width:2px
+```
+
+### HITSpec Structure
+
+```mermaid
+classDiagram
+    class HITSpec {
+        +Name string
+        +Type Term
+        +NumParams int
+        +ParamTypes []Term
+        +PointCtors []Constructor
+        +PathCtors []PathConstructor
+        +Eliminator string
+        +IsHIT() bool
+        +MaxLevel() int
+    }
+
+    class PathConstructor {
+        +Name string
+        +Level int
+        +Type Term
+        +Boundaries []Boundary
+    }
+
+    class Boundary {
+        +AtZero Term
+        +AtOne Term
+    }
+
+    class Constructor {
+        +Name string
+        +Type Term
+    }
+
+    HITSpec --> "0..*" PathConstructor : PathCtors
+    HITSpec --> "0..*" Constructor : PointCtors
+    PathConstructor --> "1..*" Boundary : Boundaries
+```
+
+### HIT Evaluation Flow
+
+```mermaid
+flowchart TB
+    Start([HITApp{S1, loop, [], [i]}]) --> CheckEndpoint{IArg is endpoint?}
+
+    CheckEndpoint -->|"i = i0"| LookupZero["lookupHITBoundaries<br/>→ Boundary.AtZero"]
+    CheckEndpoint -->|"i = i1"| LookupOne["lookupHITBoundaries<br/>→ Boundary.AtOne"]
+    CheckEndpoint -->|"i = IVar"| Stuck["VHITPathCtor{S1, loop, ...}"]
+
+    LookupZero --> ResultZero(["base"])
+    LookupOne --> ResultOne(["base"])
+    Stuck --> ResultStuck(["Stuck path value"])
+
+    subgraph Example["Circle Example: loop @ i"]
+        direction LR
+        Ex1["loop @ i0 → base"]
+        Ex2["loop @ i1 → base"]
+        Ex3["loop @ i → stuck"]
+    end
+
+    style CheckEndpoint stroke:#8250df
+    style Example stroke:#8250df,stroke-width:2px
+```
+
+### Built-in HITs
+
+```mermaid
+flowchart LR
+    subgraph S1["Circle (S1)"]
+        direction TB
+        S1_1["base : S1"]
+        S1_2["loop : Path S1 base base"]
+        S1_3["loop @ i0 = base"]
+        S1_4["loop @ i1 = base"]
+    end
+
+    subgraph TRUNC["Truncation (Trunc)"]
+        direction TB
+        TR1["Trunc : Type → Type"]
+        TR2["inc : A → Trunc A"]
+        TR3["squash : (x y : Trunc A) →<br/>Path (Trunc A) x y"]
+    end
+
+    subgraph SUSP["Suspension (Susp)"]
+        direction TB
+        SU1["Susp : Type → Type"]
+        SU2["north, south : Susp A"]
+        SU3["merid : A → Path (Susp A)<br/>north south"]
+    end
+
+    subgraph INT["Integers (Int)"]
+        direction TB
+        IN1["pos, neg : Nat → Int"]
+        IN2["zeroPath : Path Int<br/>(pos 0) (neg 0)"]
+    end
+
+    subgraph QUOT["Quotient (Quot)"]
+        direction TB
+        QU1["Quot : (A : Type) →<br/>(R : A→A→Type) → Type"]
+        QU2["quot : A → Quot A R"]
+        QU3["eq : R a b → Path<br/>(Quot A R) (quot a) (quot b)"]
+    end
+
+    style S1 stroke:#8250df,stroke-width:2px
+    style TRUNC stroke:#8250df,stroke-width:2px
+    style SUSP stroke:#8250df,stroke-width:2px
+    style INT stroke:#8250df,stroke-width:2px
+    style QUOT stroke:#8250df,stroke-width:2px
+```
+
+### HIT Eliminator Type Construction
+
+For the Circle S1 with `base` and `loop`:
+
+```mermaid
+flowchart TB
+    subgraph ElimType["S1-elim Type Structure"]
+        direction TB
+        P["(P : S1 → Type)"]
+        Pbase["(pbase : P base)"]
+        Ploop["(ploop : PathP (λi. P (loop @ i))<br/>pbase pbase)"]
+        Target["(x : S1) → P x"]
+
+        P --> Pbase
+        Pbase --> Ploop
+        Ploop --> Target
+    end
+
+    subgraph Rules["Computation Rules"]
+        direction TB
+        R1["S1-elim P pbase ploop base<br/>→ pbase"]
+        R2["S1-elim P pbase ploop (loop @ i)<br/>→ ploop @ i"]
+    end
+
+    ElimType --> Rules
+
+    style ElimType stroke:#8250df,stroke-width:2px
+    style Rules stroke:#8250df,stroke-width:2px
+```
+
+### HIT Declaration Pipeline
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant DeclareHIT
+    participant Validate
+    participant Positivity
+    participant Generate
+    participant Register
+
+    User->>DeclareHIT: HITSpec{S1, ...}
+
+    DeclareHIT->>Validate: validateInductiveType(S1 : Type)
+    Validate-->>DeclareHIT: ✓
+
+    Note over DeclareHIT: Add S1 as temp axiom
+
+    DeclareHIT->>Validate: validatePathConstructor(loop)
+    Validate->>Validate: CheckIsType(Path S1 base base)
+    Validate->>Validate: isPathToHIT(loop.Type, "S1")
+    Validate-->>DeclareHIT: ✓
+
+    DeclareHIT->>Positivity: checkHITPositivity(S1, [base], [loop])
+    Positivity-->>DeclareHIT: ✓
+
+    DeclareHIT->>Generate: GenerateHITRecursorType(S1)
+    Generate->>Generate: buildPathCaseType(loop)
+    Generate-->>DeclareHIT: S1-elim type
+
+    DeclareHIT->>Register: AddInductive(S1, IsHIT=true)
+    DeclareHIT->>Register: AddAxiom(S1-elim, elimType)
+    DeclareHIT->>Register: RegisterRecursor(S1-elim)
+
+    Register-->>User: S1 registered ✓
+```
+
+### RecursorInfo for HITs
+
+```mermaid
+classDiagram
+    class RecursorInfo {
+        +ElimName string
+        +IndName string
+        +NumParams int
+        +NumIndices int
+        +NumCases int
+        +Ctors []ConstructorInfo
+        +PathCtors []PathConstructorInfo
+        +IsHIT bool
+    }
+
+    class ConstructorInfo {
+        +Name string
+        +NumArgs int
+        +RecursiveIdx []int
+        +IndexArgPositions map[int][]int
+    }
+
+    class PathConstructorInfo {
+        +Name string
+        +Level int
+        +NumArgs int
+        +Boundaries []BoundarySpec
+    }
+
+    class BoundarySpec {
+        +AtZeroVal Value
+        +AtOneVal Value
+    }
+
+    RecursorInfo --> "0..*" ConstructorInfo : Ctors
+    RecursorInfo --> "0..*" PathConstructorInfo : PathCtors
+    PathConstructorInfo --> "0..*" BoundarySpec : Boundaries
+```
+
+---
+
 ## Summary
 
 This document provides a comprehensive visual guide to the HoTT kernel architecture:
 
 1. **Package Structure**: Clear separation between kernel (trusted), internal (implementation), and command layers
-2. **Term Hierarchy**: 14 term constructors covering dependent types, pairs, and identity types
-3. **Value Hierarchy**: 9 value types for the NbE semantic domain
+2. **Term Hierarchy**: Core, cubical, and HIT term constructors covering dependent types, paths, and higher inductives
+3. **Value Hierarchy**: Value types for the NbE semantic domain including cubical and HIT values
 4. **Bidirectional Type Checking**: Synth/Check modes with case analysis for each term type
 5. **NbE Pipeline**: Eval → Apply → Reify for normalization
 6. **J Elimination**: Path induction with computation rule for reflexivity
 7. **Conversion**: Definitional equality via normalization and structural comparison
 8. **Context Management**: De Bruijn indices with proper shifting and substitution
+9. **Cubical Type Theory**: Path types, transport, composition, glue types, and univalence
+10. **Higher Inductive Types**: Path constructors, boundaries, HIT elimination, and built-in HITs (S1, Trunc, Susp, Int, Quot)
 
-The kernel implements a sound intensional type theory with identity types (Id, refl, J), supporting the foundations for homotopy type theory.
+The kernel implements cubical type theory with computational univalence and higher inductive types, providing a constructive foundation for homotopy type theory.

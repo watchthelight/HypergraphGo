@@ -568,3 +568,317 @@ func TestIndexedInductive_EmptyIndexArgPositions(t *testing.T) {
 		t.Error("Empty IndexArgPositions should not have entry for recursive arg")
 	}
 }
+
+// ============================================================================
+// buildRecursorCallWithIndices Integration Tests
+// ============================================================================
+
+// makeCtorValue creates a VNeutral representing a constructor application.
+// Constructor values are VNeutral with Head.Glob set to the constructor name
+// and the spine containing all arguments (params + data args).
+func makeCtorValue(ctorName string, numParams int, args []Value) VNeutral {
+	// Build the full spine: params (empty for simplicity) + args
+	fullSpine := make([]Value, numParams+len(args))
+	copy(fullSpine[numParams:], args)
+	return VNeutral{N: Neutral{Head: Head{Glob: ctorName}, Sp: fullSpine}}
+}
+
+// TestBuildRecursorCallWithIndices_ViaReduction tests the full reduction path
+// that exercises buildRecursorCallWithIndices.
+func TestBuildRecursorCallWithIndices_ViaReduction(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// Register Vec eliminator with proper metadata
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "vecElim",
+		IndName:    "Vec",
+		NumParams:  1, // A : Type
+		NumIndices: 1, // n : Nat
+		NumCases:   2, // vnil, vcons
+		Ctors: []ConstructorInfo{
+			{Name: "vnil", NumArgs: 0, RecursiveIdx: nil},
+			{
+				Name:         "vcons",
+				NumArgs:      3, // n, x, xs
+				RecursiveIdx: []int{2},
+				IndexArgPositions: map[int][]int{
+					2: {0}, // xs's index (n) is at position 0
+				},
+			},
+		},
+	})
+
+	// Build a spine that matches: vecElim A P pvnil pvcons n (vcons A n x xs)
+	// sp[0] = A (param)
+	// sp[1] = P (motive)
+	// sp[2] = pvnil (nil case)
+	// sp[3] = pvcons (cons case)
+	// sp[4] = n (index)
+	// sp[5] = vcons A n x xs (target)
+	typeA := VSort{Level: 0}
+	motive := VLam{Body: &Closure{}}
+	pnilCase := VGlobal{Name: "pvnil"}
+	pconsCase := VGlobal{Name: "pvcons"}
+	indexN := VGlobal{Name: "n"}
+
+	// Create vcons constructor value: vcons with 1 param (A) and 3 data args (n, x, xs)
+	vconsCtorArgs := []Value{indexN, VGlobal{Name: "x"}, VGlobal{Name: "xs"}}
+	vconsValue := makeCtorValue("vcons", 1, vconsCtorArgs) // 1 param + 3 args = 4 spine length
+
+	sp := []Value{typeA, motive, pnilCase, pconsCase, indexN, vconsValue}
+
+	// Call tryGenericRecursorReduction
+	result := tryGenericRecursorReduction("vecElim", sp)
+
+	// The result should not be nil (reduction should succeed)
+	if result == nil {
+		t.Fatal("Reduction should succeed for vcons case")
+	}
+}
+
+// TestBuildRecursorCallWithIndices_FallbackPath tests the fallback heuristic path.
+func TestBuildRecursorCallWithIndices_FallbackPath(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// Register Vec eliminator WITHOUT metadata (triggers fallback)
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "vecElimFB",
+		IndName:    "Vec",
+		NumParams:  1,
+		NumIndices: 1,
+		NumCases:   2,
+		Ctors: []ConstructorInfo{
+			{Name: "vnil", NumArgs: 0, RecursiveIdx: nil},
+			{
+				Name:         "vcons",
+				NumArgs:      3,
+				RecursiveIdx: []int{2},
+				// No IndexArgPositions - triggers fallback
+			},
+		},
+	})
+
+	typeA := VSort{Level: 0}
+	motive := VLam{Body: &Closure{}}
+	pnilCase := VGlobal{Name: "pvnil"}
+	pconsCase := VGlobal{Name: "pvcons"}
+	indexN := VGlobal{Name: "n"}
+
+	vconsCtorArgs := []Value{indexN, VGlobal{Name: "x"}, VGlobal{Name: "xs"}}
+	vconsValue := makeCtorValue("vcons", 1, vconsCtorArgs)
+
+	sp := []Value{typeA, motive, pnilCase, pconsCase, indexN, vconsValue}
+
+	result := tryGenericRecursorReduction("vecElimFB", sp)
+
+	if result == nil {
+		t.Fatal("Reduction should succeed with fallback path")
+	}
+}
+
+// TestBuildRecursorCallWithIndices_NoIndices tests path with zero indices.
+func TestBuildRecursorCallWithIndices_NoIndices(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// List eliminator (no indices)
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "listElim",
+		IndName:    "List",
+		NumParams:  1,
+		NumIndices: 0, // No indices
+		NumCases:   2,
+		Ctors: []ConstructorInfo{
+			{Name: "nil", NumArgs: 0, RecursiveIdx: nil},
+			{
+				Name:         "cons",
+				NumArgs:      2, // x, xs
+				RecursiveIdx: []int{1},
+			},
+		},
+	})
+
+	typeA := VSort{Level: 0}
+	motive := VLam{Body: &Closure{}}
+	pnilCase := VGlobal{Name: "pnil"}
+	pconsCase := VGlobal{Name: "pcons"}
+
+	consCtorArgs := []Value{VGlobal{Name: "x"}, VGlobal{Name: "xs"}}
+	consValue := makeCtorValue("cons", 1, consCtorArgs)
+
+	// sp for List: A, P, pnil, pcons, (cons x xs)
+	sp := []Value{typeA, motive, pnilCase, pconsCase, consValue}
+
+	result := tryGenericRecursorReduction("listElim", sp)
+
+	if result == nil {
+		t.Fatal("Reduction should succeed for cons case with no indices")
+	}
+}
+
+// TestBuildRecursorCallWithIndices_MultipleIndices tests path with multiple indices.
+func TestBuildRecursorCallWithIndices_MultipleIndices(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// Hypothetical 2-index type
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "multiElim2",
+		IndName:    "Multi",
+		NumParams:  0,
+		NumIndices: 2,
+		NumCases:   2,
+		Ctors: []ConstructorInfo{
+			{Name: "mbase", NumArgs: 0, RecursiveIdx: nil},
+			{
+				Name:         "mstep",
+				NumArgs:      3, // idx1, idx2, prev
+				RecursiveIdx: []int{2},
+				IndexArgPositions: map[int][]int{
+					2: {0, 1}, // prev's indices are at positions 0, 1
+				},
+			},
+		},
+	})
+
+	motive := VLam{Body: &Closure{}}
+	baseCase := VGlobal{Name: "pbase"}
+	stepCase := VGlobal{Name: "pstep"}
+	idx1 := VGlobal{Name: "i1"}
+	idx2 := VGlobal{Name: "i2"}
+
+	mstepCtorArgs := []Value{idx1, idx2, VGlobal{Name: "prev"}}
+	mstepValue := makeCtorValue("mstep", 0, mstepCtorArgs)
+
+	// sp: P, pbase, pstep, i1, i2, (mstep i1 i2 prev)
+	sp := []Value{motive, baseCase, stepCase, idx1, idx2, mstepValue}
+
+	result := tryGenericRecursorReduction("multiElim2", sp)
+
+	if result == nil {
+		t.Fatal("Reduction should succeed for mstep case with multiple indices")
+	}
+}
+
+// TestBuildRecursorCallWithIndices_OutOfBoundsPosition tests edge case where
+// index position is out of bounds in ctorArgs.
+func TestBuildRecursorCallWithIndices_OutOfBoundsPosition(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// Edge case: IndexArgPositions points to invalid position
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "badElim",
+		IndName:    "Bad",
+		NumParams:  0,
+		NumIndices: 1,
+		NumCases:   1,
+		Ctors: []ConstructorInfo{
+			{
+				Name:         "badCtor",
+				NumArgs:      2,
+				RecursiveIdx: []int{1},
+				IndexArgPositions: map[int][]int{
+					1: {99}, // Invalid position (out of bounds)
+				},
+			},
+		},
+	})
+
+	motive := VLam{Body: &Closure{}}
+	ctorCase := VGlobal{Name: "pctor"}
+	idx := VGlobal{Name: "idx"}
+
+	ctorArgs := []Value{VGlobal{Name: "x"}, VGlobal{Name: "rec"}}
+	ctorValue := makeCtorValue("badCtor", 0, ctorArgs)
+
+	sp := []Value{motive, ctorCase, idx, ctorValue}
+
+	// This should not panic - the code should handle out of bounds gracefully
+	result := tryGenericRecursorReduction("badElim", sp)
+	// Result may be nil or some error value, but should not panic
+	_ = result
+}
+
+// TestBuildRecursorCallWithIndices_NegativePosition tests edge case where
+// index position is negative.
+func TestBuildRecursorCallWithIndices_NegativePosition(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// Edge case: IndexArgPositions has negative position
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "negElim",
+		IndName:    "Neg",
+		NumParams:  0,
+		NumIndices: 1,
+		NumCases:   1,
+		Ctors: []ConstructorInfo{
+			{
+				Name:         "negCtor",
+				NumArgs:      2,
+				RecursiveIdx: []int{1},
+				IndexArgPositions: map[int][]int{
+					1: {-1}, // Invalid negative position
+				},
+			},
+		},
+	})
+
+	motive := VLam{Body: &Closure{}}
+	ctorCase := VGlobal{Name: "pctor"}
+	idx := VGlobal{Name: "idx"}
+
+	ctorArgs := []Value{VGlobal{Name: "x"}, VGlobal{Name: "rec"}}
+	ctorValue := makeCtorValue("negCtor", 0, ctorArgs)
+
+	sp := []Value{motive, ctorCase, idx, ctorValue}
+
+	// Should not panic
+	result := tryGenericRecursorReduction("negElim", sp)
+	_ = result
+}
+
+// TestBuildRecursorCallWithIndices_IncompleteMetadata tests partial metadata
+// that doesn't cover all indices.
+func TestBuildRecursorCallWithIndices_IncompleteMetadata(t *testing.T) {
+	ClearRecursorRegistry()
+	defer ClearRecursorRegistry()
+
+	// 2 indices but only 1 position in metadata
+	RegisterRecursor(&RecursorInfo{
+		ElimName:   "incompleteElim",
+		IndName:    "Incomplete",
+		NumParams:  0,
+		NumIndices: 2, // 2 indices
+		NumCases:   1,
+		Ctors: []ConstructorInfo{
+			{
+				Name:         "iCtor",
+				NumArgs:      3,
+				RecursiveIdx: []int{2},
+				IndexArgPositions: map[int][]int{
+					2: {0}, // Only 1 position, but we have 2 indices - triggers fallback
+				},
+			},
+		},
+	})
+
+	motive := VLam{Body: &Closure{}}
+	ctorCase := VGlobal{Name: "pctor"}
+	idx1 := VGlobal{Name: "i1"}
+	idx2 := VGlobal{Name: "i2"}
+
+	ctorArgs := []Value{idx1, idx2, VGlobal{Name: "rec"}}
+	ctorValue := makeCtorValue("iCtor", 0, ctorArgs)
+
+	sp := []Value{motive, ctorCase, idx1, idx2, ctorValue}
+
+	// Should use fallback heuristic
+	result := tryGenericRecursorReduction("incompleteElim", sp)
+	if result == nil {
+		t.Fatal("Reduction should succeed with fallback for incomplete metadata")
+	}
+}

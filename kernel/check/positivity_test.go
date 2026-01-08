@@ -888,6 +888,128 @@ func TestOccursIn_Additional(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Extended Error Path Coverage Tests
+// ============================================================================
+
+// TestCheckArgTypePositivity_AllPaths tests error paths in checkArgTypePositivity.
+func TestCheckArgTypePositivity_AllPaths(t *testing.T) {
+	// Tests for error paths when Bad occurs in various subterms in negative position
+	tests := []struct {
+		name string
+		term ast.Term
+	}{
+		{
+			"App T negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.App{T: ast.Global{Name: "Bad"}, U: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Lam Ann negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Lam{Binder: "x", Ann: ast.Global{Name: "Bad"}, Body: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Pair Fst negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Pair{Fst: ast.Global{Name: "Bad"}, Snd: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Let Ann negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Let{Binder: "x", Ann: ast.Global{Name: "Bad"}, Val: ast.Var{Ix: 0}, Body: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Id X negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Id{A: ast.Sort{U: 0}, X: ast.Global{Name: "Bad"}, Y: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Id Y negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"Refl X negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Refl{A: ast.Sort{U: 0}, X: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"J C negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Global{Name: "Bad"}, D: ast.Var{Ix: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"J D negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Global{Name: "Bad"}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"J X negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0}, X: ast.Global{Name: "Bad"}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"J Y negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0}, X: ast.Var{Ix: 0}, Y: ast.Global{Name: "Bad"}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+		{
+			"J P negative",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Global{Name: "Bad"}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "Bad"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctors := []Constructor{{Name: "mk", Type: tt.term}}
+			err := CheckPositivity("Bad", ctors)
+			if err == nil {
+				t.Errorf("CheckPositivity expected error for %s", tt.name)
+			}
+		})
+	}
+}
+
+// TestCheckArgTypePositivityMulti_AllPaths tests error paths in checkArgTypePositivityMulti.
+func TestCheckArgTypePositivityMulti_AllPaths(t *testing.T) {
+	// Tests for error paths when a mutual type occurs in various subterms
+	tests := []struct {
+		name string
+		term ast.Term
+	}{
+		{
+			"Pair Fst negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Pair{Fst: ast.Global{Name: "A"}, Snd: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"Lam Ann negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Lam{Binder: "x", Ann: ast.Global{Name: "A"}, Body: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"Id A negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Id{A: ast.Global{Name: "A"}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"Refl A negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.Refl{A: ast.Global{Name: "A"}, X: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"J D negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Global{Name: "A"}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"J X negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0}, X: ast.Global{Name: "A"}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+		{
+			"J Y negative multi",
+			ast.Pi{Binder: "_", A: ast.Pi{Binder: "_", A: ast.J{A: ast.Sort{U: 0}, C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0}, X: ast.Var{Ix: 0}, Y: ast.Global{Name: "A"}, P: ast.Var{Ix: 0}}, B: ast.Sort{U: 0}}, B: ast.Global{Name: "A"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			constrs := map[string][]Constructor{
+				"A": {{Name: "mk", Type: tt.term}},
+			}
+			err := CheckMutualPositivity([]string{"A"}, constrs)
+			if err == nil {
+				t.Errorf("CheckMutualPositivity expected error for %s", tt.name)
+			}
+		})
+	}
+}
+
 // contains is a simple helper for string containment check
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
@@ -900,4 +1022,376 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestCheckMutualPositivity_Sigma tests mutual positivity with Sigma types.
+func TestCheckMutualPositivity_Sigma(t *testing.T) {
+	// Valid: A in positive position in Sigma
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Sigma{Binder: "x", A: ast.Global{Name: "A"}, B: ast.Sort{U: 0}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Sigma positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Sigma
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Sigma{Binder: "x", A: ast.Global{Name: "A"}, B: ast.Sort{U: 0}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Sigma negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_Lam tests mutual positivity with Lam types.
+func TestCheckMutualPositivity_Lam(t *testing.T) {
+	// Valid: A in positive position in Lam body
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Lam{Binder: "x", Body: ast.Global{Name: "A"}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Lam body positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Lam annotation
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A: ast.Lam{
+					Binder: "x",
+					Ann:    ast.Global{Name: "A"},
+					Body:   ast.Sort{U: 0},
+				},
+				B: ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Lam ann negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_Pair tests mutual positivity with Pair types.
+func TestCheckMutualPositivity_Pair(t *testing.T) {
+	// Valid: A in positive position in Pair
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Pair{Fst: ast.Global{Name: "A"}, Snd: ast.Sort{U: 0}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Pair positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Pair Snd
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Pair{Fst: ast.Sort{U: 0}, Snd: ast.Global{Name: "A"}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Pair Snd negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_FstSnd tests mutual positivity with Fst/Snd types.
+func TestCheckMutualPositivity_FstSnd(t *testing.T) {
+	// Valid: A in positive position in Fst
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Fst{P: ast.Global{Name: "A"}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Fst positive: unexpected error: %v", err)
+	}
+
+	// Valid: A in positive position in Snd
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A:      ast.Snd{P: ast.Global{Name: "A"}},
+			B:      ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Snd positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Fst
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Fst{P: ast.Global{Name: "A"}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Fst negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_Let tests mutual positivity with Let types.
+func TestCheckMutualPositivity_Let(t *testing.T) {
+	// Valid: A in positive position in Let body
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A: ast.Let{
+					Binder: "x",
+					Ann:    ast.Sort{U: 0},
+					Val:    ast.Var{Ix: 0},
+					Body:   ast.Global{Name: "A"},
+				},
+				B: ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Let body positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Let val
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A: ast.Let{
+					Binder: "x",
+					Ann:    ast.Sort{U: 0},
+					Val:    ast.Global{Name: "A"},
+					Body:   ast.Sort{U: 0},
+				},
+				B: ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Let val negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_Id tests mutual positivity with Id types.
+func TestCheckMutualPositivity_Id(t *testing.T) {
+	// Valid: A in positive position in Id
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Id{A: ast.Global{Name: "A"}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Id positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Id X
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Id{A: ast.Sort{U: 0}, X: ast.Global{Name: "A"}, Y: ast.Var{Ix: 0}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Id X negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_Refl tests mutual positivity with Refl types.
+func TestCheckMutualPositivity_Refl(t *testing.T) {
+	// Valid: A in positive position in Refl
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.Refl{A: ast.Global{Name: "A"}, X: ast.Var{Ix: 0}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Refl positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within Refl X
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.Refl{A: ast.Sort{U: 0}, X: ast.Global{Name: "A"}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("Refl X negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_J tests mutual positivity with J types.
+func TestCheckMutualPositivity_J(t *testing.T) {
+	// Valid: A in positive position in J.A
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A: ast.J{
+					A: ast.Global{Name: "A"},
+					C: ast.Var{Ix: 0}, D: ast.Var{Ix: 0},
+					X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0},
+				},
+				B: ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("J positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within J.C
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A: ast.J{
+					A: ast.Sort{U: 0},
+					C: ast.Global{Name: "A"}, D: ast.Var{Ix: 0},
+					X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}, P: ast.Var{Ix: 0},
+				},
+				B: ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("J.C negative: expected error, got nil")
+	}
+}
+
+// TestCheckMutualPositivity_VarSort tests that Var and Sort are always OK.
+func TestCheckMutualPositivity_VarSort(t *testing.T) {
+	// Var and Sort should never fail positivity
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A: ast.Pi{
+					Binder: "_",
+					A:      ast.Var{Ix: 0}, // negative position
+					B:      ast.Sort{U: 0},
+				},
+				B: ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("Var in negative: unexpected error: %v", err)
+	}
+}
+
+// TestCheckMutualPositivity_App tests mutual positivity with App types.
+func TestCheckMutualPositivity_App(t *testing.T) {
+	// Valid: A in positive position in App
+	constrs := map[string][]Constructor{
+		"A": {
+			{Name: "mk", Type: ast.Pi{
+				Binder: "_",
+				A:      ast.App{T: ast.Global{Name: "List"}, U: ast.Global{Name: "A"}},
+				B:      ast.Global{Name: "A"},
+			}},
+		},
+	}
+	err := CheckMutualPositivity([]string{"A"}, constrs)
+	if err != nil {
+		t.Errorf("App positive: unexpected error: %v", err)
+	}
+
+	// Invalid: A in negative position within App T
+	constrs["A"] = []Constructor{
+		{Name: "mk", Type: ast.Pi{
+			Binder: "_",
+			A: ast.Pi{
+				Binder: "_",
+				A:      ast.App{T: ast.Global{Name: "A"}, U: ast.Sort{U: 0}},
+				B:      ast.Sort{U: 0},
+			},
+			B: ast.Global{Name: "A"},
+		}},
+	}
+	err = CheckMutualPositivity([]string{"A"}, constrs)
+	if err == nil {
+		t.Error("App T negative: expected error, got nil")
+	}
 }
