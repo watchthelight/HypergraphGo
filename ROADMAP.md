@@ -1,7 +1,7 @@
 # HoTTGo Roadmap
 
-> **Current Version:** v1.8.0-pre
-> **Status:** Phase 8 Pre-release — Elaboration and Tactics
+> **Current Version:** v1.8.0
+> **Status:** Phase 8 Complete — Elaboration and Tactics
 > **Last Updated:** 2026-01-08
 
 This document provides a comprehensive overview of HoTTGo's development status, architecture, and future direction.
@@ -54,11 +54,11 @@ HoTTGo is a standalone implementation of Homotopy Type Theory (HoTT) with cubica
 | **Univalence** | ✅ Computes | `ua` produces Glue types, not stuck terms |
 | **Higher Inductive Types** | ✅ Complete | S¹, Trunc, Susp, Int, Quotients |
 | **User-defined Inductives** | ✅ Complete | Parameters, indices, mutual recursion |
-| **Elaboration** | ⏳ Pre-release | Implicit args, holes, unification |
-| **Tactics** | ⏳ Pre-release | Intro, Apply, Exact, Rewrite, combinators |
+| **Elaboration** | ✅ Complete | Implicit args, holes, unification |
+| **Tactics** | ✅ Complete | Intro, Apply, Exact, Rewrite, combinators |
 | **CLI** | ✅ Complete | 22 commands, REPL mode |
 
-### Test Coverage (v1.8.0-pre)
+### Test Coverage (v1.8.0)
 
 | Package | Coverage | Tests |
 |---------|----------|-------|
@@ -86,7 +86,7 @@ HoTTGo is a standalone implementation of Homotopy Type Theory (HoTT) with cubica
 | 5 | Inductives & Recursors | ✅ Complete | v1.4.0 |
 | 6 | Computational Univalence | ✅ Complete | v1.6.0 |
 | 7 | Higher Inductive Types | ✅ Complete | v1.7.0 |
-| **8** | **Elaboration & Tactics** | **⏳ Pre-release** | **v1.8.0-pre** |
+| **8** | **Elaboration & Tactics** | **✅ Complete** | **v1.8.0** |
 | 9 | Standard Library Seed | 📋 Planned | — |
 | 10 | Performance & Polish | 📋 Planned | — |
 
@@ -153,7 +153,7 @@ Path constructor application at endpoints reduces to point constructors. Elimina
 
 ---
 
-## Current Work: Phase 8
+## Phase 8: Elaboration & Tactics (Complete)
 
 ### Elaboration System (`internal/elab/`)
 
@@ -264,14 +264,16 @@ term := tactics.MustProve(goalType, ctx, func(p *Prover) {
 })
 ```
 
-### What's Missing in Phase 8
+### Optional Enhancements (Future Work)
 
-- [ ] REPL proof mode integration
-- [ ] `.hott` script file parser and executor
-- [ ] Tactic argument parsing from strings
-- [ ] `Destruct`, `Induction` tactics
-- [ ] Better error messages with source spans
-- [ ] Performance optimization for large proofs
+The core Phase 8 functionality is complete. These are optional enhancements:
+
+- REPL proof mode integration
+- `.hott` script file parser and executor
+- Tactic argument parsing from strings
+- `Destruct`, `Induction` tactics
+- Better error messages with source spans
+- Performance optimization for large proofs
 
 ---
 
@@ -405,7 +407,7 @@ Surface Syntax
 
 ## Test Coverage
 
-### Coverage by Package (v1.8.0-pre)
+### Coverage by Package (v1.8.0)
 
 | Package | Coverage | Key Areas |
 |---------|----------|-----------|
@@ -536,4 +538,4 @@ This project does not make time-based commitments. Development proceeds based on
 
 ---
 
-*This roadmap is a living document. Last updated for v1.8.0-pre.*
+*This roadmap is a living document. Last updated for v1.8.0 (Phase 8 complete).*

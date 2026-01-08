@@ -16,6 +16,8 @@ permissions:
 jobs:
   chocolatey:
     runs-on: windows-latest
+    # Skip pre-releases (tags containing -pre, -alpha, -beta, -rc)
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

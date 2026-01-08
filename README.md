@@ -255,11 +255,11 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 | 5 | ✅ | Inductives, recursors, positivity |
 | 6 | ✅ | Computational univalence (Glue, comp, ua) |
 | 7 | ✅ | Higher Inductive Types |
-| **8** | **⏳** | **Elaboration and tactics** |
-| 9 | 📋 | Standard library seed |
+| **8** | **✅** | **Elaboration and tactics** |
+| 9 | ⏳ | Standard library seed |
 | 10 | 📋 | Performance, soundness, packaging |
 
-Current: **v1.8.0-pre** — Elaboration and tactics in pre-release.
+Current: **v1.8.0** — Phase 8 complete. Next: standard library.
 
 See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 
