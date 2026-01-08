@@ -41,7 +41,15 @@ jobs:
         run: |
           # Upload each badge JSON file to gist
           # Use --add flag which creates or updates the file
+          # Add delay between uploads to avoid API rate limits and 409 conflicts
           for badge in .github/badges/badge-*.json; do
             echo "Uploading $badge..."
-            gh gist edit ${{ vars.BADGE_GIST_ID }} --add "$badge"
+            for attempt in 1 2 3; do
+              if gh gist edit ${{ vars.BADGE_GIST_ID }} --add "$badge"; then
+                break
+              fi
+              echo "Attempt $attempt failed, retrying in 2s..."
+              sleep 2
+            done
+            sleep 1
           done
