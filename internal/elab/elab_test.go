@@ -2270,3 +2270,668 @@ func TestMkSImplicitApp(t *testing.T) {
 		t.Error("expected implicit icity")
 	}
 }
+
+// --- J elaboration tests ---
+
+func TestSynthJ_ANotType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit) // x : A
+
+	// A is used as type argument, but we pass x (a value) instead
+	j := &SJ{
+		A: &SVar{Name: "x"}, // x is a value, not a type
+		C: &SVar{Name: "x"},
+		D: &SVar{Name: "x"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+		P: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when A is not a type")
+	}
+}
+
+func TestSynthJ_XTypeError(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	// X should be of type A, but we pass y which is of type B
+	j := &SJ{
+		A: &SVar{Name: "A"},
+		C: &SVar{Name: "A"},
+		D: &SVar{Name: "x"},
+		X: &SVar{Name: "y"}, // Wrong type
+		Y: &SVar{Name: "x"},
+		P: &SRefl{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}},
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when X has wrong type")
+	}
+}
+
+func TestSynthJ_YTypeError(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	j := &SJ{
+		A: &SVar{Name: "A"},
+		C: &SVar{Name: "A"},
+		D: &SVar{Name: "x"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "y"}, // Wrong type
+		P: &SRefl{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}},
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when Y has wrong type")
+	}
+}
+
+func TestSynthJ_CTypeError(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// C should be a motive (y : A) -> Id A x y -> Type, but we pass x
+	j := &SJ{
+		A: &SVar{Name: "A"},
+		C: &SVar{Name: "x"}, // Wrong - should be a function
+		D: &SVar{Name: "x"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+		P: &SRefl{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}},
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when C has wrong type")
+	}
+}
+
+func TestSynthJ_DTypeError(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+	ctx = ctx.Extend("wrong", ast.Sort{U: 1}, Explicit) // wrong : Type1
+
+	// Build proper motive: (y : A) -> Id A x y -> Type
+	motive := &SLam{
+		Binder: "y",
+		Icity:  Explicit,
+		Ann:    &SVar{Name: "A"},
+		Body: &SLam{
+			Binder: "p",
+			Icity:  Explicit,
+			Ann:    &SId{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}, Y: &SVar{Name: "y"}},
+			Body:   &SType{Level: 0},
+		},
+	}
+
+	j := &SJ{
+		A: &SVar{Name: "A"},
+		C: motive,
+		D: &SVar{Name: "wrong"}, // Wrong type for base case
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+		P: &SRefl{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}},
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when D has wrong type")
+	}
+}
+
+func TestSynthJ_PTypeError(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit)
+
+	// Build proper motive
+	motive := &SLam{
+		Binder: "y",
+		Icity:  Explicit,
+		Ann:    &SVar{Name: "A"},
+		Body: &SLam{
+			Binder: "p",
+			Icity:  Explicit,
+			Ann:    &SId{A: &SVar{Name: "A"}, X: &SVar{Name: "x"}, Y: &SVar{Name: "y"}},
+			Body:   &SType{Level: 0},
+		},
+	}
+
+	j := &SJ{
+		A: &SVar{Name: "A"},
+		C: motive,
+		D: &SType{Level: 0}, // Base case gives Type
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "y"},
+		P: &SVar{Name: "x"}, // Wrong - should be Id A x y
+	}
+
+	_, _, err := elab.Elaborate(ctx, j)
+	if err == nil {
+		t.Error("expected error when P has wrong type")
+	}
+}
+
+// --- Named hole tests ---
+
+func TestCheckNamedHole(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Check named hole against Type
+	hole := &SHole{Name: "myhole"}
+	expected := ast.Sort{U: 0}
+
+	term, err := elab.check(ctx, hole, expected)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	meta, ok := term.(ast.Meta)
+	if !ok {
+		t.Fatalf("expected Meta, got %T", term)
+	}
+
+	// Verify the meta was created with the name
+	entry, ok := ctx.Metas.Lookup(MetaID(meta.ID))
+	if !ok {
+		t.Fatal("expected to find meta entry")
+	}
+	if entry.Name != "myhole" {
+		t.Errorf("expected name 'myhole', got '%s'", entry.Name)
+	}
+}
+
+func TestCheckAnonymousHole(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Check anonymous hole against Type
+	hole := &SHole{Name: ""}
+	expected := ast.Sort{U: 0}
+
+	term, err := elab.check(ctx, hole, expected)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := term.(ast.Meta); !ok {
+		t.Errorf("expected Meta, got %T", term)
+	}
+}
+
+// --- synthVar edge cases ---
+
+func TestSynthVarImplicitSkip(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Add implicit binding that should be skipped
+	ctx = ctx.Extend("_impl", ast.Sort{U: 0}, Implicit)
+	ctx = ctx.Extend("x", ast.Sort{U: 0}, Explicit)
+
+	// Looking up x should find it at correct de Bruijn index
+	term, _, err := elab.Elaborate(ctx, &SVar{Name: "x"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	v, ok := term.(ast.Var)
+	if !ok {
+		t.Fatalf("expected Var, got %T", term)
+	}
+	if v.Ix != 0 {
+		t.Errorf("expected Ix 0, got %d", v.Ix)
+	}
+}
+
+// --- synthLam edge cases ---
+
+func TestSynthLamNoAnnotation(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Lambda without annotation - should fail in synth mode
+	lam := &SLam{
+		Binder: "x",
+		Icity:  Explicit,
+		Ann:    nil, // No annotation
+		Body:   &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, lam)
+	if err == nil {
+		t.Error("expected error for lambda without annotation in synth mode")
+	}
+}
+
+// --- Path elaboration tests ---
+
+func TestSynthPathError_ANotType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	path := &SPath{
+		A: &SVar{Name: "x"}, // x is a value, not a type
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, path)
+	if err == nil {
+		t.Error("expected error when A is not a type")
+	}
+}
+
+func TestSynthPathError_XWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	path := &SPath{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "y"}, // y : B, but expected A
+		Y: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, path)
+	if err == nil {
+		t.Error("expected error when X has wrong type")
+	}
+}
+
+func TestSynthPathError_YWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	path := &SPath{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "y"}, // y : B, but expected A
+	}
+
+	_, _, err := elab.Elaborate(ctx, path)
+	if err == nil {
+		t.Error("expected error when Y has wrong type")
+	}
+}
+
+// --- PathP elaboration tests ---
+
+func TestSynthPathPSuccess(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// PathP with constant type family
+	pathp := &SPathP{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+	}
+
+	term, _, err := elab.Elaborate(ctx, pathp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := term.(ast.PathP); !ok {
+		t.Errorf("expected PathP, got %T", term)
+	}
+}
+
+// --- Transport elaboration tests ---
+
+func TestSynthTransportSuccess(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// Simple transport term
+	transport := &STransport{
+		A: &SVar{Name: "A"},
+		E: &SVar{Name: "x"},
+	}
+
+	term, _, err := elab.Elaborate(ctx, transport)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := term.(ast.Transport); !ok {
+		t.Errorf("expected Transport, got %T", term)
+	}
+}
+
+// --- checkBySynth edge cases ---
+
+func TestCheckBySynthTypeMismatch(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Try to check Type0 against Type0 (Type0 : Type1, not Type0)
+	_, err := elab.check(ctx, &SType{Level: 0}, ast.Sort{U: 0})
+	if err == nil {
+		t.Error("expected type mismatch error")
+	}
+}
+
+// --- checkPair edge cases ---
+
+func TestCheckPairWrongFirstComponent(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	// Sigma type: (a : A) * B
+	sigmaType := ast.Sigma{
+		Binder: "a",
+		A:      ast.Var{Ix: 3}, // A
+		B:      ast.Var{Ix: 2}, // B
+	}
+
+	// Pair with wrong first component
+	pair := &SPair{
+		Fst: &SVar{Name: "y"}, // y : B, but expected A
+		Snd: &SVar{Name: "x"},
+	}
+
+	_, err := elab.check(ctx, pair, sigmaType)
+	if err == nil {
+		t.Error("expected error for wrong first component type")
+	}
+}
+
+// --- Refl elaboration tests ---
+
+func TestSynthReflError_ANotType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	refl := &SRefl{
+		A: &SVar{Name: "x"}, // x is a value, not a type
+		X: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, refl)
+	if err == nil {
+		t.Error("expected error when A is not a type")
+	}
+}
+
+func TestSynthReflError_XWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("y", ast.Var{Ix: 0}, Explicit) // y : B
+
+	refl := &SRefl{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "y"}, // y : B, but checking against A
+	}
+
+	_, _, err := elab.Elaborate(ctx, refl)
+	if err == nil {
+		t.Error("expected error when X has wrong type")
+	}
+}
+
+// --- Id elaboration tests ---
+
+func TestSynthIdError_ANotType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	id := &SId{
+		A: &SVar{Name: "x"}, // x is a value, not a type
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, id)
+	if err == nil {
+		t.Error("expected error when A is not a type")
+	}
+}
+
+func TestSynthIdError_XWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	id := &SId{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "y"}, // y : B, but expected A
+		Y: &SVar{Name: "x"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, id)
+	if err == nil {
+		t.Error("expected error when X has wrong type")
+	}
+}
+
+func TestSynthIdError_YWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 1}, Explicit) // x : A
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	id := &SId{
+		A: &SVar{Name: "A"},
+		X: &SVar{Name: "x"},
+		Y: &SVar{Name: "y"}, // y : B, but expected A
+	}
+
+	_, _, err := elab.Elaborate(ctx, id)
+	if err == nil {
+		t.Error("expected error when Y has wrong type")
+	}
+}
+
+// --- Let elaboration tests ---
+
+func TestSynthLetError_DefNotMatchAnn(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// let y : Type1 = x in y (x : A, not Type1)
+	letExpr := &SLet{
+		Binder: "y",
+		Ann:    &SType{Level: 1}, // Type1
+		Val:    &SVar{Name: "x"}, // x : A, not Type1
+		Body:   &SVar{Name: "y"},
+	}
+
+	_, _, err := elab.Elaborate(ctx, letExpr)
+	if err == nil {
+		t.Error("expected error when def doesn't match annotation")
+	}
+}
+
+// --- Sigma elaboration tests ---
+
+func TestSynthSigmaError_DomNotType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	sigma := &SSigma{
+		Binder: "a",
+		Fst:    &SVar{Name: "x"}, // x is a value, not a type
+		Snd:    &SType{Level: 0},
+	}
+
+	_, _, err := elab.Elaborate(ctx, sigma)
+	if err == nil {
+		t.Error("expected error when domain is not a type")
+	}
+}
+
+// --- App elaboration tests ---
+
+func TestSynthAppError_FnNotFunction(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// Apply x to something (x is not a function)
+	app := &SApp{
+		Fn:    &SVar{Name: "x"},
+		Arg:   &SVar{Name: "x"},
+		Icity: Explicit,
+	}
+
+	_, _, err := elab.Elaborate(ctx, app)
+	if err == nil {
+		t.Error("expected error when function is not a Pi type")
+	}
+}
+
+func TestSynthAppError_ArgWrongType(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("B", ast.Sort{U: 0}, Explicit)
+	// f : A -> A
+	fType := ast.Pi{Binder: "_", A: ast.Var{Ix: 1}, B: ast.Var{Ix: 2}}
+	ctx = ctx.Extend("f", fType, Explicit)
+	ctx = ctx.Extend("y", ast.Var{Ix: 1}, Explicit) // y : B
+
+	// Apply f to y (y : B, but f expects A)
+	app := &SApp{
+		Fn:    &SVar{Name: "f"},
+		Arg:   &SVar{Name: "y"},
+		Icity: Explicit,
+	}
+
+	_, _, err := elab.Elaborate(ctx, app)
+	if err == nil {
+		t.Error("expected error when argument has wrong type")
+	}
+}
+
+// --- PathLam and PathApp tests ---
+
+func TestSynthPathLamSuccess(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// <i> x : Path A x x
+	pathLam := &SPathLam{
+		Binder: "i",
+		Body:   &SVar{Name: "x"},
+	}
+
+	term, ty, err := elab.Elaborate(ctx, pathLam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := term.(ast.PathLam); !ok {
+		t.Errorf("expected PathLam, got %T", term)
+	}
+	// PathLam produces PathP type (dependent path)
+	if _, ok := ty.(ast.PathP); !ok {
+		t.Errorf("expected PathP type, got %T", ty)
+	}
+}
+
+func TestSynthPathAppSuccess(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// Build a path and apply it
+	// We need a path term first - use PathLam
+	pathLam := &SPathLam{
+		Binder: "i",
+		Body:   &SVar{Name: "x"},
+	}
+
+	// Build path app: (<i> x) @ i0
+	pathApp := &SPathApp{
+		Path: pathLam,
+		Arg:  &SI0{},
+	}
+
+	term, _, err := elab.Elaborate(ctx, pathApp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := term.(ast.PathApp); !ok {
+		t.Errorf("expected PathApp, got %T", term)
+	}
+}
+
+func TestSynthPathAppError_NotPath(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+	ctx = ctx.Extend("A", ast.Sort{U: 0}, Explicit)
+	ctx = ctx.Extend("x", ast.Var{Ix: 0}, Explicit)
+
+	// Apply @ to a non-path
+	pathApp := &SPathApp{
+		Path: &SVar{Name: "x"}, // x is not a path
+		Arg:  &SI0{},
+	}
+
+	_, _, err := elab.Elaborate(ctx, pathApp)
+	if err == nil {
+		t.Error("expected error when P is not a path")
+	}
+}
