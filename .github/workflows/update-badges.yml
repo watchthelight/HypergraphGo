@@ -39,30 +39,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
-          # Upload all badge JSON files to gist using gh CLI
-          # gh gist edit supports adding new files automatically
-          gh gist edit ${{ vars.BADGE_GIST_ID }} \
-            .github/badges/badge-version.json \
-            .github/badges/badge-coverage.json \
-            .github/badges/badge-tests.json \
-            .github/badges/badge-packages.json \
-            .github/badges/badge-loc.json \
-            .github/badges/badge-files.json \
-            .github/badges/badge-go-files.json \
-            .github/badges/badge-source-files.json \
-            .github/badges/badge-test-files.json \
-            .github/badges/badge-folders.json \
-            .github/badges/badge-functions.json \
-            .github/badges/badge-structs.json \
-            .github/badges/badge-test-funcs.json \
-            .github/badges/badge-benchmarks.json \
-            .github/badges/badge-deps.json \
-            .github/badges/badge-kernel.json \
-            .github/badges/badge-internal.json \
-            .github/badges/badge-examples.json \
-            .github/badges/badge-workflows.json \
-            .github/badges/badge-cli.json \
-            .github/badges/badge-commits.json \
-            .github/badges/badge-releases.json \
-            .github/badges/badge-age.json \
-            .github/badges/badge-todos.json
+          # Upload each badge JSON file to gist
+          # Use --add flag which creates or updates the file
+          for badge in .github/badges/badge-*.json; do
+            echo "Uploading $badge..."
+            gh gist edit ${{ vars.BADGE_GIST_ID }} --add "$badge"
+          done
