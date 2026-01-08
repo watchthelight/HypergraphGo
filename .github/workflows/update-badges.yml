@@ -26,6 +26,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history needed for commit count and age
 
       - uses: actions/setup-go@v6
         with:
@@ -33,6 +35,8 @@ jobs:
           cache: true
 
       - name: Generate badge metrics
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: ./scripts/generate-badges.sh
 
       - name: Upload all badges to gist
