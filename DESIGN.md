@@ -44,4 +44,105 @@
 ## Phase 0 acceptance criteria
 - `DESIGN.md` checked in with decisions above.
 - Skeleton packages compile with `go test ./...` (smoke tests).
-- Kernel exposes a tiny API surface with typed “unimplemented” errors to be filled in later phases.
+- Kernel exposes a tiny API surface with typed "unimplemented" errors to be filled in later phases.
+
+## Elaboration System (Phase 8)
+
+The elaboration system transforms surface syntax with implicit arguments and holes into fully explicit core terms.
+
+### Surface Syntax (`internal/elab/surface.go`)
+Surface syntax extends core syntax with:
+- Implicit arguments marked with `{}`
+- Holes: `_` (anonymous) and `?name` (named)
+- User-friendly names instead of de Bruijn indices
+
+### Metavariables (`internal/elab/meta.go`)
+- `MetaStore` manages metavariables created during elaboration
+- Each metavariable tracks: ID, expected type, context, solution (if solved)
+- States: `Unsolved`, `Solved`, `Frozen`
+
+### Elaboration Algorithm (`internal/elab/elab.go`)
+Bidirectional type checking:
+- `synth`: Synthesize type from term
+- `check`: Check term against expected type
+Key operations:
+- Hole → Fresh metavariable
+- Implicit Pi application → Auto-insert `{?α}`
+- Implicit lambda inference when checking against implicit Pi
+
+### Unification (`internal/unify/unify.go`)
+Miller pattern unification:
+- Solves constraints of form `?α[σ] =? t`
+- Patterns: metavariable applied to distinct bound variables
+- Occurs check prevents cyclic solutions
+- Defers non-pattern constraints
+
+### Zonking (`internal/elab/zonk.go`)
+Substitutes solved metavariables with their solutions throughout a term.
+
+## Tactics System (Phase 8)
+
+Ltac-style proof scripting for interactive theorem proving.
+
+### Proof State (`tactics/proofstate/`)
+- `Goal`: Single proof obligation with hypotheses and goal type
+- `ProofState`: Collection of goals, metastore, undo history
+- Focus management for working on specific goals
+
+### Tactics (`tactics/`)
+A tactic transforms a proof state:
+```go
+type Tactic func(*proofstate.ProofState) TacticResult
+```
+
+**Combinators** (`combinators.go`):
+- `Seq`: Sequential composition
+- `OrElse`: Try first, fallback to second
+- `Try`: Succeed even on failure
+- `Repeat`: Apply until failure
+- `First`: First successful tactic
+- `All`: Apply to all goals
+
+**Core Tactics** (`core.go`):
+- `Intro`: Introduce hypothesis from Pi type
+- `Exact`: Provide exact proof term
+- `Assumption`: Solve from hypothesis
+- `Reflexivity`: Prove Id/Path reflexivity
+- `Split`: Split sigma types
+- `Rewrite`: Use equality for rewriting
+- `Auto`: Automatic proof search
+
+### Prover API (`prover.go`)
+```go
+prover := tactics.NewProver(goalType)
+prover.Intro_("x").Intro_("y").Assumption_()
+term, err := prover.Extract()
+```
+
+## Package Structure (Updated)
+
+```
+internal/
+├── ast/       — Core and Raw AST
+├── elab/      — Elaboration system
+│   ├── surface.go   — Surface syntax types
+│   ├── meta.go      — Metavariable store
+│   ├── context.go   — Elaboration context
+│   ├── elab.go      — Elaboration algorithm
+│   └── zonk.go      — Zonking
+├── unify/     — Unification
+│   └── unify.go     — Miller pattern unification
+├── eval/      — NbE evaluator
+├── parser/    — Parsing
+│   ├── sexpr.go     — Core term parser
+│   └── surface.go   — Surface syntax parser
+└── ...
+
+tactics/
+├── proofstate/
+│   └── state.go     — Proof state management
+├── tactic.go        — Tactic type
+├── combinators.go   — Tactic combinators
+├── core.go          — Core tactics
+└── prover.go        — Go API
+```

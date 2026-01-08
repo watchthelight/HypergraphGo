@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0-pre] - 2026-01-08
+
+### Added
+- **Elaboration System** (`internal/elab/`)
+  - Surface syntax with implicit arguments and holes (`surface.go`)
+  - Metavariable store for type inference (`meta.go`)
+  - Elaboration context extending kernel context (`context.go`)
+  - Bidirectional elaboration algorithm (`elab.go`)
+  - Zonking (metavariable substitution) (`zonk.go`)
+  - Comprehensive test suite (`elab_test.go`) - 88.7% coverage
+
+- **Unification** (`internal/unify/`)
+  - Miller pattern unification algorithm
+  - Pattern inversion with variable shifting
+  - Occurs check for cycle detection
+  - Constraint solving and deferred constraints
+  - Zonk functions for metavariable substitution
+  - Comprehensive test suite - 95.0% coverage
+
+- **Surface Syntax Parser** (`internal/parser/surface.go`)
+  - Implicit Pi types: `{x : A} -> B`
+  - Implicit lambdas: `\{x}. body`
+  - Holes: `_` (anonymous) and `?name` (named)
+  - Implicit application: `f {arg}`
+  - S-expression forms compatibility
+  - FormatSurfaceTerm for pretty printing
+  - Extended test suite - 86.5% coverage
+
+- **Tactics System** (`tactics/`)
+  - Proof state management (`proofstate/state.go`) - 97.5% coverage
+  - Tactic type and result (`tactic.go`)
+  - Tactic combinators (`combinators.go`):
+    - `Seq`: Sequential composition
+    - `OrElse`: Try first, fallback to second
+    - `Try`: Succeed even on failure
+    - `Repeat`: Apply until failure
+    - `First`: First successful tactic
+    - `All`: Apply to all goals
+    - `Focus`: Apply to specific goal
+    - `Progress`: Fail if no progress
+    - `Complete`: Require full proof
+  - Core tactics (`core.go`):
+    - `Intro`, `IntroN`, `Intros`: Introduce hypotheses
+    - `Exact`: Provide exact proof term
+    - `Assumption`: Use hypothesis
+    - `Apply`: Apply function to goal
+    - `Reflexivity`: Prove reflexivity goals
+    - `Split`: Split sigma/product types
+    - `Simpl`: Normalize goal
+    - `Rewrite`, `RewriteRev`: Rewrite with equality
+    - `Trivial`, `Auto`: Automation
+  - Prover Go API (`prover.go`):
+    - `NewProver`: Create interactive prover
+    - Fluent API methods for chaining
+    - `Prove`, `MustProve`: Convenience functions
+  - Comprehensive test suite - 90.9% coverage
+
+### Tests
+- Extensive test coverage for Phase 8 components:
+  - `internal/elab`: 88.7% coverage with tests for zonk, meta store, context, and elaboration
+  - `internal/unify`: 95.0% coverage with tests for all term types and edge cases
+  - `tactics/proofstate`: 97.5% coverage with comprehensive proof state tests
+  - `tactics`: 90.9% coverage with tests for combinators and core tactics
+  - `internal/parser`: 86.5% coverage for surface syntax parsing
+
 ## [1.7.1] - 2026-01-08
 
 ### Added

@@ -1,0 +1,1213 @@
+package tactics
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/tactics/proofstate"
+)
+
+func TestNewProofState(t *testing.T) {
+	// Goal: Type -> Type
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	if state.GoalCount() != 1 {
+		t.Errorf("expected 1 goal, got %d", state.GoalCount())
+	}
+
+	if state.IsComplete() {
+		t.Error("expected incomplete proof")
+	}
+}
+
+func TestIntro(t *testing.T) {
+	// Goal: (A : Type) -> A -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0}, // A
+			B:      ast.Var{Ix: 1}, // A (shifted)
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Intro A
+	result := Intro("A")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("intro A failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("no current goal after intro")
+	}
+
+	if len(goal.Hypotheses) != 1 {
+		t.Errorf("expected 1 hypothesis, got %d", len(goal.Hypotheses))
+	}
+
+	if goal.Hypotheses[0].Name != "A" {
+		t.Errorf("expected hypothesis A, got %s", goal.Hypotheses[0].Name)
+	}
+}
+
+func TestIntroN(t *testing.T) {
+	// Goal: (A : Type) -> A -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Intro A x
+	result := IntroN("A", "x")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("introN failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("no current goal after introN")
+	}
+
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses, got %d", len(goal.Hypotheses))
+	}
+}
+
+func TestAssumption(t *testing.T) {
+	// Simple case: goal Type0, hypothesis x : Type0
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	}
+
+	// Goal is Type0 (same as the hypothesis type)
+	state := proofstate.NewProofState(ast.Sort{U: 0}, hyps)
+
+	result := Assumption()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("assumption failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete after assumption")
+	}
+}
+
+func TestExact(t *testing.T) {
+	// Goal: Type
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	// Exact Type0
+	result := Exact(ast.Sort{U: 0})(state)
+	if !result.IsSuccess() {
+		t.Fatalf("exact failed: %v", result.Err)
+	}
+
+	// Note: This simplified exact doesn't type check
+	// In a full implementation, we'd verify the term has the right type
+}
+
+func TestReflexivity(t *testing.T) {
+	// Goal: Id Type Type0 Type0
+	goalType := ast.Id{
+		A: ast.Sort{U: 1},
+		X: ast.Sort{U: 0},
+		Y: ast.Sort{U: 0},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Reflexivity()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("reflexivity failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete after reflexivity")
+	}
+}
+
+func TestSplit(t *testing.T) {
+	// Goal: Type * Type
+	goalType := ast.Sigma{
+		Binder: "_",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Split()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("split failed: %v", result.Err)
+	}
+
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after split, got %d", state.GoalCount())
+	}
+}
+
+func TestSeq(t *testing.T) {
+	// Goal: (A : Type) -> A -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Seq intro A; intro x
+	result := Seq(Intro("A"), Intro("x"))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("seq failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("no current goal")
+	}
+
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses after seq, got %d", len(goal.Hypotheses))
+	}
+}
+
+func TestOrElse(t *testing.T) {
+	// Goal: Type (not a Pi)
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	// OrElse intro; exact Type
+	// intro should fail, then exact should succeed
+	result := OrElse(
+		Intro("x"),
+		Exact(ast.Sort{U: 0}),
+	)(state)
+
+	if !result.IsSuccess() {
+		t.Fatalf("orelse failed: %v", result.Err)
+	}
+}
+
+func TestTry(t *testing.T) {
+	// Goal: Type (not a Pi)
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	// Try intro - should succeed even though intro fails
+	result := Try(Intro("x"))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("try failed: %v", result.Err)
+	}
+
+	// State should be unchanged
+	if state.GoalCount() != 1 {
+		t.Error("state was modified despite failed tactic")
+	}
+}
+
+func TestRepeat(t *testing.T) {
+	// Goal: (A : Type) -> (B : Type) -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "B",
+			A:      ast.Sort{U: 0},
+			B:      ast.Var{Ix: 1}, // A
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Repeat intro - should introduce A and B
+	result := Repeat(Intro(""))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("repeat failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("no current goal")
+	}
+
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses after repeat, got %d", len(goal.Hypotheses))
+	}
+}
+
+func TestFirst(t *testing.T) {
+	// Goal: Id Type Type0 Type0
+	goalType := ast.Id{
+		A: ast.Sort{U: 1},
+		X: ast.Sort{U: 0},
+		Y: ast.Sort{U: 0},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// First intro; reflexivity - intro should fail, reflexivity should succeed
+	result := First(Intro("x"), Reflexivity())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("first failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete")
+	}
+}
+
+func TestUndo(t *testing.T) {
+	// Goal: (A : Type) -> A
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Save state and intro
+	state.SaveState()
+	Intro("A")(state)
+
+	if len(state.CurrentGoal().Hypotheses) != 1 {
+		t.Error("intro should have added a hypothesis")
+	}
+
+	// Undo
+	if !state.Undo() {
+		t.Error("undo failed")
+	}
+
+	if len(state.CurrentGoal().Hypotheses) != 0 {
+		t.Error("undo should have restored original state")
+	}
+}
+
+func TestFormatState(t *testing.T) {
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	output := state.FormatState()
+	if output == "" {
+		t.Error("FormatState returned empty string")
+	}
+}
+
+// --- Extended Combinator Tests ---
+
+func TestRepeatN(t *testing.T) {
+	// Goal: (A : Type) -> (B : Type) -> (C : Type) -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "B",
+			A:      ast.Sort{U: 0},
+			B: ast.Pi{
+				Binder: "C",
+				A:      ast.Sort{U: 0},
+				B:      ast.Var{Ix: 2},
+			},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// RepeatN 2 - should introduce only A and B
+	result := RepeatN(2, Intro(""))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("repeatN failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("no current goal")
+	}
+
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses after repeatN(2), got %d", len(goal.Hypotheses))
+	}
+}
+
+func TestDo(t *testing.T) {
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Do 2 intro - should succeed exactly 2 times
+	result := Do(2, Intro(""))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("do failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses, got %d", len(goal.Hypotheses))
+	}
+
+	// Do 1 more should fail (goal is not a Pi)
+	state2 := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result2 := Do(1, Intro(""))(state2)
+	if result2.IsSuccess() {
+		t.Error("expected do to fail when tactic fails")
+	}
+}
+
+func TestComplete(t *testing.T) {
+	// Goal: Id Type Type Type (can be solved by reflexivity)
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Complete reflexivity - should succeed
+	result := Complete(Reflexivity())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("complete failed: %v", result.Err)
+	}
+
+	// Complete on a goal that won't be fully solved
+	state2 := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result2 := Complete(NoOp())(state2)
+	if result2.IsSuccess() {
+		t.Error("expected complete to fail when proof is incomplete")
+	}
+}
+
+func TestProgress(t *testing.T) {
+	// Test with a tactic that makes no progress
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := Progress(NoOp())(state)
+	if result.IsSuccess() {
+		t.Error("expected progress to fail when no progress made")
+	}
+}
+
+func TestIfThenElse(t *testing.T) {
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// If intro fails, then exact Type
+	result := IfThenElse(
+		Intro("x"),
+		NoOp(),
+		Exact(ast.Sort{U: 0}),
+	)(state)
+
+	if !result.IsSuccess() {
+		t.Fatalf("ifThenElse failed: %v", result.Err)
+	}
+}
+
+func TestOnce(t *testing.T) {
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Once is just identity
+	result := Once(Exact(ast.Sort{U: 0}))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("once failed: %v", result.Err)
+	}
+}
+
+func TestGuard(t *testing.T) {
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Guard with HasGoals
+	result := Guard(HasGoals, NoOp())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("guard with HasGoals failed: %v", result.Err)
+	}
+
+	// Guard with IsFinished should fail since we have goals
+	result2 := Guard(IsFinished, NoOp())(state)
+	if result2.IsSuccess() {
+		t.Error("expected guard with IsFinished to fail when goals remain")
+	}
+}
+
+func TestAll(t *testing.T) {
+	// Create a state with multiple goals
+	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(sigmaType, nil)
+
+	// Split creates 2 goals
+	Split()(state)
+
+	if state.GoalCount() != 2 {
+		t.Fatalf("expected 2 goals, got %d", state.GoalCount())
+	}
+
+	// Apply exact to all goals
+	result := All(Exact(ast.Sort{U: 0}))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("all failed: %v", result.Err)
+	}
+}
+
+func TestFocus(t *testing.T) {
+	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(sigmaType, nil)
+
+	// Split creates 2 goals
+	Split()(state)
+
+	// Focus on second goal and solve it
+	goal1ID := state.CurrentGoal().ID
+	state.Focus(state.Goals[1].ID)
+	goal2ID := state.CurrentGoal().ID
+
+	// Focus tactic
+	result := Focus(goal2ID, Exact(ast.Sort{U: 0}))(state)
+	if !result.IsSuccess() {
+		t.Fatalf("focus failed: %v", result.Err)
+	}
+
+	// Focus on non-existent goal should fail
+	result2 := Focus(999, NoOp())(state)
+	if result2.IsSuccess() {
+		t.Error("expected focus on non-existent goal to fail")
+	}
+
+	_ = goal1ID // used for verification
+}
+
+// --- Core Tactic Extended Tests ---
+
+func TestNoOp(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := NoOp()(state)
+	if !result.IsSuccess() {
+		t.Error("NoOp should always succeed")
+	}
+}
+
+func TestFailWith(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	err := fmt.Errorf("test error")
+	result := FailWith(err)(state)
+	if result.IsSuccess() {
+		t.Error("FailWith should always fail")
+	}
+	if result.Err.Error() != "test error" {
+		t.Errorf("expected 'test error', got %q", result.Err.Error())
+	}
+}
+
+func TestFailWithMsg(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := FailWithMsg("custom message")(state)
+	if result.IsSuccess() {
+		t.Error("FailWithMsg should always fail")
+	}
+}
+
+func TestRunTactic(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	// Nil state should fail
+	result := RunTactic(nil, NoOp())
+	if result.IsSuccess() {
+		t.Error("expected error for nil state")
+	}
+
+	// Successful tactic
+	result2 := RunTactic(state, NoOp())
+	if !result2.IsSuccess() {
+		t.Errorf("unexpected error: %v", result2.Err)
+	}
+
+	// Failed tactic should undo
+	state3 := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	initialCount := state3.GoalCount()
+	RunTactic(state3, FailWithMsg("fail"))
+	if state3.GoalCount() != initialCount {
+		t.Error("state should be unchanged after failed tactic")
+	}
+}
+
+func TestTacticResultSuccess(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Success(state)
+	if !result.IsSuccess() {
+		t.Error("Success should be successful")
+	}
+	if result.State != state {
+		t.Error("Success should preserve state")
+	}
+
+	result2 := SuccessMsg(state, "message")
+	if !result2.IsSuccess() {
+		t.Error("SuccessMsg should be successful")
+	}
+	if result2.Message != "message" {
+		t.Errorf("expected message 'message', got %q", result2.Message)
+	}
+}
+
+func TestFailf(t *testing.T) {
+	result := Failf("error %d", 42)
+	if result.IsSuccess() {
+		t.Error("Failf should fail")
+	}
+	if result.Err.Error() != "error 42" {
+		t.Errorf("expected 'error 42', got %q", result.Err.Error())
+	}
+}
+
+func TestFail(t *testing.T) {
+	err := fmt.Errorf("test")
+	result := Fail(err)
+	if result.IsSuccess() {
+		t.Error("Fail should fail")
+	}
+}
+
+func TestIntros(t *testing.T) {
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Intros()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("intros failed: %v", result.Err)
+	}
+
+	goal := state.CurrentGoal()
+	if len(goal.Hypotheses) != 2 {
+		t.Errorf("expected 2 hypotheses, got %d", len(goal.Hypotheses))
+	}
+}
+
+func TestSimpl(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := Simpl()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("simpl failed: %v", result.Err)
+	}
+}
+
+func TestUnfold(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := Unfold("name")(state)
+	if result.IsSuccess() {
+		t.Error("unfold should fail (not implemented)")
+	}
+}
+
+func TestRewrite(t *testing.T) {
+	// Goal with an Id hypothesis
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+		{Name: "y", Type: ast.Sort{U: 0}},
+		{Name: "h", Type: ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 1}, Y: ast.Var{Ix: 0}}},
+	}
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, hyps)
+
+	// Rewrite using h
+	result := Rewrite("h")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("rewrite failed: %v", result.Err)
+	}
+
+	// Rewrite with non-existent hypothesis
+	result2 := Rewrite("nonexistent")(state)
+	if result2.IsSuccess() {
+		t.Error("expected error for non-existent hypothesis")
+	}
+
+	// Rewrite with non-Id hypothesis
+	state2 := proofstate.NewProofState(ast.Sort{U: 0}, []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	})
+	result3 := Rewrite("x")(state2)
+	if result3.IsSuccess() {
+		t.Error("expected error for non-Id hypothesis")
+	}
+}
+
+func TestRewriteRev(t *testing.T) {
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+		{Name: "y", Type: ast.Sort{U: 0}},
+		{Name: "h", Type: ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 1}, Y: ast.Var{Ix: 0}}},
+	}
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, hyps)
+
+	result := RewriteRev("h")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("rewriteRev failed: %v", result.Err)
+	}
+
+	// Non-existent
+	result2 := RewriteRev("nonexistent")(state)
+	if result2.IsSuccess() {
+		t.Error("expected error for non-existent hypothesis")
+	}
+
+	// Non-Id
+	state2 := proofstate.NewProofState(ast.Sort{U: 0}, []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	})
+	result3 := RewriteRev("x")(state2)
+	if result3.IsSuccess() {
+		t.Error("expected error for non-Id hypothesis")
+	}
+}
+
+func TestApplyTactic(t *testing.T) {
+	// Setup with a function hypothesis
+	hyps := []proofstate.Hypothesis{
+		{Name: "A", Type: ast.Sort{U: 0}},
+		{Name: "f", Type: ast.Pi{Binder: "_", A: ast.Var{Ix: 0}, B: ast.Var{Ix: 0}}},
+	}
+	goalType := ast.Var{Ix: 0} // A
+	state := proofstate.NewProofState(goalType, hyps)
+
+	// Apply f (which is a function)
+	result := Apply(ast.Var{Ix: 0})(state) // f
+	if !result.IsSuccess() {
+		t.Fatalf("apply failed: %v", result.Err)
+	}
+
+	// Apply with non-applicable term
+	state2 := proofstate.NewProofState(ast.Sort{U: 0}, []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	})
+	result2 := Apply(ast.Var{Ix: 0})(state2)
+	if result2.IsSuccess() {
+		t.Error("expected error for non-applicable term")
+	}
+
+	// Apply with out of range var
+	state3 := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result3 := Apply(ast.Var{Ix: 10})(state3)
+	if result3.IsSuccess() {
+		t.Error("expected error for out of range var")
+	}
+}
+
+func TestReflexivityPath(t *testing.T) {
+	// Path type goal with equal endpoints
+	goalType := ast.Path{A: ast.Sort{U: 0}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Reflexivity()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("reflexivity for Path failed: %v", result.Err)
+	}
+}
+
+func TestReflexivityFail(t *testing.T) {
+	// Id with unequal endpoints
+	goalType := ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 1}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Reflexivity()(state)
+	if result.IsSuccess() {
+		t.Error("expected reflexivity to fail for unequal endpoints")
+	}
+
+	// Path with unequal endpoints
+	goalType2 := ast.Path{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 1}}
+	state2 := proofstate.NewProofState(goalType2, nil)
+
+	result2 := Reflexivity()(state2)
+	if result2.IsSuccess() {
+		t.Error("expected reflexivity to fail for unequal path endpoints")
+	}
+
+	// Non-Id/Path type
+	state3 := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result3 := Reflexivity()(state3)
+	if result3.IsSuccess() {
+		t.Error("expected reflexivity to fail for non-identity type")
+	}
+}
+
+func TestTrivial(t *testing.T) {
+	// Should solve Id goal by reflexivity
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Trivial()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("trivial failed: %v", result.Err)
+	}
+}
+
+func TestAuto(t *testing.T) {
+	// Goal: (A : Type) -> A -> A
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	result := Auto()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("auto failed: %v", result.Err)
+	}
+}
+
+func TestIntroNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Intro("x")(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestIntroNotPi(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := Intro("x")(state)
+	if result.IsSuccess() {
+		t.Error("expected error for non-Pi goal")
+	}
+}
+
+func TestExactNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Exact(ast.Sort{U: 0})(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestAssumptionNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Assumption()(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestSplitNotSigma(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := Split()(state)
+	if result.IsSuccess() {
+		t.Error("expected error for non-Sigma goal")
+	}
+}
+
+func TestSplitNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Split()(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestSimplNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Simpl()(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestReflexivityNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Reflexivity()(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestApplyNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Apply(ast.Var{Ix: 0})(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestRewriteNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Rewrite("h")(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+func TestRewriteRevNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := RewriteRev("h")(state)
+	if result.IsSuccess() {
+		t.Error("expected error for no goal")
+	}
+}
+
+// --- Prover Tests ---
+
+func TestProverBasic(t *testing.T) {
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+
+	if prover.Done() {
+		t.Error("expected incomplete proof")
+	}
+
+	if prover.GoalCount() != 1 {
+		t.Errorf("expected 1 goal, got %d", prover.GoalCount())
+	}
+
+	goals := prover.Goals()
+	if len(goals) != 1 {
+		t.Errorf("expected 1 goal, got %d", len(goals))
+	}
+
+	if prover.CurrentGoal() == nil {
+		t.Error("expected current goal")
+	}
+}
+
+func TestProverWithHyps(t *testing.T) {
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	}
+	prover := NewProverWithHyps(ast.Sort{U: 0}, hyps)
+
+	if prover.CurrentGoal() == nil {
+		t.Error("expected current goal")
+	}
+	if len(prover.CurrentGoal().Hypotheses) != 1 {
+		t.Error("expected 1 hypothesis")
+	}
+}
+
+func TestProverApply(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+
+	err := prover.Apply(NoOp())
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Apply failing tactic
+	err = prover.Apply(FailWithMsg("fail"))
+	if err == nil {
+		t.Error("expected error from failing tactic")
+	}
+}
+
+func TestProverFocus(t *testing.T) {
+	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	prover := NewProver(sigmaType)
+
+	prover.Apply(Split())
+
+	if prover.GoalCount() != 2 {
+		t.Fatalf("expected 2 goals, got %d", prover.GoalCount())
+	}
+
+	secondGoalID := prover.Goals()[1].ID
+	err := prover.Focus(secondGoalID)
+	if err != nil {
+		t.Fatalf("Focus failed: %v", err)
+	}
+
+	if prover.CurrentGoal().ID != secondGoalID {
+		t.Error("expected focused goal to be second goal")
+	}
+}
+
+func TestProverUndo(t *testing.T) {
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+
+	prover.Apply(Intro("A"))
+
+	if !prover.Undo() {
+		t.Error("Undo should succeed")
+	}
+}
+
+func TestProverFormatState(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+	output := prover.FormatState()
+	if output == "" {
+		t.Error("FormatState should not be empty")
+	}
+}
+
+func TestProverState(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+	if prover.State() == nil {
+		t.Error("State should not be nil")
+	}
+}
+
+func TestProverExtract(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+
+	// Can't extract incomplete proof
+	_, err := prover.Extract()
+	if err == nil {
+		t.Error("expected error for incomplete proof")
+	}
+
+	// Complete the proof
+	prover.Apply(Exact(ast.Sort{U: 0}))
+
+	term, err := prover.Extract()
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+	if term == nil {
+		t.Error("expected non-nil term")
+	}
+}
+
+// --- Fluent API Tests ---
+
+func TestFluentIntro(t *testing.T) {
+	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+
+	prover.Intro_("A")
+	if prover.Error() != nil {
+		t.Error("Intro_ should succeed")
+	}
+
+	// Error case
+	prover2 := NewProver(ast.Sort{U: 0})
+	prover2.Intro_("x")
+	if prover2.Error() == nil {
+		t.Error("expected error for Intro_ on non-Pi")
+	}
+}
+
+func TestFluentIntroN(t *testing.T) {
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	prover := NewProver(goalType)
+
+	prover.IntroN_("A", "x")
+	if prover.Error() != nil {
+		t.Error("IntroN_ should succeed")
+	}
+}
+
+func TestFluentIntros(t *testing.T) {
+	goalType := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B:      ast.Sort{U: 0},
+	}
+	prover := NewProver(goalType)
+
+	prover.Intros_()
+	if prover.Error() != nil {
+		t.Error("Intros_ should succeed")
+	}
+}
+
+func TestFluentExact(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+	prover.Exact_(ast.Sort{U: 0})
+	if prover.Error() != nil {
+		t.Error("Exact_ should succeed")
+	}
+}
+
+func TestFluentAssumption(t *testing.T) {
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+	}
+	prover := NewProverWithHyps(ast.Sort{U: 0}, hyps)
+	prover.Assumption_()
+	if prover.Error() != nil {
+		t.Error("Assumption_ should succeed")
+	}
+}
+
+func TestFluentReflexivity(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+	prover.Reflexivity_()
+	if prover.Error() != nil {
+		t.Error("Reflexivity_ should succeed")
+	}
+}
+
+func TestFluentSplit(t *testing.T) {
+	goalType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+	prover.Split_()
+	if prover.Error() != nil {
+		t.Error("Split_ should succeed")
+	}
+}
+
+func TestFluentSimpl(t *testing.T) {
+	prover := NewProver(ast.Sort{U: 0})
+	prover.Simpl_()
+	if prover.Error() != nil {
+		t.Error("Simpl_ should succeed")
+	}
+}
+
+func TestFluentRewrite(t *testing.T) {
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+		{Name: "h", Type: ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}}},
+	}
+	prover := NewProverWithHyps(ast.Sort{U: 0}, hyps)
+	prover.Rewrite_("h")
+	if prover.Error() != nil {
+		t.Error("Rewrite_ should succeed")
+	}
+}
+
+func TestFluentRewriteRev(t *testing.T) {
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Sort{U: 0}},
+		{Name: "h", Type: ast.Id{A: ast.Sort{U: 0}, X: ast.Var{Ix: 0}, Y: ast.Var{Ix: 0}}},
+	}
+	prover := NewProverWithHyps(ast.Sort{U: 0}, hyps)
+	prover.RewriteRev_("h")
+	if prover.Error() != nil {
+		t.Error("RewriteRev_ should succeed")
+	}
+}
+
+func TestFluentTrivial(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+	prover.Trivial_()
+	if prover.Error() != nil {
+		t.Error("Trivial_ should succeed")
+	}
+}
+
+func TestFluentAuto(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+	prover := NewProver(goalType)
+	prover.Auto_()
+	if prover.Error() != nil {
+		t.Error("Auto_ should succeed")
+	}
+}
+
+// --- Prove/MustProve/ProveSeq Tests ---
+
+func TestProve(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	term, err := Prove(goalType, Reflexivity())
+	if err != nil {
+		t.Fatalf("Prove failed: %v", err)
+	}
+	if term == nil {
+		t.Error("expected non-nil term")
+	}
+
+	// Tactic fails
+	_, err = Prove(goalType, FailWithMsg("fail"))
+	if err == nil {
+		t.Error("expected error for failing tactic")
+	}
+
+	// Proof incomplete
+	_, err = Prove(ast.Sort{U: 0}, NoOp())
+	if err == nil {
+		t.Error("expected error for incomplete proof")
+	}
+}
+
+func TestMustProve(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	term := MustProve(goalType, Reflexivity())
+	if term == nil {
+		t.Error("expected non-nil term")
+	}
+
+	// MustProve should panic on failure
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic for failing proof")
+		}
+	}()
+	MustProve(ast.Sort{U: 0}, FailWithMsg("fail"))
+}
+
+func TestProveSeq(t *testing.T) {
+	goalType := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	term, err := ProveSeq(goalType, Reflexivity())
+	if err != nil {
+		t.Fatalf("ProveSeq failed: %v", err)
+	}
+	if term == nil {
+		t.Error("expected non-nil term")
+	}
+}
+
+// --- substTerm Tests ---
+
+func TestSubstTerm(t *testing.T) {
+	old := ast.Var{Ix: 0}
+	new := ast.Sort{U: 0}
+
+	// Direct match
+	result := substTerm(old, old, new)
+	if _, ok := result.(ast.Sort); !ok {
+		t.Error("expected substitution")
+	}
+
+	// No match
+	result2 := substTerm(ast.Var{Ix: 1}, old, new)
+	if _, ok := result2.(ast.Var); !ok {
+		t.Error("expected unchanged var")
+	}
+
+	// Various term types
+	_ = substTerm(ast.Global{Name: "x"}, old, new)
+	_ = substTerm(ast.Sort{U: 0}, old, new)
+	_ = substTerm(ast.Pi{A: old, B: ast.Var{Ix: 1}}, old, new)
+	_ = substTerm(ast.Lam{Ann: old, Body: ast.Var{Ix: 0}}, old, new)
+	_ = substTerm(ast.App{T: old, U: ast.Var{Ix: 1}}, old, new)
+	_ = substTerm(ast.Sigma{A: old, B: ast.Var{Ix: 1}}, old, new)
+	_ = substTerm(ast.Pair{Fst: old, Snd: ast.Var{Ix: 1}}, old, new)
+	_ = substTerm(ast.Fst{P: old}, old, new)
+	_ = substTerm(ast.Snd{P: old}, old, new)
+	_ = substTerm(ast.Id{A: old, X: ast.Var{Ix: 1}, Y: ast.Var{Ix: 2}}, old, new)
+	_ = substTerm(ast.Refl{A: old, X: ast.Var{Ix: 1}}, old, new)
+
+	// Unknown term type
+	_ = substTerm(ast.I0{}, old, new)
+}

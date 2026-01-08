@@ -135,3 +135,14 @@ func MkApps(t Term, us ...Term) Term {
 	}
 	return t
 }
+
+// Meta represents a metavariable (hole) to be solved during elaboration.
+// Metavariables are placeholders for unknown terms that are filled in
+// by unification. Each metavariable has a unique ID and may be applied
+// to a spine of arguments representing the local context.
+type Meta struct {
+	ID   int    // Unique identifier for this metavariable
+	Args []Term // Spine of arguments (local context variables)
+}
+
+func (Meta) isCoreTerm() {}
