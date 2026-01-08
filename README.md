@@ -81,7 +81,7 @@
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-commits.json&style=flat-square" alt="Commits">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-releases.json&style=flat-square" alt="Releases">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-age.json&style=flat-square" alt="Age">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-todos.json&style=flat-square" alt="TODOs">
+  <a href="ROADMAP.md"><img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/watchthelight/360ef2e37a5b16d895ee5f947ad23df1/raw/badge-todos.json&style=flat-square" alt="TODOs"></a>
 </p>
 
 ---
@@ -250,19 +250,18 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 0 | ✅ | Ground rules and interfaces |
-| 1 | ✅ | Syntax, binding, pretty printing |
-| 2 | ✅ | Normalization and definitional equality |
-| 3 | ✅ | Bidirectional type checking |
+| 0-3 | ✅ | Foundation: syntax, NbE, type checking |
 | 4 | ✅ | Identity types + Cubical path types |
 | 5 | ✅ | Inductives, recursors, positivity |
 | 6 | ✅ | Computational univalence (Glue, comp, ua) |
 | 7 | ✅ | Higher Inductive Types |
-| 8 | ⏳ | Elaboration and tactics |
-| 9 | ⏳ | Standard library seed |
-| 10 | ⏳ | Performance, soundness, packaging |
+| **8** | **⏳** | **Elaboration and tactics** |
+| 9 | 📋 | Standard library seed |
+| 10 | 📋 | Performance, soundness, packaging |
 
-Current: **v1.7.0** — HITs complete. Next: elaboration.
+Current: **v1.8.0-pre** — Elaboration and tactics in pre-release.
+
+See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 
 ## Contributing
 
