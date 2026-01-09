@@ -258,6 +258,118 @@ func (u *Unifier) zonkTerm(t ast.Term) ast.Term {
 			E: u.zonkTerm(tt.E),
 		}
 
+	// Interval and faces - no subterms contain metas
+	case ast.Interval, ast.I0, ast.I1, ast.IVar:
+		return t
+
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq, ast.FaceAnd, ast.FaceOr:
+		return t // Face types don't contain Terms
+
+	case ast.Partial:
+		return ast.Partial{
+			Phi: tt.Phi, // Face, not Term
+			A:   u.zonkTerm(tt.A),
+		}
+
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tt.Branches))
+		for i, b := range tt.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  b.Phi, // Face, not Term
+				Term: u.zonkTerm(b.Term),
+			}
+		}
+		return ast.System{Branches: branches}
+
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: tt.IBinder,
+			A:       u.zonkTerm(tt.A),
+			Phi:     tt.Phi, // Face, not Term
+			Tube:    u.zonkTerm(tt.Tube),
+			Base:    u.zonkTerm(tt.Base),
+		}
+
+	case ast.HComp:
+		return ast.HComp{
+			A:    u.zonkTerm(tt.A),
+			Phi:  tt.Phi, // Face, not Term
+			Tube: u.zonkTerm(tt.Tube),
+			Base: u.zonkTerm(tt.Base),
+		}
+
+	case ast.Fill:
+		return ast.Fill{
+			IBinder: tt.IBinder,
+			A:       u.zonkTerm(tt.A),
+			Phi:     tt.Phi, // Face, not Term
+			Tube:    u.zonkTerm(tt.Tube),
+			Base:    u.zonkTerm(tt.Base),
+		}
+
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tt.System))
+		for i, b := range tt.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   b.Phi, // Face, not Term
+				T:     u.zonkTerm(b.T),
+				Equiv: u.zonkTerm(b.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      u.zonkTerm(tt.A),
+			System: branches,
+		}
+
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tt.System))
+		for i, b := range tt.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  b.Phi, // Face, not Term
+				Term: u.zonkTerm(b.Term),
+			}
+		}
+		return ast.GlueElem{
+			Base:   u.zonkTerm(tt.Base),
+			System: branches,
+		}
+
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: u.zonkTerm(tt.Ty),
+			G:  u.zonkTerm(tt.G),
+		}
+
+	case ast.UA:
+		return ast.UA{
+			A:     u.zonkTerm(tt.A),
+			B:     u.zonkTerm(tt.B),
+			Equiv: u.zonkTerm(tt.Equiv),
+		}
+
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: u.zonkTerm(tt.Equiv),
+			Arg:   u.zonkTerm(tt.Arg),
+		}
+
+	// HIT terms - only HITApp implements isCoreTerm()
+	case ast.HITApp:
+		args := make([]ast.Term, len(tt.Args))
+		for i, arg := range tt.Args {
+			args[i] = u.zonkTerm(arg)
+		}
+		iArgs := make([]ast.Term, len(tt.IArgs))
+		for i, arg := range tt.IArgs {
+			iArgs[i] = u.zonkTerm(arg)
+		}
+		return ast.HITApp{
+			HITName: tt.HITName,
+			Ctor:    tt.Ctor,
+			Args:    args,
+			IArgs:   iArgs,
+		}
+
 	default:
 		// Unknown term type, return as-is
 		return t
@@ -430,6 +542,22 @@ func (u *Unifier) solveMeta(meta ast.Meta, solution ast.Term) *UnifyError {
 		return u.unify(existing, solution)
 	}
 
+	// Check if solution is the same metavariable with same args
+	if solMeta, ok := solution.(ast.Meta); ok && solMeta.ID == meta.ID {
+		if len(meta.Args) == len(solMeta.Args) {
+			allEqual := true
+			for i := range meta.Args {
+				if !eval.AlphaEq(meta.Args[i], solMeta.Args[i]) {
+					allEqual = false
+					break
+				}
+			}
+			if allEqual {
+				return nil // Same meta with same args - trivially equal
+			}
+		}
+	}
+
 	// Check occurs check
 	if u.occurs(meta.ID, solution) {
 		return u.fail("occurs check failed: ?%d occurs in %v", meta.ID, solution)
@@ -535,6 +663,78 @@ func (u *Unifier) occurs(id int, t ast.Term) bool {
 
 	case ast.Transport:
 		return u.occurs(id, tt.A) || u.occurs(id, tt.E)
+
+	// Interval and faces - no subterms contain metas
+	case ast.Interval, ast.I0, ast.I1, ast.IVar:
+		return false
+
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq, ast.FaceAnd, ast.FaceOr:
+		return false // Face types don't contain Terms
+
+	case ast.Partial:
+		return u.occurs(id, tt.A) // Phi is Face, not Term
+
+	case ast.System:
+		for _, b := range tt.Branches {
+			if u.occurs(id, b.Term) { // Phi is Face
+				return true
+			}
+		}
+		return false
+
+	case ast.Comp:
+		return u.occurs(id, tt.A) || u.occurs(id, tt.Tube) || u.occurs(id, tt.Base)
+
+	case ast.HComp:
+		return u.occurs(id, tt.A) || u.occurs(id, tt.Tube) || u.occurs(id, tt.Base)
+
+	case ast.Fill:
+		return u.occurs(id, tt.A) || u.occurs(id, tt.Tube) || u.occurs(id, tt.Base)
+
+	case ast.Glue:
+		if u.occurs(id, tt.A) {
+			return true
+		}
+		for _, b := range tt.System {
+			if u.occurs(id, b.T) || u.occurs(id, b.Equiv) {
+				return true
+			}
+		}
+		return false
+
+	case ast.GlueElem:
+		if u.occurs(id, tt.Base) {
+			return true
+		}
+		for _, b := range tt.System {
+			if u.occurs(id, b.Term) {
+				return true
+			}
+		}
+		return false
+
+	case ast.Unglue:
+		return u.occurs(id, tt.Ty) || u.occurs(id, tt.G)
+
+	case ast.UA:
+		return u.occurs(id, tt.A) || u.occurs(id, tt.B) || u.occurs(id, tt.Equiv)
+
+	case ast.UABeta:
+		return u.occurs(id, tt.Equiv) || u.occurs(id, tt.Arg)
+
+	// HIT terms - only HITApp implements isCoreTerm()
+	case ast.HITApp:
+		for _, arg := range tt.Args {
+			if u.occurs(id, arg) {
+				return true
+			}
+		}
+		for _, arg := range tt.IArgs {
+			if u.occurs(id, arg) {
+				return true
+			}
+		}
+		return false
 
 	default:
 		return false
@@ -961,6 +1161,94 @@ func hasMeta(t ast.Term) bool {
 	case ast.J:
 		return hasMeta(tt.A) || hasMeta(tt.C) || hasMeta(tt.D) ||
 			hasMeta(tt.X) || hasMeta(tt.Y) || hasMeta(tt.P)
+
+	// Path types
+	case ast.Path:
+		return hasMeta(tt.A) || hasMeta(tt.X) || hasMeta(tt.Y)
+
+	case ast.PathP:
+		return hasMeta(tt.A) || hasMeta(tt.X) || hasMeta(tt.Y)
+
+	case ast.PathLam:
+		return hasMeta(tt.Body)
+
+	case ast.PathApp:
+		return hasMeta(tt.P) || hasMeta(tt.R)
+
+	case ast.Transport:
+		return hasMeta(tt.A) || hasMeta(tt.E)
+
+	// Interval and faces - no subterms contain metas
+	case ast.Interval, ast.I0, ast.I1, ast.IVar:
+		return false
+
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq, ast.FaceAnd, ast.FaceOr:
+		return false // Face types don't contain Terms
+
+	case ast.Partial:
+		return hasMeta(tt.A) // Phi is Face, not Term
+
+	case ast.System:
+		for _, b := range tt.Branches {
+			if hasMeta(b.Term) { // Phi is Face
+				return true
+			}
+		}
+		return false
+
+	case ast.Comp:
+		return hasMeta(tt.A) || hasMeta(tt.Tube) || hasMeta(tt.Base)
+
+	case ast.HComp:
+		return hasMeta(tt.A) || hasMeta(tt.Tube) || hasMeta(tt.Base)
+
+	case ast.Fill:
+		return hasMeta(tt.A) || hasMeta(tt.Tube) || hasMeta(tt.Base)
+
+	case ast.Glue:
+		if hasMeta(tt.A) {
+			return true
+		}
+		for _, b := range tt.System {
+			if hasMeta(b.T) || hasMeta(b.Equiv) {
+				return true
+			}
+		}
+		return false
+
+	case ast.GlueElem:
+		if hasMeta(tt.Base) {
+			return true
+		}
+		for _, b := range tt.System {
+			if hasMeta(b.Term) {
+				return true
+			}
+		}
+		return false
+
+	case ast.Unglue:
+		return hasMeta(tt.Ty) || hasMeta(tt.G)
+
+	case ast.UA:
+		return hasMeta(tt.A) || hasMeta(tt.B) || hasMeta(tt.Equiv)
+
+	case ast.UABeta:
+		return hasMeta(tt.Equiv) || hasMeta(tt.Arg)
+
+	// HIT terms - only HITApp implements isCoreTerm()
+	case ast.HITApp:
+		for _, arg := range tt.Args {
+			if hasMeta(arg) {
+				return true
+			}
+		}
+		for _, arg := range tt.IArgs {
+			if hasMeta(arg) {
+				return true
+			}
+		}
+		return false
 
 	default:
 		return false
