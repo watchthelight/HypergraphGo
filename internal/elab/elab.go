@@ -664,10 +664,15 @@ func (e *Elaborator) synthPathLam(ctx *ElabCtx, span Span, plam *SPathLam) (ast.
 		return nil, nil, err
 	}
 
-	// Build path type (simplified - doesn't compute endpoints properly yet)
-	// Full implementation would substitute i0 and i1 for the interval variable
+	// Compute endpoints by substituting i0 and i1 for the interval variable
+	// The interval variable has de Bruijn index 0 in the body
+	xEndpoint := subst.Subst(0, ast.I0{}, bodyTerm)
+	yEndpoint := subst.Subst(0, ast.I1{}, bodyTerm)
+
+	// Build path type: PathP (λi. bodyTy) x y
+	// where x = bodyTerm[i0/i] and y = bodyTerm[i1/i]
 	return ast.PathLam{Binder: plam.Binder, Body: bodyTerm},
-		ast.PathP{A: ast.Lam{Binder: plam.Binder, Body: bodyTy}, X: bodyTerm, Y: bodyTerm},
+		ast.PathP{A: ast.Lam{Binder: plam.Binder, Body: bodyTy}, X: xEndpoint, Y: yEndpoint},
 		nil
 }
 
