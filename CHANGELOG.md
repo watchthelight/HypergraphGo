@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-01-09
+
+### Fixed
+- **Tactics soundness improvements** (`tactics/core.go`)
+  - `Exact` tactic now type checks the provided term against the goal type
+  - `Apply` tactic now verifies the function's codomain matches the goal
+  - Added `inferTermType` helper for type inference from hypothesis context
+  - Added `containsVar0` helper for dependent type detection
+
+- **Unification cubical term support** (`internal/unify/unify.go`)
+  - Added full cubical term support to `zonkTerm` function
+  - Added cubical term support to `occurs` check
+  - Added cubical term support to `hasMeta` detection
+  - Supported term types: Interval, I0, I1, IVar, Face*, Partial, System, Comp, HComp, Fill, Glue, GlueElem, Unglue, UA, UABeta, HITApp
+  - Fixed occurs check to handle meta-to-meta unification (`?X = ?X`)
+
+- **Elaboration PathLam endpoint computation** (`internal/elab/elab.go`)
+  - `synthPathLam` now correctly computes path endpoints
+  - Endpoints computed by substituting i0 and i1 for the interval variable
+  - Fixed: `<i> body` now has type `PathP (λi. T) body[i0/i] body[i1/i]`
+
+### Changed
+- Updated tactics tests to use type-correct goals (e.g., `Type₁` with `Exact(Type₀)`)
+
 ## [1.8.0] - 2026-01-08
 
 ### Added
