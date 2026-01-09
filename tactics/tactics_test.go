@@ -104,17 +104,16 @@ func TestAssumption(t *testing.T) {
 }
 
 func TestExact(t *testing.T) {
-	// Goal: Type
-	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	// Goal: Type₁ (we need to provide something of type Type₁)
+	state := proofstate.NewProofState(ast.Sort{U: 1}, nil)
 
-	// Exact Type0
+	// Exact Type₀ - Type₀ has type Type₁, so this is valid
 	result := Exact(ast.Sort{U: 0})(state)
 	if !result.IsSuccess() {
 		t.Fatalf("exact failed: %v", result.Err)
 	}
 
-	// Note: This simplified exact doesn't type check
-	// In a full implementation, we'd verify the term has the right type
+	// Type checking now works: Type₀ : Type₁ matches goal Type₁
 }
 
 func TestReflexivity(t *testing.T) {
@@ -185,11 +184,11 @@ func TestSeq(t *testing.T) {
 }
 
 func TestOrElse(t *testing.T) {
-	// Goal: Type (not a Pi)
-	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	// Goal: Type₁ (not a Pi)
+	state := proofstate.NewProofState(ast.Sort{U: 1}, nil)
 
-	// OrElse intro; exact Type
-	// intro should fail, then exact should succeed
+	// OrElse intro; exact Type₀
+	// intro should fail, then exact should succeed (Type₀ : Type₁)
 	result := OrElse(
 		Intro("x"),
 		Exact(ast.Sort{U: 0}),
@@ -393,10 +392,10 @@ func TestProgress(t *testing.T) {
 }
 
 func TestIfThenElse(t *testing.T) {
-	goalType := ast.Sort{U: 0}
+	goalType := ast.Sort{U: 1}
 	state := proofstate.NewProofState(goalType, nil)
 
-	// If intro fails, then exact Type
+	// If intro fails, then exact Type₀ (Type₀ : Type₁)
 	result := IfThenElse(
 		Intro("x"),
 		NoOp(),
@@ -409,7 +408,7 @@ func TestIfThenElse(t *testing.T) {
 }
 
 func TestOnce(t *testing.T) {
-	goalType := ast.Sort{U: 0}
+	goalType := ast.Sort{U: 1}
 	state := proofstate.NewProofState(goalType, nil)
 
 	// Once is just identity
@@ -437,18 +436,18 @@ func TestGuard(t *testing.T) {
 }
 
 func TestAll(t *testing.T) {
-	// Create a state with multiple goals
-	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	// Create a state with multiple goals (Type₁ × Type₁)
+	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 1}, B: ast.Sort{U: 1}}
 	state := proofstate.NewProofState(sigmaType, nil)
 
-	// Split creates 2 goals
+	// Split creates 2 goals (each Type₁)
 	Split()(state)
 
 	if state.GoalCount() != 2 {
 		t.Fatalf("expected 2 goals, got %d", state.GoalCount())
 	}
 
-	// Apply exact to all goals
+	// Apply exact Type₀ to all goals (Type₀ : Type₁)
 	result := All(Exact(ast.Sort{U: 0}))(state)
 	if !result.IsSuccess() {
 		t.Fatalf("all failed: %v", result.Err)
@@ -456,10 +455,10 @@ func TestAll(t *testing.T) {
 }
 
 func TestFocus(t *testing.T) {
-	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+	sigmaType := ast.Sigma{Binder: "_", A: ast.Sort{U: 1}, B: ast.Sort{U: 1}}
 	state := proofstate.NewProofState(sigmaType, nil)
 
-	// Split creates 2 goals
+	// Split creates 2 goals (each Type₁)
 	Split()(state)
 
 	// Focus on second goal and solve it
@@ -964,7 +963,7 @@ func TestProverState(t *testing.T) {
 }
 
 func TestProverExtract(t *testing.T) {
-	prover := NewProver(ast.Sort{U: 0})
+	prover := NewProver(ast.Sort{U: 1})
 
 	// Can't extract incomplete proof
 	_, err := prover.Extract()
@@ -972,7 +971,7 @@ func TestProverExtract(t *testing.T) {
 		t.Error("expected error for incomplete proof")
 	}
 
-	// Complete the proof
+	// Complete the proof (Type₀ : Type₁)
 	prover.Apply(Exact(ast.Sort{U: 0}))
 
 	term, err := prover.Extract()
@@ -1036,8 +1035,8 @@ func TestFluentIntros(t *testing.T) {
 }
 
 func TestFluentExact(t *testing.T) {
-	prover := NewProver(ast.Sort{U: 0})
-	prover.Exact_(ast.Sort{U: 0})
+	prover := NewProver(ast.Sort{U: 1})
+	prover.Exact_(ast.Sort{U: 0}) // Type₀ : Type₁
 	if prover.Error() != nil {
 		t.Error("Exact_ should succeed")
 	}

@@ -82,6 +82,7 @@ func Intros() Tactic {
 }
 
 // Exact solves a goal with an exact term.
+// The term must have a type definitionally equal to the goal type.
 func Exact(term ast.Term) Tactic {
 	return func(state *proofstate.ProofState) TacticResult {
 		goal := state.CurrentGoal()
@@ -89,8 +90,25 @@ func Exact(term ast.Term) Tactic {
 			return Failf("no current goal")
 		}
 
-		// TODO: Type check the term against goal type
-		// For now, just accept the term
+		// Type check: infer the type of the term and compare with goal
+		// For variables, look up in hypothesis context
+		termTy, ok := inferTermType(term, goal.Hypotheses)
+		if !ok {
+			// If we can't infer the type, accept the term (for backward compatibility)
+			// This handles cases like globals and complex terms
+			if err := state.SolveGoal(goal.ID, term); err != nil {
+				return Fail(err)
+			}
+			return SuccessMsg(state, "exact proof term accepted (unchecked)")
+		}
+
+		// Normalize both types and compare
+		goalTy := eval.EvalNBE(goal.Type)
+		termTyNorm := eval.EvalNBE(termTy)
+
+		if !eval.AlphaEq(goalTy, termTyNorm) {
+			return Failf("type mismatch: expected %v, got %v", goalTy, termTyNorm)
+		}
 
 		// Solve the goal
 		if err := state.SolveGoal(goal.ID, term); err != nil {
@@ -98,6 +116,40 @@ func Exact(term ast.Term) Tactic {
 		}
 
 		return SuccessMsg(state, "exact proof term accepted")
+	}
+}
+
+// inferTermType tries to infer the type of a term given the hypothesis context.
+// Returns (type, true) if successful, (nil, false) otherwise.
+func inferTermType(term ast.Term, hyps []proofstate.Hypothesis) (ast.Term, bool) {
+	switch t := term.(type) {
+	case ast.Var:
+		// Look up in hypotheses (de Bruijn index)
+		if t.Ix < len(hyps) {
+			hypIdx := len(hyps) - 1 - t.Ix
+			return hyps[hypIdx].Type, true
+		}
+		return nil, false
+
+	case ast.Sort:
+		// Type : Type (simplified, ignoring universe levels)
+		return ast.Sort{U: t.U + 1}, true
+
+	case ast.Refl:
+		// refl : Id A x x
+		return ast.Id{A: t.A, X: t.X, Y: t.X}, true
+
+	case ast.Pair:
+		// For pairs, we'd need the expected type - can't infer
+		return nil, false
+
+	case ast.Lam:
+		// For lambdas, we'd need to check the body - complex
+		return nil, false
+
+	default:
+		// For other terms, we can't easily infer
+		return nil, false
 	}
 }
 
@@ -135,6 +187,7 @@ func Assumption() Tactic {
 
 // Apply applies a term (function or hypothesis) to the goal.
 // For goal B and term f : A -> B, creates subgoal A.
+// The codomain of f must match the goal type.
 func Apply(term ast.Term) Tactic {
 	return func(state *proofstate.ProofState) TacticResult {
 		goal := state.CurrentGoal()
@@ -142,35 +195,78 @@ func Apply(term ast.Term) Tactic {
 			return Failf("no current goal")
 		}
 
-		// TODO: Properly type check and determine arguments needed
-		// For now, this is a simplified implementation
+		goalTy := eval.EvalNBE(goal.Type)
 
-		// If term is a variable, look it up
-		if v, ok := term.(ast.Var); ok {
-			if v.Ix < len(goal.Hypotheses) {
-				// This is a hypothesis
-				hypIdx := len(goal.Hypotheses) - 1 - v.Ix
-				hyp := goal.Hypotheses[hypIdx]
-				hypTy := eval.EvalNBE(hyp.Type)
-
-				// Check if it's a function type
-				if pi, isPi := hypTy.(ast.Pi); isPi {
-					// Create subgoal for the argument
-					newGoal := proofstate.Goal{
-						Type:       pi.A,
-						Hypotheses: goal.Hypotheses,
-					}
-
-					if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
-						return Fail(err)
-					}
-
-					return SuccessMsg(state, fmt.Sprintf("applied %s", hyp.Name))
+		// Try to get the type of the term
+		termTy, ok := inferTermType(term, goal.Hypotheses)
+		if !ok {
+			// Fallback: if term is a variable, look it up directly
+			if v, vok := term.(ast.Var); vok {
+				if v.Ix < len(goal.Hypotheses) {
+					hypIdx := len(goal.Hypotheses) - 1 - v.Ix
+					termTy = goal.Hypotheses[hypIdx].Type
+					ok = true
 				}
 			}
 		}
 
-		return Failf("apply: term is not applicable")
+		if !ok {
+			return Failf("apply: cannot infer type of term")
+		}
+
+		termTyNorm := eval.EvalNBE(termTy)
+
+		// Check if it's a function type
+		pi, isPi := termTyNorm.(ast.Pi)
+		if !isPi {
+			return Failf("apply: term is not a function, got %T", termTyNorm)
+		}
+
+		// Check that codomain matches goal (after substituting a metavariable)
+		// For non-dependent functions, codomain should match goal directly
+		// For dependent functions, we check that B[_/x] can unify with goal
+		codomain := pi.B
+		if !containsVar0(codomain) {
+			// Non-dependent: codomain should match goal
+			if !eval.AlphaEq(eval.EvalNBE(codomain), goalTy) {
+				return Failf("apply: codomain %v does not match goal %v", codomain, goalTy)
+			}
+		}
+		// For dependent cases, we trust the user (full unification would be needed)
+
+		// Create subgoal for the argument
+		newGoal := proofstate.Goal{
+			Type:       pi.A,
+			Hypotheses: goal.Hypotheses,
+		}
+
+		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, "applied term")
+	}
+}
+
+// containsVar0 checks if a term contains Var{Ix: 0}.
+func containsVar0(t ast.Term) bool {
+	switch tt := t.(type) {
+	case ast.Var:
+		return tt.Ix == 0
+	case ast.Pi:
+		return containsVar0(tt.A) || containsVar0(tt.B)
+	case ast.Lam:
+		return containsVar0(tt.Body)
+	case ast.App:
+		return containsVar0(tt.T) || containsVar0(tt.U)
+	case ast.Sigma:
+		return containsVar0(tt.A) || containsVar0(tt.B)
+	case ast.Pair:
+		return containsVar0(tt.Fst) || containsVar0(tt.Snd)
+	case ast.Id:
+		return containsVar0(tt.A) || containsVar0(tt.X) || containsVar0(tt.Y)
+	default:
+		return false
 	}
 }
 
