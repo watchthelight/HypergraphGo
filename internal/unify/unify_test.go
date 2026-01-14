@@ -1381,3 +1381,297 @@ func TestUnifyPathPXFails(t *testing.T) {
 		t.Error("expected error for different X component")
 	}
 }
+
+// --- Cubical term zonking tests ---
+
+func TestZonkPartial(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.Partial{Phi: ast.FaceTop{}, A: ast.Meta{ID: 0}}
+	result := Zonk(solutions, term)
+	if p, ok := result.(ast.Partial); !ok {
+		t.Errorf("expected Partial, got %T", result)
+	} else if _, isSort := p.A.(ast.Sort); !isSort {
+		t.Errorf("expected zonked A, got %T", p.A)
+	}
+}
+
+func TestZonkSystem(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.System{
+		Branches: []ast.SystemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Meta{ID: 0}},
+		},
+	}
+	result := Zonk(solutions, term)
+	if s, ok := result.(ast.System); !ok {
+		t.Errorf("expected System, got %T", result)
+	} else if len(s.Branches) != 1 {
+		t.Errorf("expected 1 branch, got %d", len(s.Branches))
+	}
+}
+
+func TestZonkComp(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.Comp{
+		IBinder: "i",
+		A:       ast.Meta{ID: 0},
+		Phi:     ast.FaceTop{},
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Meta{ID: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.Comp); !ok {
+		t.Errorf("expected Comp, got %T", result)
+	}
+}
+
+func TestZonkHComp(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.HComp{
+		A:    ast.Meta{ID: 0},
+		Phi:  ast.FaceTop{},
+		Tube: ast.Var{Ix: 0},
+		Base: ast.Meta{ID: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.HComp); !ok {
+		t.Errorf("expected HComp, got %T", result)
+	}
+}
+
+func TestZonkFill(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.Fill{
+		IBinder: "i",
+		A:       ast.Meta{ID: 0},
+		Phi:     ast.FaceTop{},
+		Tube:    ast.Var{Ix: 0},
+		Base:    ast.Meta{ID: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.Fill); !ok {
+		t.Errorf("expected Fill, got %T", result)
+	}
+}
+
+func TestZonkGlue(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.Glue{
+		A: ast.Meta{ID: 0},
+		System: []ast.GlueBranch{
+			{Phi: ast.FaceTop{}, T: ast.Meta{ID: 0}, Equiv: ast.Var{Ix: 0}},
+		},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.Glue); !ok {
+		t.Errorf("expected Glue, got %T", result)
+	}
+}
+
+func TestZonkGlueElem(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.GlueElem{
+		Base: ast.Meta{ID: 0},
+		System: []ast.GlueElemBranch{
+			{Phi: ast.FaceTop{}, Term: ast.Meta{ID: 0}},
+		},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.GlueElem); !ok {
+		t.Errorf("expected GlueElem, got %T", result)
+	}
+}
+
+func TestZonkUnglue(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.Unglue{
+		Ty: ast.Meta{ID: 0},
+		G:  ast.Meta{ID: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.Unglue); !ok {
+		t.Errorf("expected Unglue, got %T", result)
+	}
+}
+
+func TestZonkUA(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.UA{
+		A:     ast.Meta{ID: 0},
+		B:     ast.Meta{ID: 0},
+		Equiv: ast.Var{Ix: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.UA); !ok {
+		t.Errorf("expected UA, got %T", result)
+	}
+}
+
+func TestZonkUABeta(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Var{Ix: 0},
+	}
+
+	term := ast.UABeta{
+		Equiv: ast.Meta{ID: 0},
+		Arg:   ast.Meta{ID: 0},
+	}
+	result := Zonk(solutions, term)
+	if _, ok := result.(ast.UABeta); !ok {
+		t.Errorf("expected UABeta, got %T", result)
+	}
+}
+
+func TestZonkHITApp(t *testing.T) {
+	solutions := map[int]ast.Term{
+		0: ast.Sort{U: 0},
+	}
+
+	term := ast.HITApp{
+		HITName: "Circle",
+		Ctor:    "base",
+		Args:    []ast.Term{ast.Meta{ID: 0}},
+		IArgs:   []ast.Term{ast.Meta{ID: 0}},
+	}
+	result := Zonk(solutions, term)
+	if hit, ok := result.(ast.HITApp); !ok {
+		t.Errorf("expected HITApp, got %T", result)
+	} else {
+		if hit.HITName != "Circle" || hit.Ctor != "base" {
+			t.Errorf("HITApp fields mutated")
+		}
+	}
+}
+
+func TestZonkIntervalTypes(t *testing.T) {
+	solutions := map[int]ast.Term{}
+
+	// These should pass through unchanged
+	tests := []ast.Term{
+		ast.Interval{},
+		ast.I0{},
+		ast.I1{},
+		ast.IVar{Ix: 0},
+	}
+
+	for _, term := range tests {
+		result := Zonk(solutions, term)
+		if result != term {
+			t.Errorf("expected %T unchanged", term)
+		}
+	}
+}
+
+func TestZonkFaceTypes(t *testing.T) {
+	solutions := map[int]ast.Term{}
+
+	// Face types should pass through unchanged
+	tests := []ast.Term{
+		ast.FaceTop{},
+		ast.FaceBot{},
+		ast.FaceEq{IVar: 0, IsOne: true},
+		ast.FaceAnd{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+		ast.FaceOr{Left: ast.FaceTop{}, Right: ast.FaceBot{}},
+	}
+
+	for _, term := range tests {
+		result := Zonk(solutions, term)
+		if result != term {
+			t.Errorf("expected %T unchanged", term)
+		}
+	}
+}
+
+// --- Occurs check for cubical terms ---
+
+func TestOccursCheckCubicalTerms(t *testing.T) {
+	u := NewUnifier()
+
+	// Test occurs in cubical terms
+	tests := []struct {
+		term   ast.Term
+		occurs bool
+	}{
+		{ast.Partial{A: ast.Meta{ID: 0}}, true},
+		{ast.System{Branches: []ast.SystemBranch{{Term: ast.Meta{ID: 0}}}}, true},
+		{ast.Comp{A: ast.Meta{ID: 0}}, true},
+		{ast.HComp{A: ast.Meta{ID: 0}}, true},
+		{ast.Fill{A: ast.Meta{ID: 0}}, true},
+		{ast.Glue{A: ast.Meta{ID: 0}}, true},
+		{ast.GlueElem{Base: ast.Meta{ID: 0}}, true},
+		{ast.Unglue{Ty: ast.Meta{ID: 0}}, true},
+		{ast.UA{A: ast.Meta{ID: 0}}, true},
+		{ast.UABeta{Equiv: ast.Meta{ID: 0}}, true},
+		{ast.HITApp{Args: []ast.Term{ast.Meta{ID: 0}}}, true},
+		{ast.HITApp{IArgs: []ast.Term{ast.Meta{ID: 0}}}, true},
+		{ast.Interval{}, false},
+		{ast.IVar{Ix: 0}, false},
+		{ast.FaceTop{}, false},
+		{ast.FaceBot{}, false},
+	}
+
+	for _, tt := range tests {
+		if u.occurs(0, tt.term) != tt.occurs {
+			t.Errorf("occurs(0, %T) = %v, want %v", tt.term, u.occurs(0, tt.term), tt.occurs)
+		}
+	}
+}
+
+// --- hasMeta for cubical terms ---
+
+func TestHasMetaCubicalTerms(t *testing.T) {
+	tests := []struct {
+		term    ast.Term
+		hasMeta bool
+	}{
+		{ast.Partial{A: ast.Meta{ID: 0}}, true},
+		{ast.Partial{A: ast.Sort{U: 0}}, false},
+		{ast.System{Branches: []ast.SystemBranch{{Term: ast.Meta{ID: 0}}}}, true},
+		{ast.System{Branches: []ast.SystemBranch{{Term: ast.Sort{U: 0}}}}, false},
+		{ast.Comp{A: ast.Meta{ID: 0}}, true},
+		{ast.HComp{A: ast.Meta{ID: 0}}, true},
+		{ast.Fill{A: ast.Meta{ID: 0}}, true},
+		{ast.Glue{A: ast.Meta{ID: 0}}, true},
+		{ast.GlueElem{Base: ast.Meta{ID: 0}}, true},
+		{ast.Unglue{Ty: ast.Meta{ID: 0}}, true},
+		{ast.UA{A: ast.Meta{ID: 0}}, true},
+		{ast.UABeta{Equiv: ast.Meta{ID: 0}}, true},
+		{ast.HITApp{Args: []ast.Term{ast.Meta{ID: 0}}}, true},
+		{ast.HITApp{Args: []ast.Term{ast.Sort{U: 0}}}, false},
+		{ast.Interval{}, false},
+		{ast.IVar{Ix: 0}, false},
+	}
+
+	for _, tt := range tests {
+		if hasMeta(tt.term) != tt.hasMeta {
+			t.Errorf("hasMeta(%T) = %v, want %v", tt.term, hasMeta(tt.term), tt.hasMeta)
+		}
+	}
+}
