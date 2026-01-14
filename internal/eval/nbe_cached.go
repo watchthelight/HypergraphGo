@@ -40,7 +40,7 @@ func EvalCached(env *Env, t ast.Term, cache *Cache) Value {
 		result = VSort{Level: int(tm.U)}
 
 	case ast.Lam:
-		result = VLam{Body: &Closure{Env: env, Term: tm.Body}}
+		result = VLam{Binder: tm.Binder, Body: &Closure{Env: env, Term: tm.Body}}
 
 	case ast.App:
 		fun := EvalCached(env, tm.T, cache)
@@ -62,11 +62,11 @@ func EvalCached(env *Env, t ast.Term, cache *Cache) Value {
 
 	case ast.Pi:
 		a := EvalCached(env, tm.A, cache)
-		result = VPi{A: a, B: &Closure{Env: env, Term: tm.B}}
+		result = VPi{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Sigma:
 		a := EvalCached(env, tm.A, cache)
-		result = VSigma{A: a, B: &Closure{Env: env, Term: tm.B}}
+		result = VSigma{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Let:
 		val := EvalCached(env, tm.Val, cache)

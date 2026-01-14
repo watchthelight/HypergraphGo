@@ -134,7 +134,14 @@ func inferTermType(term ast.Term, hyps []proofstate.Hypothesis) (ast.Term, bool)
 		// Look up in hypotheses (de Bruijn index)
 		if t.Ix < len(hyps) {
 			hypIdx := len(hyps) - 1 - t.Ix
-			return hyps[hypIdx].Type, true
+			hypTy := hyps[hypIdx].Type
+			// Shift the type to account for hypotheses added after this one.
+			// When the hypothesis was stored, the context was smaller by (t.Ix + 1).
+			// For example, x at de Bruijn 0 in [A, x] has type stored relative to [A],
+			// so we need to shift by 1 to make it relative to [A, x].
+			shift := t.Ix + 1
+			hypTy = subst.Shift(shift, 0, hypTy)
+			return hypTy, true
 		}
 		return nil, false
 
@@ -173,7 +180,11 @@ func Assumption() Tactic {
 		// Look for a matching hypothesis
 		for i := len(goal.Hypotheses) - 1; i >= 0; i-- {
 			hyp := goal.Hypotheses[i]
-			hypTy := eval.EvalNBE(hyp.Type)
+			// Shift the hypothesis type to account for hypotheses added after it.
+			// The shift amount is len(hyps) - slice_index = de_bruijn_index + 1.
+			shift := len(goal.Hypotheses) - i
+			hypTy := subst.Shift(shift, 0, hyp.Type)
+			hypTy = eval.EvalNBE(hypTy)
 
 			if eval.AlphaEq(goalTy, hypTy) {
 				// Found a match - use de Bruijn index

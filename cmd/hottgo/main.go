@@ -7,6 +7,22 @@
 //	hottgo --eval EXPR         Evaluate an S-expression term
 //	hottgo --synth EXPR        Synthesize the type of an S-expression term
 //	hottgo                     Start interactive REPL
+//
+// REPL Commands:
+//
+//	:eval EXPR                 Evaluate an expression
+//	:synth EXPR                Synthesize the type of an expression
+//	:prove TYPE                Start proof mode with goal TYPE
+//	:quit                      Exit the REPL
+//
+// Proof Mode Commands (when in proof mode):
+//
+//	:tactic NAME [ARGS]        Apply a tactic
+//	:goal                      Show current goal
+//	:goals                     Show all goals
+//	:undo                      Undo last tactic
+//	:qed                       Extract and verify proof
+//	:abort                     Exit proof mode without completing
 package main
 
 import (
@@ -60,7 +76,8 @@ func main() {
 
 	// REPL mode
 	fmt.Println("hottgo - HoTT Kernel REPL")
-	fmt.Println("Commands: :eval EXPR, :synth EXPR, :quit")
+	fmt.Println("Commands: :eval EXPR, :synth EXPR, :prove TYPE, :quit")
+	fmt.Println("Type :help for more information")
 	fmt.Println()
 	repl()
 }
@@ -116,11 +133,18 @@ func doSynth(expr string) error {
 }
 
 func repl() {
-	checker := check.NewCheckerWithPrimitives()
+	checker := check.NewCheckerWithStdlib()
 	scanner := bufio.NewScanner(os.Stdin)
+	var proofMode *ProofMode
 
 	for {
-		fmt.Print("> ")
+		// Show different prompt based on mode
+		if proofMode != nil {
+			fmt.Printf("proof[%d]> ", proofMode.GoalCount())
+		} else {
+			fmt.Print("> ")
+		}
+
 		if !scanner.Scan() {
 			break
 		}
@@ -131,7 +155,44 @@ func repl() {
 		}
 
 		if line == ":quit" || line == ":q" {
+			if proofMode != nil {
+				fmt.Println("Aborting proof mode.")
+				proofMode = nil
+			}
 			break
+		}
+
+		if line == ":help" || line == ":h" {
+			printHelp(proofMode != nil)
+			continue
+		}
+
+		// Handle proof mode commands
+		if proofMode != nil {
+			handled := handleProofModeCommand(proofMode, line, &proofMode)
+			if handled {
+				continue
+			}
+		}
+
+		// Handle :prove command to enter proof mode
+		if strings.HasPrefix(line, ":prove ") {
+			expr := strings.TrimPrefix(line, ":prove ")
+			goalTy, err := parser.ParseTerm(expr)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
+				continue
+			}
+			// Verify it's a valid type
+			_, checkErr := checker.Synth(nil, check.Span{}, goalTy)
+			if checkErr != nil {
+				fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
+				continue
+			}
+			proofMode = NewProofMode(goalTy, checker)
+			fmt.Println("Entering proof mode.")
+			fmt.Println(proofMode.FormatCurrentGoal())
+			continue
 		}
 
 		if strings.HasPrefix(line, ":eval ") {
@@ -174,5 +235,143 @@ func repl() {
 
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "error reading input: %v\n", err)
+	}
+}
+
+// handleProofModeCommand processes proof mode specific commands.
+// Returns true if the command was handled.
+func handleProofModeCommand(pm *ProofMode, line string, proofModePtr **ProofMode) bool {
+	switch {
+	case line == ":goal" || line == ":g":
+		fmt.Println(pm.FormatCurrentGoal())
+		return true
+
+	case line == ":goals":
+		fmt.Println(pm.FormatAllGoals())
+		return true
+
+	case line == ":undo" || line == ":u":
+		if pm.Undo() {
+			fmt.Println("Undone.")
+			fmt.Println(pm.FormatCurrentGoal())
+		} else {
+			fmt.Println("Nothing to undo.")
+		}
+		return true
+
+	case line == ":qed":
+		if !pm.IsComplete() {
+			fmt.Fprintf(os.Stderr, "Proof not complete. %d goals remaining.\n", pm.GoalCount())
+			return true
+		}
+		term, err := pm.Extract()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "extraction error: %v\n", err)
+			return true
+		}
+		if err := pm.TypeCheck(); err != nil {
+			fmt.Fprintf(os.Stderr, "type check failed: %v\n", err)
+			return true
+		}
+		fmt.Println("Proof complete!")
+		fmt.Printf("Term: %s\n", parser.FormatTerm(term))
+		*proofModePtr = nil
+		return true
+
+	case line == ":abort":
+		fmt.Println("Proof aborted.")
+		*proofModePtr = nil
+		return true
+
+	case strings.HasPrefix(line, ":tactic ") || strings.HasPrefix(line, ":t "):
+		var rest string
+		if strings.HasPrefix(line, ":tactic ") {
+			rest = strings.TrimPrefix(line, ":tactic ")
+		} else {
+			rest = strings.TrimPrefix(line, ":t ")
+		}
+		parts := strings.Fields(rest)
+		if len(parts) == 0 {
+			fmt.Fprintf(os.Stderr, "usage: :tactic NAME [ARGS]\n")
+			return true
+		}
+		tacticName := parts[0]
+		tacticArgs := parts[1:]
+		msg, err := pm.ApplyTactic(tacticName, tacticArgs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "tactic error: %v\n", err)
+		} else {
+			fmt.Println(msg)
+			if pm.IsComplete() {
+				fmt.Println("No more goals. Type :qed to complete the proof.")
+			} else {
+				fmt.Println(pm.FormatCurrentGoal())
+			}
+		}
+		return true
+
+	default:
+		// In proof mode, bare words are treated as tactics
+		parts := strings.Fields(line)
+		if len(parts) > 0 && !strings.HasPrefix(line, ":") {
+			tacticName := parts[0]
+			tacticArgs := parts[1:]
+			msg, err := pm.ApplyTactic(tacticName, tacticArgs)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "tactic error: %v\n", err)
+			} else {
+				fmt.Println(msg)
+				if pm.IsComplete() {
+					fmt.Println("No more goals. Type :qed to complete the proof.")
+				} else {
+					fmt.Println(pm.FormatCurrentGoal())
+				}
+			}
+			return true
+		}
+	}
+
+	return false
+}
+
+// printHelp displays help information.
+func printHelp(inProofMode bool) {
+	fmt.Println("HoTTGo REPL Commands:")
+	fmt.Println()
+	fmt.Println("  :eval EXPR        Evaluate an expression")
+	fmt.Println("  :synth EXPR       Synthesize the type of an expression")
+	fmt.Println("  :prove TYPE       Enter proof mode with goal TYPE")
+	fmt.Println("  :help, :h         Show this help")
+	fmt.Println("  :quit, :q         Exit the REPL")
+	fmt.Println()
+	if inProofMode {
+		fmt.Println("Proof Mode Commands:")
+		fmt.Println()
+		fmt.Println("  :goal, :g         Show current goal")
+		fmt.Println("  :goals            Show all goals")
+		fmt.Println("  :tactic NAME      Apply a tactic (or just type tactic name)")
+		fmt.Println("  :undo, :u         Undo last tactic")
+		fmt.Println("  :qed              Complete and verify the proof")
+		fmt.Println("  :abort            Exit proof mode")
+		fmt.Println()
+		fmt.Println("Available Tactics:")
+		fmt.Println("  intro [NAME]      Introduce a hypothesis")
+		fmt.Println("  intros            Introduce all hypotheses")
+		fmt.Println("  exact TERM        Provide exact proof term")
+		fmt.Println("  assumption        Use a hypothesis matching the goal")
+		fmt.Println("  reflexivity       Prove equality by reflexivity")
+		fmt.Println("  split             Split a Sigma goal into two subgoals")
+		fmt.Println("  left              Prove Sum goal with left injection")
+		fmt.Println("  right             Prove Sum goal with right injection")
+		fmt.Println("  destruct H        Case analysis on H (Sum, Bool)")
+		fmt.Println("  induction H       Induction on H (Nat, List)")
+		fmt.Println("  cases H           Non-recursive case analysis")
+		fmt.Println("  constructor       Apply first applicable constructor")
+		fmt.Println("  exists TERM       Provide witness for existential")
+		fmt.Println("  contradiction     Prove from Empty hypothesis")
+		fmt.Println("  rewrite H         Rewrite using equality H")
+		fmt.Println("  simpl             Simplify the goal")
+		fmt.Println("  trivial           Try reflexivity and assumption")
+		fmt.Println("  auto              Automatic proof search")
 	}
 }

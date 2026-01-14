@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Phase 9: Standard Library & Inductive Tactics (M1-M3)
+#### Phase 9: Standard Library & Inductive Tactics (M1-M4)
+
+- **Interactive proof mode in REPL** (`cmd/hottgo/proofmode.go`, `cmd/hottgo/main.go`)
+  - `:prove TYPE` - enter proof mode with goal TYPE
+  - `:tactic NAME [ARGS]` or just `NAME [ARGS]` - apply a tactic
+  - `:goal` / `:g` - show current goal with hypotheses
+  - `:goals` - show all remaining goals
+  - `:undo` / `:u` - undo last tactic
+  - `:qed` - extract and type-check completed proof
+  - `:abort` - exit proof mode without completing
+  - `:help` / `:h` - shows context-aware help (different in proof mode)
+  - Dynamic prompt shows goal count (`proof[N]>`)
+  - Parses all tactics: intro, intros, exact, assumption, reflexivity, split, left, right, destruct, induction, cases, constructor, exists, contradiction, rewrite, simpl, trivial, auto, apply
 
 - **Standard library types** (`kernel/check/stdlib.go`, `kernel/check/stdlib_test.go`)
   - `Unit` type with `tt` constructor and `unitElim` eliminator
@@ -113,6 +125,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Coverage improved from 75.5% to 90.3%
 
 ### Fixed
+- **De Bruijn index shifting in tactics** (`tactics/core.go`)
+  - `inferTermType` now correctly shifts hypothesis types when looking up variables
+  - `Assumption` tactic now shifts hypothesis types before comparison
+  - Fixes type mismatch errors when using `exact` or `assumption` after multiple intros
+  - Shift amount is `de_bruijn_index + 1` to account for context growth
+
+- **NbE binder name preservation** (`internal/eval/nbe.go`, `nbe_cached.go`, `nbe_cubical.go`)
+  - Added `Binder` field to `VLam`, `VPi`, `VSigma` value types
+  - `Eval` now preserves binder names from `ast.Lam`, `ast.Pi`, `ast.Sigma`
+  - `reifyAt` and `ReifyCubicalAt` now use preserved binder names instead of "_"
+  - Fixes hypothesis naming in proof mode (shows "A", "B" instead of "x", "x")
+
 - **Tactics proof term construction** (`tactics/core.go`, `tactics/proofstate/state.go`)
   - `Intro`, `Apply`, `Split`, `Rewrite` now properly construct proof terms via metavariable linking
   - Added `SolveGoalWithSubgoals` to link parent goals to child metavariables

@@ -297,7 +297,7 @@ func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 
 	case ast.Lam:
 		// Term lambda - still uses term environment
-		return VLam{Body: &Closure{Env: env, Term: tm.Body}}
+		return VLam{Binder: tm.Binder, Body: &Closure{Env: env, Term: tm.Body}}
 
 	case ast.App:
 		fun := EvalCubical(env, ienv, tm.T)
@@ -319,11 +319,11 @@ func EvalCubical(env *Env, ienv *IEnv, t ast.Term) Value {
 
 	case ast.Pi:
 		a := EvalCubical(env, ienv, tm.A)
-		return VPi{A: a, B: &Closure{Env: env, Term: tm.B}}
+		return VPi{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Sigma:
 		a := EvalCubical(env, ienv, tm.A)
-		return VSigma{A: a, B: &Closure{Env: env, Term: tm.B}}
+		return VSigma{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Let:
 		val := EvalCubical(env, ienv, tm.Val)
@@ -972,7 +972,7 @@ func ReifyCubicalAt(level int, ilevel int, v Value) ast.Term {
 		freshVar := vVar(level)
 		bodyVal := Apply(val, freshVar)
 		bodyTerm := ReifyCubicalAt(level+1, ilevel, bodyVal)
-		return ast.Lam{Binder: "_", Body: bodyTerm}
+		return ast.Lam{Binder: val.Binder, Body: bodyTerm}
 
 	case VPair:
 		fst := ReifyCubicalAt(level, ilevel, val.Fst)
@@ -988,16 +988,16 @@ func ReifyCubicalAt(level int, ilevel int, v Value) ast.Term {
 	case VPi:
 		a := ReifyCubicalAt(level, ilevel, val.A)
 		freshVar := vVar(level)
-		bVal := Apply(VLam{Body: val.B}, freshVar)
+		bVal := Apply(VLam{Binder: val.Binder, Body: val.B}, freshVar)
 		b := ReifyCubicalAt(level+1, ilevel, bVal)
-		return ast.Pi{Binder: "_", A: a, B: b}
+		return ast.Pi{Binder: val.Binder, A: a, B: b}
 
 	case VSigma:
 		a := ReifyCubicalAt(level, ilevel, val.A)
 		freshVar := vVar(level)
-		bVal := Apply(VLam{Body: val.B}, freshVar)
+		bVal := Apply(VLam{Binder: val.Binder, Body: val.B}, freshVar)
 		b := ReifyCubicalAt(level+1, ilevel, bVal)
-		return ast.Sigma{Binder: "_", A: a, B: b}
+		return ast.Sigma{Binder: val.Binder, A: a, B: b}
 
 	case VId:
 		a := ReifyCubicalAt(level, ilevel, val.A)

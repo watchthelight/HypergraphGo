@@ -58,22 +58,27 @@ type VNeutral struct{ N Neutral }
 func (VNeutral) isValue() {}
 
 // VLam represents lambda closures.
-type VLam struct{ Body *Closure }
+type VLam struct {
+	Binder string
+	Body   *Closure
+}
 
 func (VLam) isValue() {}
 
 // VPi represents Pi type closures (optional for now).
 type VPi struct {
-	A Value
-	B *Closure
+	Binder string
+	A      Value
+	B      *Closure
 }
 
 func (VPi) isValue() {}
 
 // VSigma represents Sigma type closures (optional for now).
 type VSigma struct {
-	A Value
-	B *Closure
+	Binder string
+	A      Value
+	B      *Closure
 }
 
 func (VSigma) isValue() {}
@@ -198,7 +203,7 @@ func Eval(env *Env, t ast.Term) Value {
 		return VSort{Level: int(tm.U)}
 
 	case ast.Lam:
-		return VLam{Body: &Closure{Env: env, Term: tm.Body}}
+		return VLam{Binder: tm.Binder, Body: &Closure{Env: env, Term: tm.Body}}
 
 	case ast.App:
 		fun := Eval(env, tm.T)
@@ -220,11 +225,11 @@ func Eval(env *Env, t ast.Term) Value {
 
 	case ast.Pi:
 		a := Eval(env, tm.A)
-		return VPi{A: a, B: &Closure{Env: env, Term: tm.B}}
+		return VPi{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Sigma:
 		a := Eval(env, tm.A)
-		return VSigma{A: a, B: &Closure{Env: env, Term: tm.B}}
+		return VSigma{Binder: tm.Binder, A: a, B: &Closure{Env: env, Term: tm.B}}
 
 	case ast.Let:
 		val := Eval(env, tm.Val)
@@ -515,7 +520,7 @@ func reifyAt(level int, v Value) ast.Term {
 		freshVar := vVar(level)
 		bodyVal := Apply(val, freshVar)
 		bodyTerm := reifyAt(level+1, bodyVal)
-		return ast.Lam{Binder: "_", Body: bodyTerm}
+		return ast.Lam{Binder: val.Binder, Body: bodyTerm}
 
 	case VPair:
 		fst := reifyAt(level, val.Fst)
@@ -532,17 +537,17 @@ func reifyAt(level int, v Value) ast.Term {
 		a := reifyAt(level, val.A)
 		// For Pi types, apply closure to fresh var and reify at level+1
 		freshVar := vVar(level)
-		bVal := Apply(VLam{Body: val.B}, freshVar)
+		bVal := Apply(VLam{Binder: val.Binder, Body: val.B}, freshVar)
 		b := reifyAt(level+1, bVal)
-		return ast.Pi{Binder: "_", A: a, B: b}
+		return ast.Pi{Binder: val.Binder, A: a, B: b}
 
 	case VSigma:
 		a := reifyAt(level, val.A)
 		// For Sigma types, apply closure to fresh var and reify at level+1
 		freshVar := vVar(level)
-		bVal := Apply(VLam{Body: val.B}, freshVar)
+		bVal := Apply(VLam{Binder: val.Binder, Body: val.B}, freshVar)
 		b := reifyAt(level+1, bVal)
-		return ast.Sigma{Binder: "_", A: a, B: b}
+		return ast.Sigma{Binder: val.Binder, A: a, B: b}
 
 	case VId:
 		a := reifyAt(level, val.A)

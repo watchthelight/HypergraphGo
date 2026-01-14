@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/kernel/check"
 )
 
 // captureOutput captures stdout and stderr during function execution.
@@ -488,6 +491,362 @@ func TestREPL_EOF(t *testing.T) {
 	// Should show at least one prompt
 	if !strings.Contains(stdout, "> ") {
 		t.Errorf("should show prompt before EOF, got: %q", stdout)
+	}
+}
+
+// --- Proof Mode tests ---
+
+func TestREPL_ProveCommand(t *testing.T) {
+	// Test entering and exiting proof mode
+	tests := []struct {
+		name    string
+		input   string
+		wantOut []string
+		wantErr string
+	}{
+		{
+			name:  "prove identity function",
+			input: ":prove (Pi A Type (Pi x (Var 0) (Var 1)))\nintro A\nintro x\nexact (Var 0)\n:qed\n:quit\n",
+			wantOut: []string{
+				"Entering proof mode",
+				"proof[1]>",
+				"Proof complete",
+			},
+			wantErr: "",
+		},
+		{
+			name:  "prove and abort",
+			input: ":prove Type\n:abort\n:quit\n",
+			wantOut: []string{
+				"Entering proof mode",
+				"Proof aborted",
+			},
+			wantErr: "",
+		},
+		{
+			name:  "prove with undo",
+			input: ":prove (Pi A Type Type)\nintro A\n:undo\n:abort\n:quit\n",
+			wantOut: []string{
+				"Entering proof mode",
+				"Undone",
+			},
+			wantErr: "",
+		},
+		{
+			name:    "prove parse error",
+			input:   ":prove (unclosed\n:quit\n",
+			wantOut: []string{},
+			wantErr: "parse error",
+		},
+		{
+			name:    "prove type error",
+			input:   ":prove nonexistent\n:quit\n",
+			wantOut: []string{},
+			wantErr: "type error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr := runREPLWithInput(t, tt.input)
+
+			for _, want := range tt.wantOut {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("stdout should contain %q, got: %q", want, stdout)
+				}
+			}
+			if tt.wantErr != "" && !strings.Contains(stderr, tt.wantErr) {
+				t.Errorf("stderr should contain %q, got: %q", tt.wantErr, stderr)
+			}
+		})
+	}
+}
+
+func TestREPL_ProofModeTactics(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantOut []string
+		wantErr string
+	}{
+		{
+			name:  "reflexivity",
+			input: ":prove (Id (Sort 1) Type Type)\nreflexivity\n:qed\n:quit\n",
+			wantOut: []string{
+				"Proof complete",
+			},
+			wantErr: "",
+		},
+		{
+			name:  "split sigma",
+			input: ":prove (Sigma _ Type Type)\nsplit\n:abort\n:quit\n",
+			wantOut: []string{
+				"proof[2]>", // Should have 2 goals after split
+			},
+			wantErr: "",
+		},
+		{
+			name:  "intros",
+			input: ":prove (Pi A Type (Pi B Type Type))\nintros\n:goal\n:abort\n:quit\n",
+			wantOut: []string{
+				"applied intros",
+				"========================",
+				"A :",
+				"B :",
+			},
+			wantErr: "",
+		},
+		{
+			name:  "left on Sum",
+			input: ":prove (App (App Sum Nat) Bool)\nleft\n:abort\n:quit\n",
+			wantOut: []string{
+				"using left injection",
+			},
+			wantErr: "",
+		},
+		{
+			name:  "constructor on Unit",
+			input: ":prove Unit\nconstructor\n:qed\n:quit\n",
+			wantOut: []string{
+				"applied constructor tt",
+				"Proof complete",
+			},
+			wantErr: "",
+		},
+		{
+			name:    "unknown tactic",
+			input:   ":prove Type\nunknowntactic\n:abort\n:quit\n",
+			wantOut: []string{},
+			wantErr: "unknown tactic",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr := runREPLWithInput(t, tt.input)
+
+			for _, want := range tt.wantOut {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("stdout should contain %q, got: %q", want, stdout)
+				}
+			}
+			if tt.wantErr != "" && !strings.Contains(stderr, tt.wantErr) {
+				t.Errorf("stderr should contain %q, got: %q", tt.wantErr, stderr)
+			}
+		})
+	}
+}
+
+func TestREPL_ProofModeGoals(t *testing.T) {
+	// Test :goal and :goals commands
+	input := `:prove (Sigma _ Type Type)
+split
+:goal
+:goals
+:abort
+:quit
+`
+	stdout, _ := runREPLWithInput(t, input)
+
+	if !strings.Contains(stdout, "Goal") {
+		t.Errorf("stdout should contain Goal output, got: %q", stdout)
+	}
+}
+
+func TestREPL_ProofModeQedIncomplete(t *testing.T) {
+	// Test :qed when proof is not complete
+	input := `:prove Type
+:qed
+:abort
+:quit
+`
+	_, stderr := runREPLWithInput(t, input)
+
+	if !strings.Contains(stderr, "not complete") {
+		t.Errorf("stderr should mention proof not complete, got: %q", stderr)
+	}
+}
+
+func TestREPL_ProofModeHelp(t *testing.T) {
+	// Test help in proof mode shows tactic list
+	input := `:prove Type
+:help
+:abort
+:quit
+`
+	stdout, _ := runREPLWithInput(t, input)
+
+	if !strings.Contains(stdout, "Available Tactics") {
+		t.Errorf("help in proof mode should show tactics, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "intro") {
+		t.Errorf("help should list intro tactic, got: %q", stdout)
+	}
+}
+
+func TestREPL_HelpOutsideProofMode(t *testing.T) {
+	// Test help outside proof mode
+	input := `:help
+:quit
+`
+	stdout, _ := runREPLWithInput(t, input)
+
+	if !strings.Contains(stdout, ":prove") {
+		t.Errorf("help should mention :prove command, got: %q", stdout)
+	}
+	// Should NOT show tactic list outside proof mode
+	if strings.Contains(stdout, "Available Tactics") {
+		t.Errorf("help outside proof mode should not show tactics, got: %q", stdout)
+	}
+}
+
+// --- ProofMode unit tests ---
+
+func TestProofMode_NewProofMode(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	goalTy := ast.Sort{U: 0}
+
+	pm := NewProofMode(goalTy, checker)
+	if pm == nil {
+		t.Fatal("NewProofMode returned nil")
+	}
+	if pm.IsComplete() {
+		t.Error("new proof should not be complete")
+	}
+	if pm.GoalCount() != 1 {
+		t.Errorf("expected 1 goal, got %d", pm.GoalCount())
+	}
+}
+
+func TestProofMode_ApplyTactic(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	// Goal: (A : Type) -> A
+	goalTy := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}}
+
+	pm := NewProofMode(goalTy, checker)
+
+	// Apply intro
+	msg, err := pm.ApplyTactic("intro", []string{"A"})
+	if err != nil {
+		t.Fatalf("ApplyTactic intro failed: %v", err)
+	}
+	if msg == "" {
+		t.Error("expected non-empty message")
+	}
+}
+
+func TestProofMode_Undo(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	goalTy := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
+
+	pm := NewProofMode(goalTy, checker)
+
+	// Nothing to undo initially
+	if pm.Undo() {
+		t.Error("should not be able to undo with no history")
+	}
+
+	// Apply intro then undo
+	pm.ApplyTactic("intro", []string{"A"})
+	if !pm.Undo() {
+		t.Error("should be able to undo after tactic")
+	}
+}
+
+func TestProofMode_Extract(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	// Goal: Id Type₁ Type Type
+	goalTy := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	pm := NewProofMode(goalTy, checker)
+
+	// Incomplete proof - should fail
+	_, err := pm.Extract()
+	if err == nil {
+		t.Error("extract should fail for incomplete proof")
+	}
+
+	// Complete with reflexivity
+	_, err = pm.ApplyTactic("reflexivity", nil)
+	if err != nil {
+		t.Fatalf("reflexivity failed: %v", err)
+	}
+
+	// Now extract should succeed
+	term, err := pm.Extract()
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
+	if term == nil {
+		t.Error("extracted term should not be nil")
+	}
+}
+
+func TestProofMode_TypeCheck(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	goalTy := ast.Id{A: ast.Sort{U: 1}, X: ast.Sort{U: 0}, Y: ast.Sort{U: 0}}
+
+	pm := NewProofMode(goalTy, checker)
+
+	// Complete the proof
+	pm.ApplyTactic("reflexivity", nil)
+
+	// Type check should succeed
+	if err := pm.TypeCheck(); err != nil {
+		t.Errorf("TypeCheck failed: %v", err)
+	}
+}
+
+func TestProofMode_parseTactic(t *testing.T) {
+	checker := check.NewCheckerWithStdlib()
+	pm := NewProofMode(ast.Sort{U: 0}, checker)
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{"intro", nil, false},
+		{"intro", []string{"x"}, false},
+		{"intros", nil, false},
+		{"exact", []string{"Type"}, false},
+		{"exact", nil, true}, // Missing arg
+		{"assumption", nil, false},
+		{"reflexivity", nil, false},
+		{"refl", nil, false},
+		{"split", nil, false},
+		{"left", nil, false},
+		{"right", nil, false},
+		{"destruct", []string{"h"}, false},
+		{"destruct", nil, true}, // Missing arg
+		{"induction", []string{"n"}, false},
+		{"induction", nil, true}, // Missing arg
+		{"cases", []string{"n"}, false},
+		{"cases", nil, true}, // Missing arg
+		{"constructor", nil, false},
+		{"exists", []string{"zero"}, false},
+		{"exists", nil, true}, // Missing arg
+		{"contradiction", nil, false},
+		{"rewrite", []string{"h"}, false},
+		{"rewrite", nil, true}, // Missing arg
+		{"simpl", nil, false},
+		{"trivial", nil, false},
+		{"auto", nil, false},
+		{"apply", []string{"(Var 0)"}, false},
+		{"apply", nil, true}, // Missing arg
+		{"nonexistent", nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := pm.parseTactic(tt.name, tt.args)
+			if tt.wantErr && err == nil {
+				t.Errorf("parseTactic(%s, %v) expected error", tt.name, tt.args)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("parseTactic(%s, %v) unexpected error: %v", tt.name, tt.args, err)
+			}
+		})
 	}
 }
 
