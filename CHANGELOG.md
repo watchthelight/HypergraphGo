@@ -9,7 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Phase 9: Standard Library & Inductive Tactics (M1-M5)
+#### Phase 9: Standard Library & Inductive Tactics (M1-M6)
+
+- **Fuzz tests for script parser** (`tactics/script/fuzz_test.go`)
+  - `FuzzParseString` with valid script seed corpus
+  - `FuzzMalformedScript` with malformed input seed corpus
+  - Tests parser robustness against arbitrary input
+
+- **Fuzz tests in CI** (`.github/workflows/go.yml`)
+  - Parser fuzz tests (10s each): FuzzParseTerm, FuzzMalformedInput
+  - Script parser fuzz tests (10s each): FuzzParseString, FuzzMalformedScript
+  - Hypergraph fuzz tests (10s each): FuzzLoadJSON, FuzzHypergraphOperations
+
+- **Documentation updates** (`docs/getting-started-hottgo.md`)
+  - Interactive proof mode section with full example
+  - Tactic script verification section with .htt format
+  - Expanded tactics table with all Phase 9 tactics
 
 - **Tactic script parser and executor** (`tactics/script/`)
   - `Script` AST with `Theorem`, `TacticCmd` structs (`ast.go`)

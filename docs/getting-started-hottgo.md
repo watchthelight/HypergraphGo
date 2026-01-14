@@ -49,7 +49,8 @@ hottgo
 You'll see:
 ```
 hottgo - HoTT Kernel REPL
-Commands: :eval EXPR, :synth EXPR, :quit
+Commands: :eval EXPR, :synth EXPR, :prove TYPE, :quit
+Type :help for more information
 ```
 
 ### Synthesize Types
@@ -89,9 +90,86 @@ Nat
 Bool
 ```
 
+### Interactive Proof Mode
+
+Use `:prove` to enter proof mode:
+
+```
+> :prove (Pi A Type (Pi x (Var 0) (Var 1)))
+Entering proof mode.
+========================
+Goal: (Pi A Type (Pi x (Var 0) (Var 1)))
+
+proof[1]> intro A
+Applied intro A
+========================
+Hypotheses:
+  A : Type
+
+Goal: (Pi x A A)
+
+proof[1]> intro x
+Applied intro x
+========================
+Hypotheses:
+  A : Type
+  x : A
+
+Goal: A
+
+proof[1]> assumption
+Used assumption x
+No more goals. Type :qed to complete the proof.
+
+proof[0]> :qed
+Proof complete!
+Term: (Lam A (Lam x (Var 0)))
+```
+
+In proof mode:
+- Type tactics directly (e.g., `intro A`, `assumption`)
+- Use `:goal` to see the current goal
+- Use `:goals` to see all remaining goals
+- Use `:undo` to undo the last tactic
+- Use `:abort` to exit without completing
+
 ### Exit
 
 Type `:quit` to exit the REPL.
+
+## Verifying Tactic Scripts
+
+Create a script file `myproofs.htt`:
+
+```
+-- Identity function proof
+Theorem id : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  assumption
+Qed
+
+-- Unit is inhabited
+Theorem unit_proof : Unit
+Proof
+  constructor
+Qed
+```
+
+Verify the script:
+
+```bash
+hottgo --load myproofs.htt
+```
+
+Output:
+```
+✓ id : (Pi A Type (Pi x (Var 0) (Var 1)))
+✓ unit_proof : Unit
+
+2/2 theorems verified.
+```
 
 ## Type Checking a File
 
@@ -299,6 +377,16 @@ func main() {
 | `Split()` | Split Sigma goal into components |
 | `Reflexivity()` | Prove `Id A x x` with `refl` |
 | `Rewrite(eq)` | Rewrite using equality |
+| `Constructor()` | Apply first applicable constructor |
+| `Left()` | Prove Sum goal with left injection |
+| `Right()` | Prove Sum goal with right injection |
+| `Destruct(hyp)` | Case analysis on Sum or Bool |
+| `Induction(hyp)` | Induction on Nat or List |
+| `Cases(hyp)` | Non-recursive case analysis |
+| `Exists(witness)` | Provide witness for Sigma goal |
+| `Contradiction()` | Prove from Empty hypothesis |
+| `Trivial()` | Try reflexivity then assumption |
+| `Auto()` | Automatic proof search |
 
 ### Tactic Combinators
 
