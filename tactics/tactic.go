@@ -1,4 +1,7 @@
-// Package tactics provides Ltac-style proof tactics for HoTT.
+// tactic.go defines the Tactic type and TacticResult.
+//
+// See doc.go for package overview.
+
 package tactics
 
 import (

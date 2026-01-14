@@ -1,5 +1,6 @@
-// Package tactics provides Ltac-style proof tactics for HoTT.
-// This file implements tactic combinators for composing tactics.
+// combinators.go implements tactic combinators: Seq, OrElse, Try, Repeat, etc.
+//
+// See doc.go for package overview.
 
 package tactics
 

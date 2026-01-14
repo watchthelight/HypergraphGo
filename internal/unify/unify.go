@@ -1,11 +1,7 @@
-// Package unify implements unification for type inference and elaboration.
+// unify.go implements the core unification algorithm.
 //
-// The unification algorithm solves constraints of the form `t₁ = t₂` by
-// finding substitutions for metavariables that make the terms equal.
-//
-// This package implements Miller pattern unification, which handles
-// metavariables applied to distinct bound variables (patterns like `?X x y`
-// where x and y are distinct).
+// See doc.go for package overview.
+
 package unify
 
 import (

@@ -1,12 +1,7 @@
-// Package elab provides elaboration from surface syntax to core terms.
+// surface.go defines surface syntax terms (STerm).
 //
-// Surface syntax (STerm) extends raw terms with:
-//   - Implicit arguments: {x : A} -> B, \{x}. t, f {arg}
-//   - Holes: _ (anonymous) or ?name (named metavariables)
-//   - Source spans for error messages
-//
-// The elaborator transforms STerm into ast.Term, solving for implicit
-// arguments and metavariables through unification.
+// See doc.go for package overview.
+
 package elab
 
 // Icity marks whether a binder or argument is implicit or explicit.
