@@ -1,5 +1,6 @@
-// Package tactics provides Ltac-style proof tactics for HoTT.
-// This file provides the Go API for interactive proof construction.
+// prover.go provides the Prover API and fluent proof interface.
+//
+// See doc.go for package overview.
 
 package tactics
 
@@ -12,7 +13,8 @@ import (
 
 // Prover manages an interactive proof session.
 type Prover struct {
-	state *proofstate.ProofState
+	state     *proofstate.ProofState
+	lastError error // Instance-level error for thread-safe fluent API
 }
 
 // NewProver creates a new prover for the given goal type.
@@ -182,18 +184,15 @@ func (p *Prover) Auto_() *Prover {
 	return p
 }
 
-// lastError stores the last error from fluent API methods
-var lastError error
-
 // setError stores an error for later retrieval.
 func (p *Prover) setError(err error) {
-	lastError = err
+	p.lastError = err
 }
 
 // Error returns any error from the last fluent API call.
 func (p *Prover) Error() error {
-	err := lastError
-	lastError = nil
+	err := p.lastError
+	p.lastError = nil
 	return err
 }
 

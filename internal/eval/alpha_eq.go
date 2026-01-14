@@ -241,6 +241,28 @@ func AlphaEq(a, b ast.Term) bool {
 		tb, ok := b.(ast.UABeta)
 		return ok && AlphaEq(ta.Equiv, tb.Equiv) && AlphaEq(ta.Arg, tb.Arg)
 
+	// --- Higher Inductive Types ---
+
+	case ast.HITApp:
+		tb, ok := b.(ast.HITApp)
+		if !ok || ta.HITName != tb.HITName || ta.Ctor != tb.Ctor {
+			return false
+		}
+		if len(ta.Args) != len(tb.Args) || len(ta.IArgs) != len(tb.IArgs) {
+			return false
+		}
+		for i := range ta.Args {
+			if !AlphaEq(ta.Args[i], tb.Args[i]) {
+				return false
+			}
+		}
+		for i := range ta.IArgs {
+			if !AlphaEq(ta.IArgs[i], tb.IArgs[i]) {
+				return false
+			}
+		}
+		return true
+
 	default:
 		return false
 	}

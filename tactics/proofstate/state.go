@@ -1,4 +1,7 @@
-// Package proofstate provides the proof state management for the tactics system.
+// state.go implements ProofState, Goal, and Hypothesis types.
+//
+// See doc.go for package overview.
+
 package proofstate
 
 import (
@@ -124,6 +127,7 @@ func (p *ProofState) SolveGoal(id GoalID, solution ast.Term) error {
 }
 
 // ReplaceGoal replaces a goal with new subgoals.
+// DEPRECATED: Use SolveGoalWithSubgoals instead for proper proof term construction.
 func (p *ProofState) ReplaceGoal(id GoalID, newGoals []Goal) error {
 	for i, g := range p.Goals {
 		if g.ID == id {
@@ -139,6 +143,59 @@ func (p *ProofState) ReplaceGoal(id GoalID, newGoals []Goal) error {
 		}
 	}
 	return fmt.Errorf("goal %d not found", id)
+}
+
+// SolveGoalWithSubgoals solves a goal with a term containing metavariable references
+// to new subgoals. This properly links parent goals to child goals for proof extraction.
+// The termBuilder receives the MetaIDs of the created subgoals and returns the proof term.
+func (p *ProofState) SolveGoalWithSubgoals(id GoalID, subgoalTypes []ast.Term, subgoalHyps [][]Hypothesis, termBuilder func([]elab.MetaID) ast.Term) error {
+	// Find the goal
+	var goalIdx int = -1
+	var goal Goal
+	for i, g := range p.Goals {
+		if g.ID == id {
+			goalIdx = i
+			goal = g
+			break
+		}
+	}
+	if goalIdx == -1 {
+		return fmt.Errorf("goal %d not found", id)
+	}
+
+	// Create subgoals and collect their MetaIDs
+	metaIDs := make([]elab.MetaID, len(subgoalTypes))
+	newGoals := make([]Goal, len(subgoalTypes))
+	for i, ty := range subgoalTypes {
+		metaID := p.Metas.Fresh(ty, nil, elab.NoSpan)
+		metaIDs[i] = metaID
+
+		hyps := goal.Hypotheses
+		if i < len(subgoalHyps) && subgoalHyps[i] != nil {
+			hyps = subgoalHyps[i]
+		}
+
+		newGoals[i] = Goal{
+			ID:         p.nextGoalID,
+			Type:       ty,
+			Hypotheses: hyps,
+			MetaID:     metaID,
+		}
+		p.nextGoalID++
+	}
+
+	// Build the proof term with metavariable references
+	proofTerm := termBuilder(metaIDs)
+
+	// Solve the parent goal's metavariable
+	if err := p.Metas.Solve(goal.MetaID, proofTerm); err != nil {
+		return err
+	}
+
+	// Remove the old goal and add new subgoals
+	p.Goals = append(p.Goals[:goalIdx], append(newGoals, p.Goals[goalIdx+1:]...)...)
+
+	return nil
 }
 
 // Clone creates a deep copy of the proof state.

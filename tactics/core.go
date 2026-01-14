@@ -1,5 +1,6 @@
-// Package tactics provides Ltac-style proof tactics for HoTT.
-// This file implements core tactics for proof construction.
+// core.go implements core tactics: Intro, Apply, Exact, Split, Rewrite, etc.
+//
+// See doc.go for package overview.
 
 package tactics
 
@@ -7,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/watchthelight/HypergraphGo/internal/ast"
+	"github.com/watchthelight/HypergraphGo/internal/elab"
 	"github.com/watchthelight/HypergraphGo/internal/eval"
 	"github.com/watchthelight/HypergraphGo/kernel/subst"
 	"github.com/watchthelight/HypergraphGo/tactics/proofstate"
@@ -47,15 +49,20 @@ func Intro(name string) Tactic {
 			Type: pi.A,
 		}
 
-		// The new goal type is the codomain
-		// (no need to substitute since we're using de Bruijn indices)
-		newGoal := proofstate.Goal{
-			Type:       pi.B,
-			Hypotheses: newHyps,
-		}
-
-		// Replace current goal with new goal
-		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
+		// Solve the goal with Lam{..., Body: Meta{subgoalMetaID}}
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{pi.B},
+			[][]proofstate.Hypothesis{newHyps},
+			func(metaIDs []elab.MetaID) ast.Term {
+				return ast.Lam{
+					Binder: varName,
+					Ann:    pi.A,
+					Body:   ast.Meta{ID: int(metaIDs[0])},
+				}
+			},
+		)
+		if err != nil {
 			return Fail(err)
 		}
 
@@ -234,13 +241,20 @@ func Apply(term ast.Term) Tactic {
 		}
 		// For dependent cases, we trust the user (full unification would be needed)
 
-		// Create subgoal for the argument
-		newGoal := proofstate.Goal{
-			Type:       pi.A,
-			Hypotheses: goal.Hypotheses,
-		}
-
-		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
+		// Solve the goal with App{term, Meta{argMetaID}}
+		// The subgoal will be the argument type
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{pi.A},
+			nil, // Use same hypotheses
+			func(metaIDs []elab.MetaID) ast.Term {
+				return ast.App{
+					T: term,
+					U: ast.Meta{ID: int(metaIDs[0])},
+				}
+			},
+		)
+		if err != nil {
 			return Fail(err)
 		}
 
@@ -326,12 +340,6 @@ func Split() Tactic {
 			return Failf("goal is not a Sigma type, got %T", goalTy)
 		}
 
-		// Create two subgoals: one for fst, one for snd
-		fstGoal := proofstate.Goal{
-			Type:       sigma.A,
-			Hypotheses: goal.Hypotheses,
-		}
-
 		// For snd, we need to extend the context with the first component
 		// This is simplified - proper implementation would handle dependencies
 		sndHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses)+1)
@@ -341,12 +349,19 @@ func Split() Tactic {
 			Type: sigma.A,
 		}
 
-		sndGoal := proofstate.Goal{
-			Type:       sigma.B,
-			Hypotheses: sndHyps,
-		}
-
-		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{fstGoal, sndGoal}); err != nil {
+		// Solve the goal with Pair{Meta{fstMetaID}, Meta{sndMetaID}}
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{sigma.A, sigma.B},
+			[][]proofstate.Hypothesis{nil, sndHyps}, // nil means use parent's hyps
+			func(metaIDs []elab.MetaID) ast.Term {
+				return ast.Pair{
+					Fst: ast.Meta{ID: int(metaIDs[0])},
+					Snd: ast.Meta{ID: int(metaIDs[1])},
+				}
+			},
+		)
+		if err != nil {
 			return Fail(err)
 		}
 
@@ -403,20 +418,43 @@ func Rewrite(hypName string) Tactic {
 			return Failf("hypothesis %s is not an identity type, got %T", hypName, hypTy)
 		}
 
-		// Replace x with y in the goal type
-		newGoalTy := substTerm(goal.Type, id.X, id.Y)
+		// The base case goal type: goal[y↦x] (with x instead of y)
+		// This is what we need to prove for the reflexivity case
+		baseGoalTy := substTerm(goal.Type, id.Y, id.X)
 
-		// Create new goal
-		newGoal := proofstate.Goal{
-			Type:       newGoalTy,
-			Hypotheses: goal.Hypotheses,
+		// Build the motive: C = λy. λp. goal[x↦y]
+		// C : (y : A) -> Id A x y -> Type
+		// We need to shift goal.Type under two binders and replace x with Var{1}
+		goalShifted := subst.Shift(2, 0, goal.Type)
+		xShifted := subst.Shift(2, 0, id.X)
+		motiveBody := substTerm(goalShifted, xShifted, ast.Var{Ix: 1})
+		motive := ast.Lam{
+			Binder: "y",
+			Ann:    id.A,
+			Body: ast.Lam{
+				Binder: "p",
+				Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: subst.Shift(1, 0, id.X), Y: ast.Var{Ix: 0}},
+				Body:   motiveBody,
+			},
 		}
 
-		// The proof will use J to transport
-		// Build: J A (λy p. goal[x↦y]) proof x y h
-		_ = hypIdx // Will be used in full implementation
-
-		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
+		// Solve with J A C (Meta for base case) x y h
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{baseGoalTy},
+			nil, // Use same hypotheses
+			func(metaIDs []elab.MetaID) ast.Term {
+				return ast.J{
+					A: id.A,
+					C: motive,
+					D: ast.Meta{ID: int(metaIDs[0])}, // Base case proof
+					X: id.X,
+					Y: id.Y,
+					P: ast.Var{Ix: hypIdx}, // The hypothesis
+				}
+			},
+		)
+		if err != nil {
 			return Fail(err)
 		}
 
@@ -425,6 +463,7 @@ func Rewrite(hypName string) Tactic {
 }
 
 // RewriteRev uses h : Id A x y to rewrite y to x (reverse direction).
+// This requires symmetry (sym h) to reverse the equality direction.
 func RewriteRev(hypName string) Tactic {
 	return func(state *proofstate.ProofState) TacticResult {
 		goal := state.CurrentGoal()
@@ -432,7 +471,7 @@ func RewriteRev(hypName string) Tactic {
 			return Failf("no current goal")
 		}
 
-		hyp, _, ok := goal.LookupHypothesis(hypName)
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
 		if !ok {
 			return Failf("hypothesis %s not found", hypName)
 		}
@@ -444,15 +483,60 @@ func RewriteRev(hypName string) Tactic {
 			return Failf("hypothesis %s is not an identity type", hypName)
 		}
 
-		// Replace y with x in the goal type (reverse direction)
-		newGoalTy := substTerm(goal.Type, id.Y, id.X)
+		// The base case goal type: goal[x↦y] (with y instead of x)
+		baseGoalTy := substTerm(goal.Type, id.X, id.Y)
 
-		newGoal := proofstate.Goal{
-			Type:       newGoalTy,
-			Hypotheses: goal.Hypotheses,
+		// Build the motive for reverse direction: C = λx. λp. goal[y↦x]
+		// C : (x : A) -> Id A x y -> Type
+		goalShifted := subst.Shift(2, 0, goal.Type)
+		yShifted := subst.Shift(2, 0, id.Y)
+		motiveBody := substTerm(goalShifted, yShifted, ast.Var{Ix: 1})
+		motive := ast.Lam{
+			Binder: "x",
+			Ann:    id.A,
+			Body: ast.Lam{
+				Binder: "p",
+				Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: ast.Var{Ix: 0}, Y: subst.Shift(1, 0, id.Y)},
+				Body:   motiveBody,
+			},
 		}
 
-		if err := state.ReplaceGoal(goal.ID, []proofstate.Goal{newGoal}); err != nil {
+		// Solve with J A C (Meta for base case) y x (sym h)
+		// For reverse rewriting, we use J on the reversed path
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{baseGoalTy},
+			nil,
+			func(metaIDs []elab.MetaID) ast.Term {
+				// Build symmetry: J A (λz.λ_. Id A z x) refl y x h
+				symMotive := ast.Lam{
+					Binder: "z",
+					Ann:    id.A,
+					Body: ast.Lam{
+						Binder: "_",
+						Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: subst.Shift(1, 0, id.X), Y: ast.Var{Ix: 0}},
+						Body:   ast.Id{A: subst.Shift(2, 0, id.A), X: ast.Var{Ix: 1}, Y: subst.Shift(2, 0, id.X)},
+					},
+				}
+				symProof := ast.J{
+					A: id.A,
+					C: symMotive,
+					D: ast.Refl{A: id.A, X: id.X},
+					X: id.X,
+					Y: id.Y,
+					P: ast.Var{Ix: hypIdx},
+				}
+				return ast.J{
+					A: id.A,
+					C: motive,
+					D: ast.Meta{ID: int(metaIDs[0])},
+					X: id.Y,
+					Y: id.X,
+					P: symProof,
+				}
+			},
+		)
+		if err != nil {
 			return Fail(err)
 		}
 
