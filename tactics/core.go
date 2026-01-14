@@ -634,3 +634,301 @@ func Auto() Tactic {
 		)),
 	)
 }
+
+// Contradiction solves any goal using a hypothesis of type Empty.
+// For a goal G with hypothesis h : Empty, produces emptyElim (λ_. G) h.
+func Contradiction() Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look for a hypothesis of type Empty
+		for i := len(goal.Hypotheses) - 1; i >= 0; i-- {
+			hyp := goal.Hypotheses[i]
+			hypTy := eval.EvalNBE(hyp.Type)
+
+			// Check if the hypothesis type is Empty
+			if g, ok := hypTy.(ast.Global); ok && g.Name == "Empty" {
+				// Found an Empty hypothesis
+				// Build: emptyElim (λ_. G) h
+				ix := len(goal.Hypotheses) - 1 - i
+				hypVar := ast.Var{Ix: ix}
+
+				// The motive is λ_. G (a function ignoring its Empty argument)
+				// But we need to shift G under the lambda binder
+				shiftedGoal := subst.Shift(1, 0, goal.Type)
+				motive := ast.Lam{
+					Binder: "_",
+					Ann:    ast.Global{Name: "Empty"},
+					Body:   shiftedGoal,
+				}
+
+				// Build emptyElim P h
+				// emptyElim : (P : Empty → Type) → (e : Empty) → P e
+				proofTerm := ast.App{
+					T: ast.App{
+						T: ast.Global{Name: "emptyElim"},
+						U: motive,
+					},
+					U: hypVar,
+				}
+
+				if err := state.SolveGoal(goal.ID, proofTerm); err != nil {
+					return Fail(err)
+				}
+
+				return SuccessMsg(state, fmt.Sprintf("contradiction from %s : Empty", hyp.Name))
+			}
+		}
+
+		return Failf("no hypothesis of type Empty found")
+	}
+}
+
+// extractSumArgs extracts A and B from a Sum A B type.
+// Returns (A, B, true) if the type is Sum A B, (nil, nil, false) otherwise.
+func extractSumArgs(ty ast.Term) (ast.Term, ast.Term, bool) {
+	// Sum A B is represented as App{App{Global{Sum}, A}, B}
+	app1, ok := ty.(ast.App)
+	if !ok {
+		return nil, nil, false
+	}
+	app2, ok := app1.T.(ast.App)
+	if !ok {
+		return nil, nil, false
+	}
+	sum, ok := app2.T.(ast.Global)
+	if !ok || sum.Name != "Sum" {
+		return nil, nil, false
+	}
+	return app2.U, app1.U, true
+}
+
+// Left proves a Sum A B goal by providing a proof of A.
+// For goal Sum A B, creates subgoal A and uses inl A B to construct the proof.
+func Left() Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		goalTy := eval.EvalNBE(goal.Type)
+
+		// Extract A and B from Sum A B
+		a, b, ok := extractSumArgs(goalTy)
+		if !ok {
+			return Failf("goal is not a Sum type, got %v", goalTy)
+		}
+
+		// Solve the goal with inl A B ?meta
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{a}, // Subgoal type is A
+			nil,           // Use same hypotheses
+			func(metaIDs []elab.MetaID) ast.Term {
+				// Build: inl A B ?meta
+				return ast.MkApps(
+					ast.Global{Name: "inl"},
+					a,
+					b,
+					ast.Meta{ID: int(metaIDs[0])},
+				)
+			},
+		)
+		if err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, "using left injection (inl)")
+	}
+}
+
+// Right proves a Sum A B goal by providing a proof of B.
+// For goal Sum A B, creates subgoal B and uses inr A B to construct the proof.
+func Right() Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		goalTy := eval.EvalNBE(goal.Type)
+
+		// Extract A and B from Sum A B
+		a, b, ok := extractSumArgs(goalTy)
+		if !ok {
+			return Failf("goal is not a Sum type, got %v", goalTy)
+		}
+
+		// Solve the goal with inr A B ?meta
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{b}, // Subgoal type is B
+			nil,           // Use same hypotheses
+			func(metaIDs []elab.MetaID) ast.Term {
+				// Build: inr A B ?meta
+				return ast.MkApps(
+					ast.Global{Name: "inr"},
+					a,
+					b,
+					ast.Meta{ID: int(metaIDs[0])},
+				)
+			},
+		)
+		if err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, "using right injection (inr)")
+	}
+}
+
+// Destruct performs case analysis on a hypothesis.
+// For h : Sum A B, creates two subgoals (one for inl, one for inr).
+// For h : Bool, creates two subgoals (one for true, one for false).
+func Destruct(hypName string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Try to destruct based on the type
+		switch {
+		case isSumType(hypTy):
+			return destructSum(state, goal, *hyp, hypIdx, hypTy)
+		case isBoolType(hypTy):
+			return destructBool(state, goal, *hyp, hypIdx)
+		default:
+			return Failf("cannot destruct hypothesis %s of type %v", hypName, hypTy)
+		}
+	}
+}
+
+// isSumType checks if a type is Sum A B.
+func isSumType(ty ast.Term) bool {
+	_, _, ok := extractSumArgs(ty)
+	return ok
+}
+
+// isBoolType checks if a type is Bool.
+func isBoolType(ty ast.Term) bool {
+	g, ok := ty.(ast.Global)
+	return ok && g.Name == "Bool"
+}
+
+// destructSum performs case analysis on a Sum hypothesis.
+// For h : Sum A B, creates two subgoals:
+// - Goal[a/h] for the inl case (with a : A)
+// - Goal[b/h] for the inr case (with b : B)
+func destructSum(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int, hypTy ast.Term) TacticResult {
+	a, b, _ := extractSumArgs(hypTy)
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+
+	// Build new hypotheses for each branch
+	// For inl: replace h : Sum A B with a : A
+	// For inr: replace h : Sum A B with b : B
+	inlHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses))
+	copy(inlHyps, goal.Hypotheses)
+	inlHyps[hypIdx] = proofstate.Hypothesis{Name: "a_" + hyp.Name, Type: a}
+
+	inrHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses))
+	copy(inrHyps, goal.Hypotheses)
+	inrHyps[hypIdx] = proofstate.Hypothesis{Name: "b_" + hyp.Name, Type: b}
+
+	// Build the proof term:
+	// sumElim A B (λs. G) (λa. ?goal1) (λb. ?goal2) h
+	// where G is the goal type with the hypothesis
+
+	// The motive is λs. G where s is the Sum value
+	// Since h is at position hypVarIdx, we need to shift G under the lambda
+	// and replace the variable at hypVarIdx with Var{0}
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+
+	// Replace Var{hypVarIdx+1} with Var{0} in shiftedGoal
+	// (The shift moved h from hypVarIdx to hypVarIdx+1)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, goal.Type}, // Both branches have the same goal type
+		[][]proofstate.Hypothesis{inlHyps, inrHyps},
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: sumElim A B motive (λa. ?goal1) (λb. ?goal2) h
+			inlCase := ast.Lam{
+				Binder: "a_" + hyp.Name,
+				Ann:    a,
+				Body:   ast.Meta{ID: int(metaIDs[0])},
+			}
+			inrCase := ast.Lam{
+				Binder: "b_" + hyp.Name,
+				Ann:    b,
+				Body:   ast.Meta{ID: int(metaIDs[1])},
+			}
+			return ast.MkApps(
+				ast.Global{Name: "sumElim"},
+				a,
+				b,
+				motive,
+				inlCase,
+				inrCase,
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("destructed %s : Sum into two cases", hyp.Name))
+}
+
+// destructBool performs case analysis on a Bool hypothesis.
+// For h : Bool, creates two subgoals:
+// - Goal for the true case
+// - Goal for the false case
+func destructBool(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int) TacticResult {
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+
+	// The motive is λb. G where b is the Bool value
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, goal.Type}, // Both branches have the same goal type
+		nil, // Use same hypotheses for both branches
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: boolElim motive ?true_case ?false_case h
+			return ast.MkApps(
+				ast.Global{Name: "boolElim"},
+				motive,
+				ast.Meta{ID: int(metaIDs[0])}, // true case
+				ast.Meta{ID: int(metaIDs[1])}, // false case
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("destructed %s : Bool into two cases", hyp.Name))
+}

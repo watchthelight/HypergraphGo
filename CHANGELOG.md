@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+#### Phase 9: Standard Library & Inductive Tactics (M1-M2)
+
+- **Standard library types** (`kernel/check/stdlib.go`, `kernel/check/stdlib_test.go`)
+  - `Unit` type with `tt` constructor and `unitElim` eliminator
+  - `Empty` type (no constructors) with `emptyElim` eliminator
+  - `Sum` type with `inl`/`inr` constructors and `sumElim` eliminator
+  - All types use `DeclareInductive` for proper eliminator generation
+  - `NewGlobalEnvWithStdlib()` and `NewCheckerWithStdlib()` convenience functions
+
+- **Inductive tactics** (`tactics/core.go`)
+  - `Contradiction()` - proves any goal from Empty hypothesis via `emptyElim`
+  - `Left()` - proves Sum goal by providing A witness (uses `inl`)
+  - `Right()` - proves Sum goal by providing B witness (uses `inr`)
+  - `Destruct(hypName)` - case analysis on Sum or Bool hypothesis
+    - For Sum: creates two subgoals with `inl`/`inr` decomposition
+    - For Bool: creates two subgoals for `true`/`false` cases
+
 - **Performance optimization: NbE evaluation caching** (`internal/eval/cache.go`, `internal/eval/nbe_cached.go`)
   - `Cache` struct with memoization for evaluation results
   - Pointer identity-based cache keys for (term, env) pairs

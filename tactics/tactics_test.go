@@ -1585,3 +1585,274 @@ func TestFocusInvalidGoal(t *testing.T) {
 		t.Error("Focus should fail on invalid goal ID")
 	}
 }
+
+// --- Contradiction Tactic Tests ---
+
+func TestContradiction(t *testing.T) {
+	// Goal: Nat with hypothesis h : Empty
+	// This should be solvable via contradiction
+	hyps := []proofstate.Hypothesis{
+		{Name: "h", Type: ast.Global{Name: "Empty"}},
+	}
+	goalType := ast.Global{Name: "Nat"}
+	state := proofstate.NewProofState(goalType, hyps)
+
+	result := Contradiction()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Contradiction failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete after contradiction")
+	}
+}
+
+func TestContradictionWithMultipleHypotheses(t *testing.T) {
+	// Goal: Type with multiple hypotheses including Empty
+	hyps := []proofstate.Hypothesis{
+		{Name: "A", Type: ast.Sort{U: 0}},
+		{Name: "x", Type: ast.Var{Ix: 0}},
+		{Name: "empty", Type: ast.Global{Name: "Empty"}},
+	}
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, hyps)
+
+	result := Contradiction()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Contradiction failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete")
+	}
+}
+
+func TestContradictionNoEmpty(t *testing.T) {
+	// Goal: Type with no Empty hypothesis
+	hyps := []proofstate.Hypothesis{
+		{Name: "A", Type: ast.Sort{U: 0}},
+		{Name: "x", Type: ast.Var{Ix: 0}},
+	}
+	goalType := ast.Sort{U: 0}
+	state := proofstate.NewProofState(goalType, hyps)
+
+	result := Contradiction()(state)
+	if result.IsSuccess() {
+		t.Error("Contradiction should fail when no Empty hypothesis exists")
+	}
+}
+
+func TestContradictionNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Contradiction()(state)
+	if result.IsSuccess() {
+		t.Error("Contradiction should fail with no goal")
+	}
+}
+
+// --- Left/Right Tactic Tests ---
+
+func TestLeftTactic(t *testing.T) {
+	// Goal: Sum Nat Bool with hypothesis x : Nat
+	// Using Left should create subgoal Nat
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: nat},
+	}
+	state := proofstate.NewProofState(sumType, hyps)
+
+	result := Left()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Left failed: %v", result.Err)
+	}
+
+	// Should have a subgoal of type Nat
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("expected a subgoal after Left")
+	}
+}
+
+func TestRightTactic(t *testing.T) {
+	// Goal: Sum Nat Bool with hypothesis b : Bool
+	// Using Right should create subgoal Bool
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "b", Type: bool_},
+	}
+	state := proofstate.NewProofState(sumType, hyps)
+
+	result := Right()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Right failed: %v", result.Err)
+	}
+
+	// Should have a subgoal of type Bool
+	goal := state.CurrentGoal()
+	if goal == nil {
+		t.Fatal("expected a subgoal after Right")
+	}
+}
+
+func TestLeftWithAssumption(t *testing.T) {
+	// Goal: Sum Nat Bool with hypothesis x : Nat
+	// Left followed by Assumption should complete the proof
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: nat},
+	}
+	state := proofstate.NewProofState(sumType, hyps)
+
+	result := Seq(Left(), Assumption())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Left;Assumption failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete")
+	}
+}
+
+func TestRightWithAssumption(t *testing.T) {
+	// Goal: Sum Nat Bool with hypothesis b : Bool
+	// Right followed by Assumption should complete the proof
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "b", Type: bool_},
+	}
+	state := proofstate.NewProofState(sumType, hyps)
+
+	result := Seq(Right(), Assumption())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Right;Assumption failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete")
+	}
+}
+
+func TestLeftNotSum(t *testing.T) {
+	// Left on non-Sum goal should fail
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Left()(state)
+	if result.IsSuccess() {
+		t.Error("Left should fail on non-Sum goal")
+	}
+}
+
+func TestRightNotSum(t *testing.T) {
+	// Right on non-Sum goal should fail
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Right()(state)
+	if result.IsSuccess() {
+		t.Error("Right should fail on non-Sum goal")
+	}
+}
+
+func TestLeftNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Left()(state)
+	if result.IsSuccess() {
+		t.Error("Left should fail with no goal")
+	}
+}
+
+func TestRightNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Right()(state)
+	if result.IsSuccess() {
+		t.Error("Right should fail with no goal")
+	}
+}
+
+// --- Destruct Tactic Tests ---
+
+func TestDestructSum(t *testing.T) {
+	// Goal: Nat with hypothesis s : Sum Nat Bool
+	// Destruct should create two subgoals
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "s", Type: sumType},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Destruct("s")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Destruct s failed: %v", result.Err)
+	}
+
+	// Should have 2 goals (one for inl, one for inr)
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Destruct, got %d", state.GoalCount())
+	}
+}
+
+func TestDestructBool(t *testing.T) {
+	// Goal: Nat with hypothesis b : Bool
+	// Destruct should create two subgoals
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "b", Type: bool_},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Destruct("b")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Destruct b failed: %v", result.Err)
+	}
+
+	// Should have 2 goals (one for true, one for false)
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Destruct, got %d", state.GoalCount())
+	}
+}
+
+func TestDestructNotFound(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Destruct("nonexistent")(state)
+	if result.IsSuccess() {
+		t.Error("Destruct should fail when hypothesis not found")
+	}
+}
+
+func TestDestructUnsupportedType(t *testing.T) {
+	// Try to destruct a Nat - should fail
+	hyps := []proofstate.Hypothesis{
+		{Name: "n", Type: ast.Global{Name: "Nat"}},
+	}
+	state := proofstate.NewProofState(ast.Sort{U: 0}, hyps)
+
+	result := Destruct("n")(state)
+	if result.IsSuccess() {
+		t.Error("Destruct should fail on unsupported type")
+	}
+}
+
+func TestDestructNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Destruct("x")(state)
+	if result.IsSuccess() {
+		t.Error("Destruct should fail with no goal")
+	}
+}
