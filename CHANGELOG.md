@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Performance optimization: NbE evaluation caching** (`internal/eval/cache.go`, `internal/eval/nbe_cached.go`)
+  - `Cache` struct with memoization for evaluation results
+  - Pointer identity-based cache keys for (term, env) pairs
+  - Size-limited cache with configurable max entries (default 10,000)
+  - Thread-safe with read/write mutex
+  - `EvalCached`, `ApplyCached`, `NormalizeWithCache` convenience functions
+  - `WithCache[T]` generic helper for scoped cache usage
+
+- **Performance optimization: Cached conversion checking** (`internal/core/conv_cached.go`)
+  - `ConvCached` - single conversion with fresh cache
+  - `ConvContext` - reusable context for batch conversions
+  - `ConvAllCached` - check multiple term pairs with shared cache
+
+- **Performance benchmarks** (`internal/core/perf_bench_test.go`)
+  - Church numeral benchmarks (depth 10, 50, 100)
+  - Repeated conversion benchmarks
+  - Shared subterm benchmarks
+  - Alpha-equality benchmarks
+  - Cached vs non-cached comparison benchmarks
+
+- **Performance documentation** (`docs/perf.md`)
+  - Benchmark results and analysis
+  - API reference for caching functions
+  - Guidelines for when caching provides benefit
+
+- **Package documentation** (doc.go files for previously undocumented packages)
+  - `internal/elab/doc.go` - elaboration pipeline overview
+  - `internal/unify/doc.go` - Miller pattern unification
+  - `internal/util/doc.go` - generic Set type
+  - `internal/version/doc.go` - build information
+  - `tactics/doc.go` - Ltac-style proof tactics
+  - `tactics/proofstate/doc.go` - proof state management
+
+- **Getting started tutorial** (`docs/getting-started-hottgo.md`)
+  - Installation via package managers and from source
+  - REPL usage with :eval and :synth commands
+  - Type checking files from CLI
+  - S-expression syntax reference
+  - Go library usage examples
+  - Proof tactics tutorial with code samples
+  - Error interpretation guide
+
+- **Contributor guardrails** (`CONTRIBUTING.md`)
+  - Architecture & Boundaries section with import rules table
+  - Where to add new features guide (tactics, syntax, types)
+  - Testing Standards section with commands for unit, race, fuzz, and benchmark tests
+  - Table-driven test example
+
+- **Import boundary CI check** (`scripts/check-imports.sh`, `.github/workflows/go.yml`)
+  - Automated verification of kernel import restrictions
+  - Checks that kernel packages don't import parser or tactics
+  - Checks that internal packages don't import cmd or tactics
+  - Integrated into CI pipeline
+
+- **Fuzz tests for robustness** (`internal/parser/fuzz_test.go`, `hypergraph/fuzz_test.go`)
+  - `FuzzParseTerm`, `FuzzParseMultiple`, `FuzzMalformedInput` for S-expression parser
+  - `FuzzLoadJSON`, `FuzzLoadJSONMalformed`, `FuzzJSONRoundTrip`, `FuzzHypergraphOperations`, `FuzzJSONSpecialCharacters` for hypergraph JSON loader
+  - Comprehensive seed corpora including edge cases, Unicode, control characters, deeply nested structures
+
+- **Property-based tests** (`internal/parser/property_test.go`, `hypergraph/property_test.go`)
+  - Parse/format round-trip tests for HoTT terms (basic, cubical)
+  - Format idempotency tests
+  - Parse stability tests for whitespace and comment variations
+  - Hypergraph add/remove vertex/edge invariants
+  - Copy independence tests
+  - JSON round-trip preservation tests
+  - Edge membership and degree consistency tests
+
+- **Extended unify package tests** (`internal/unify/unify_test.go`)
+  - Cubical term zonking tests (Partial, System, Comp, HComp, Fill, Glue, GlueElem, Unglue, UA, UABeta, HITApp)
+  - Occurs check tests for cubical terms
+  - hasMeta tests for cubical terms
+  - Coverage improved from 75.5% to 90.3%
+
+### Fixed
+- **Tactics proof term construction** (`tactics/core.go`, `tactics/proofstate/state.go`)
+  - `Intro`, `Apply`, `Split`, `Rewrite` now properly construct proof terms via metavariable linking
+  - Added `SolveGoalWithSubgoals` to link parent goals to child metavariables
+  - `ExtractTerm()` now correctly assembles proof terms from tactic applications
+  - `Rewrite` and `RewriteRev` now construct proper J terms for transport
+
+- **HITApp alpha-equality** (`internal/eval/alpha_eq.go`)
+  - Added missing `HITApp` case to `AlphaEq` function
+  - Compares HITName, Ctor, Args, and IArgs for structural equality
+
+- **Thread-safe fluent API** (`tactics/prover.go`)
+  - Moved `lastError` from package-level global to instance field in `Prover` struct
+  - Multiple concurrent provers no longer share error state
+
 ## [1.8.2] - 2026-01-09
 
 ### Fixed
