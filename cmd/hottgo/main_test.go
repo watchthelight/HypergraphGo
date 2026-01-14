@@ -866,3 +866,105 @@ func TestVersionFlag(t *testing.T) {
 	// This is a basic sanity check that the version package is available
 	// and the code structure supports --version
 }
+
+// --- Script loading tests ---
+
+func TestDoLoad_Success(t *testing.T) {
+	// Create a temporary script file
+	tmpFile, err := os.CreateTemp("", "test*.htt")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	script := `
+Theorem id : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  exact (Var 0)
+Qed
+`
+	if _, err := tmpFile.WriteString(script); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// Test doLoad
+	if err := doLoad(tmpFile.Name()); err != nil {
+		t.Errorf("doLoad failed: %v", err)
+	}
+}
+
+func TestDoLoad_EmptyScript(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test*.htt")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write only a comment
+	if _, err := tmpFile.WriteString("-- Just a comment\n"); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// Should not error on empty script
+	if err := doLoad(tmpFile.Name()); err != nil {
+		t.Errorf("doLoad should not fail on empty script: %v", err)
+	}
+}
+
+func TestDoLoad_FailingTheorem(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test*.htt")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	script := `
+Theorem bad : (Pi A Type (Var 0))
+Proof
+  intro A
+  assumption
+Qed
+`
+	if _, err := tmpFile.WriteString(script); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// Should error when theorem fails
+	if err := doLoad(tmpFile.Name()); err == nil {
+		t.Error("doLoad should fail when theorem fails")
+	}
+}
+
+func TestDoLoad_ParseError(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test*.htt")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	script := `
+Theorem bad Type
+Proof
+Qed
+`
+	if _, err := tmpFile.WriteString(script); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// Should error on parse failure
+	if err := doLoad(tmpFile.Name()); err == nil {
+		t.Error("doLoad should fail on parse error")
+	}
+}
+
+func TestDoLoad_FileNotFound(t *testing.T) {
+	if err := doLoad("/nonexistent/file.htt"); err == nil {
+		t.Error("doLoad should fail on missing file")
+	}
+}

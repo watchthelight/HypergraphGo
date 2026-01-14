@@ -9,7 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Phase 9: Standard Library & Inductive Tactics (M1-M4)
+#### Phase 9: Standard Library & Inductive Tactics (M1-M5)
+
+- **Tactic script parser and executor** (`tactics/script/`)
+  - `Script` AST with `Theorem`, `TacticCmd` structs (`ast.go`)
+  - `Parse(io.Reader)` and `ParseString(string)` for `.htt` files (`parser.go`)
+  - Script format: `Theorem name : TYPE`, `Proof`, tactic lines, `Qed`
+  - Comments with `--` prefix supported
+  - Line number tracking for error reporting
+  - `Execute(script, checker)` runs theorems and returns results (`exec.go`)
+  - Comprehensive tests with 93%+ coverage (`parser_test.go`, `exec_test.go`)
+
+- **CLI script loading** (`cmd/hottgo/main.go`)
+  - `--load FILE` flag to verify tactic script files
+  - Reports ✓/✗ for each theorem with type and error details
+  - Summary of verified/total theorems
+  - Exit code 1 if any theorem fails
 
 - **Interactive proof mode in REPL** (`cmd/hottgo/proofmode.go`, `cmd/hottgo/main.go`)
   - `:prove TYPE` - enter proof mode with goal TYPE

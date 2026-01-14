@@ -6,6 +6,7 @@
 //	hottgo --check FILE        Type-check a file of S-expression terms
 //	hottgo --eval EXPR         Evaluate an S-expression term
 //	hottgo --synth EXPR        Synthesize the type of an S-expression term
+//	hottgo --load FILE         Load and verify a tactic script (.htt)
 //	hottgo                     Start interactive REPL
 //
 // REPL Commands:
@@ -36,6 +37,7 @@ import (
 	"github.com/watchthelight/HypergraphGo/internal/parser"
 	"github.com/watchthelight/HypergraphGo/internal/version"
 	"github.com/watchthelight/HypergraphGo/kernel/check"
+	"github.com/watchthelight/HypergraphGo/tactics/script"
 )
 
 func main() {
@@ -43,6 +45,7 @@ func main() {
 	checkFile := flag.String("check", "", "file to type-check")
 	evalExpr := flag.String("eval", "", "S-expression term to evaluate")
 	synthExpr := flag.String("synth", "", "S-expression term to synthesize type")
+	loadScript := flag.String("load", "", "tactic script file to load and verify")
 	flag.Parse()
 
 	if *ver {
@@ -68,6 +71,14 @@ func main() {
 
 	if *synthExpr != "" {
 		if err := doSynth(*synthExpr); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if *loadScript != "" {
+		if err := doLoad(*loadScript); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
@@ -129,6 +140,46 @@ func doSynth(expr string) error {
 	}
 
 	fmt.Printf("%s : %s\n", parser.FormatTerm(term), parser.FormatTerm(ty))
+	return nil
+}
+
+func doLoad(filename string) error {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
+	}
+
+	scr, err := script.ParseString(string(data))
+	if err != nil {
+		return fmt.Errorf("parsing script: %w", err)
+	}
+
+	if len(scr.Theorems) == 0 {
+		fmt.Println("No theorems in script.")
+		return nil
+	}
+
+	checker := check.NewCheckerWithStdlib()
+	result := script.Execute(scr, checker)
+
+	// Report results
+	successCount := 0
+	for _, thm := range result.Theorems {
+		if thm.Success {
+			fmt.Printf("✓ %s : %s\n", thm.Name, parser.FormatTerm(thm.Type))
+			successCount++
+		} else {
+			fmt.Printf("✗ %s : %s\n", thm.Name, parser.FormatTerm(thm.Type))
+			fmt.Printf("  Error: %v\n", thm.Error)
+		}
+	}
+
+	fmt.Printf("\n%d/%d theorems verified.\n", successCount, len(result.Theorems))
+
+	if successCount < len(result.Theorems) {
+		return fmt.Errorf("some theorems failed")
+	}
+
 	return nil
 }
 
