@@ -83,3 +83,6 @@ section.json
 # Planning files
 plan*.md
 TODO.txt
+
+# Asset templates
+assets/repository-open-graph-template.png
