@@ -21,6 +21,7 @@ func AddStdlib(env *GlobalEnv) {
 	addUnit(env)
 	addEmpty(env)
 	addSum(env)
+	addList(env)
 }
 
 // NewGlobalEnvWithStdlib creates a global environment with primitives and stdlib.
@@ -166,5 +167,69 @@ func addSum(env *GlobalEnv) {
 	)
 	if err != nil {
 		panic("failed to declare Sum type: " + err.Error())
+	}
+}
+
+// addList adds the List (polymorphic list) type:
+//
+//	List : Type → Type
+//	nil : (A : Type) → List A
+//	cons : (A : Type) → A → List A → List A
+//	listElim : (A : Type) → (P : List A → Type)
+//	           → P nil
+//	           → ((x : A) → (xs : List A) → P xs → P (cons A x xs))
+//	           → (l : List A) → P l
+//
+// Computation rules:
+//   - listElim A P pn pc nil → pn
+//   - listElim A P pn pc (cons A x xs) → pc x xs (listElim A P pn pc xs)
+func addList(env *GlobalEnv) {
+	type0 := ast.Sort{U: 0}
+	listGlobal := ast.Global{Name: "List"}
+
+	// List : Type → Type
+	listType := ast.Pi{
+		Binder: "A",
+		A:      type0,
+		B:      type0,
+	}
+
+	// nil : (A : Type) → List A
+	// Under [A], List A = App{List, Var{0}}
+	nilType := ast.Pi{
+		Binder: "A",
+		A:      type0,
+		B:      ast.App{T: listGlobal, U: ast.Var{Ix: 0}},
+	}
+
+	// cons : (A : Type) → A → List A → List A
+	// Under [A], A is Var{0}
+	// Under [A, x], A is Var{1}
+	// Under [A, x, xs], A is Var{2}
+	consType := ast.Pi{
+		Binder: "A",
+		A:      type0,
+		B: ast.Pi{
+			Binder: "_",
+			A:      ast.Var{Ix: 0}, // A under [A]
+			B: ast.Pi{
+				Binder: "_",
+				A:      ast.App{T: listGlobal, U: ast.Var{Ix: 1}}, // List A under [A, x]
+				B:      ast.App{T: listGlobal, U: ast.Var{Ix: 2}}, // List A under [A, x, xs]
+			},
+		},
+	}
+
+	err := env.DeclareInductive(
+		"List",
+		listType,
+		[]Constructor{
+			{Name: "nil", Type: nilType},
+			{Name: "cons", Type: consType},
+		},
+		"listElim",
+	)
+	if err != nil {
+		panic("failed to declare List type: " + err.Error())
 	}
 }

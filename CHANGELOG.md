@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Phase 9: Standard Library & Inductive Tactics (M1-M2)
+#### Phase 9: Standard Library & Inductive Tactics (M1-M3)
 
 - **Standard library types** (`kernel/check/stdlib.go`, `kernel/check/stdlib_test.go`)
   - `Unit` type with `tt` constructor and `unitElim` eliminator
   - `Empty` type (no constructors) with `emptyElim` eliminator
   - `Sum` type with `inl`/`inr` constructors and `sumElim` eliminator
+  - `List` type with `nil`/`cons` constructors and `listElim` eliminator
   - All types use `DeclareInductive` for proper eliminator generation
   - `NewGlobalEnvWithStdlib()` and `NewCheckerWithStdlib()` convenience functions
 
@@ -25,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Destruct(hypName)` - case analysis on Sum or Bool hypothesis
     - For Sum: creates two subgoals with `inl`/`inr` decomposition
     - For Bool: creates two subgoals for `true`/`false` cases
+  - `Induction(hypName)` - induction on Nat or List hypothesis
+    - For Nat: creates base case (zero) and step case (n, IH)
+    - For List: creates nil case and cons case (x, xs, IH)
+  - `Cases(hypName)` - non-recursive case analysis (no IH)
+    - Works on Nat, List, Bool, and Sum
+  - `Constructor()` - applies first applicable constructor
+    - For Unit: applies `tt` (completes goal)
+    - For Sum: applies `inl` (Left)
+    - For List: applies `nil` (completes with empty list)
+  - `Exists(witness)` - provides witness for Sigma goal
+    - For Σ(x:A).B with witness w, creates subgoal B[w/x]
 
 - **Performance optimization: NbE evaluation caching** (`internal/eval/cache.go`, `internal/eval/nbe_cached.go`)
   - `Cache` struct with memoization for evaluation results

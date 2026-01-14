@@ -155,6 +155,9 @@ func TestNewCheckerWithStdlib(t *testing.T) {
 	if globals.LookupType("Sum") == nil {
 		t.Error("missing Sum type")
 	}
+	if globals.LookupType("List") == nil {
+		t.Error("missing List type")
+	}
 }
 
 // TestSumType verifies the Sum type is correctly defined.
@@ -282,4 +285,123 @@ func TestSumElimComputationInr(t *testing.T) {
 	if g, ok := result.(ast.Global); !ok || g.Name != "zero" {
 		t.Errorf("sumElim ... (inr Nat Bool true) should reduce to zero, got %v", result)
 	}
+}
+
+// TestListType verifies the List type is correctly defined.
+func TestListType(t *testing.T) {
+	checker := NewCheckerWithStdlib()
+
+	// List : Type → Type
+	listTy, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "List"})
+	if err != nil {
+		t.Fatalf("List type synthesis failed: %v", err)
+	}
+	if _, ok := listTy.(ast.Pi); !ok {
+		t.Errorf("List should have Pi type, got %T", listTy)
+	}
+
+	// nil : (A : Type) → List A
+	nilTy, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "nil"})
+	if err != nil {
+		t.Fatalf("nil synthesis failed: %v", err)
+	}
+	if _, ok := nilTy.(ast.Pi); !ok {
+		t.Errorf("nil should have Pi type, got %T", nilTy)
+	}
+
+	// cons : (A : Type) → A → List A → List A
+	consTy, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "cons"})
+	if err != nil {
+		t.Fatalf("cons synthesis failed: %v", err)
+	}
+	if _, ok := consTy.(ast.Pi); !ok {
+		t.Errorf("cons should have Pi type, got %T", consTy)
+	}
+}
+
+// TestListElimType verifies the listElim eliminator has the correct type.
+func TestListElimType(t *testing.T) {
+	checker := NewCheckerWithStdlib()
+
+	// listElim should exist and have a Pi type
+	elimTy, err := checker.Synth(nil, NoSpan(), ast.Global{Name: "listElim"})
+	if err != nil {
+		t.Fatalf("listElim synthesis failed: %v", err)
+	}
+
+	if _, ok := elimTy.(ast.Pi); !ok {
+		t.Errorf("listElim should have Pi type, got %T", elimTy)
+	}
+}
+
+// TestListElimComputationNil verifies the computation rule:
+// listElim A P pn pc (nil A) → pn
+func TestListElimComputationNil(t *testing.T) {
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+
+	// Build nil Nat
+	nilTerm := ast.App{T: ast.Global{Name: "nil"}, U: nat}
+
+	// Build listElim Nat P zero (λx xs ih. zero) (nil Nat)
+	term := ast.MkApps(
+		ast.Global{Name: "listElim"},
+		nat, // A
+		// P : List Nat → Type = λ_. Nat
+		ast.Lam{Binder: "_", Body: nat},
+		// pn : P (nil Nat) = zero
+		zero,
+		// pc : (x : Nat) → (xs : List Nat) → P xs → P (cons Nat x xs) = λx xs ih. zero
+		ast.Lam{Binder: "x", Body: ast.Lam{Binder: "xs", Body: ast.Lam{Binder: "ih", Body: zero}}},
+		// l : List Nat = nil Nat
+		nilTerm,
+	)
+
+	result := eval.EvalNBE(term)
+
+	// Should reduce to zero
+	if g, ok := result.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("listElim ... (nil Nat) should reduce to zero, got %v", result)
+	}
+}
+
+// TestListElimComputationCons verifies the computation rule:
+// listElim A P pn pc (cons A x xs) → pc x xs (listElim A P pn pc xs)
+func TestListElimComputationCons(t *testing.T) {
+	nat := ast.Global{Name: "Nat"}
+	zero := ast.Global{Name: "zero"}
+	succ := ast.Global{Name: "succ"}
+
+	// Build cons Nat zero (nil Nat) = [zero]
+	nilNat := ast.App{T: ast.Global{Name: "nil"}, U: nat}
+	consTerm := ast.MkApps(ast.Global{Name: "cons"}, nat, zero, nilNat)
+
+	// Build listElim that returns length:
+	// pn = zero
+	// pc = λx xs ih. succ ih (increment length)
+	term := ast.MkApps(
+		ast.Global{Name: "listElim"},
+		nat, // A
+		// P : List Nat → Type = λ_. Nat
+		ast.Lam{Binder: "_", Body: nat},
+		// pn : P (nil Nat) = zero
+		zero,
+		// pc : (x : Nat) → (xs : List Nat) → P xs → P (cons Nat x xs) = λx xs ih. succ ih
+		ast.Lam{Binder: "x", Body: ast.Lam{Binder: "xs", Body: ast.Lam{Binder: "ih",
+			Body: ast.App{T: succ, U: ast.Var{Ix: 0}}}}},
+		// l : List Nat = cons Nat zero (nil Nat)
+		consTerm,
+	)
+
+	result := eval.EvalNBE(term)
+
+	// Should reduce to succ zero (length 1)
+	if app, ok := result.(ast.App); ok {
+		if g, gok := app.T.(ast.Global); gok && g.Name == "succ" {
+			if inner, iok := app.U.(ast.Global); iok && inner.Name == "zero" {
+				return // Success: succ zero
+			}
+		}
+	}
+	t.Errorf("listElim ... [zero] should reduce to succ zero, got %v", result)
 }

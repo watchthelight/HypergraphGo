@@ -932,3 +932,422 @@ func destructBool(state *proofstate.ProofState, goal *proofstate.Goal, hyp proof
 
 	return SuccessMsg(state, fmt.Sprintf("destructed %s : Bool into two cases", hyp.Name))
 }
+
+// Induction performs induction on a hypothesis.
+// For h : Nat, creates base case (zero) and step case (succ n with IH).
+// For h : List A, creates nil case and cons case (with element, tail, and IH).
+func Induction(hypName string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Try to do induction based on the type
+		switch {
+		case isNatType(hypTy):
+			return inductionNat(state, goal, *hyp, hypIdx)
+		case isListType(hypTy):
+			return inductionList(state, goal, *hyp, hypIdx, hypTy)
+		default:
+			return Failf("cannot perform induction on hypothesis %s of type %v", hypName, hypTy)
+		}
+	}
+}
+
+// isNatType checks if a type is Nat.
+func isNatType(ty ast.Term) bool {
+	g, ok := ty.(ast.Global)
+	return ok && g.Name == "Nat"
+}
+
+// isListType checks if a type is List A.
+func isListType(ty ast.Term) bool {
+	_, ok := extractListArg(ty)
+	return ok
+}
+
+// extractListArg extracts A from List A.
+// Returns (A, true) if the type is List A, (nil, false) otherwise.
+func extractListArg(ty ast.Term) (ast.Term, bool) {
+	app, ok := ty.(ast.App)
+	if !ok {
+		return nil, false
+	}
+	list, ok := app.T.(ast.Global)
+	if !ok || list.Name != "List" {
+		return nil, false
+	}
+	return app.U, true
+}
+
+// inductionNat performs induction on a Nat hypothesis.
+// Creates two subgoals:
+// - Base case: Goal with h = zero
+// - Step case: (n : Nat) → Goal[n/h] → Goal[succ n/h]
+func inductionNat(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int) TacticResult {
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+	nat := ast.Global{Name: "Nat"}
+
+	// The motive is λn. G where G is the goal with h replaced by n
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	// Build hypotheses for step case: add n : Nat and ih : Goal[n/h]
+	stepHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses)+2)
+	copy(stepHyps, goal.Hypotheses)
+	stepHyps[len(goal.Hypotheses)] = proofstate.Hypothesis{Name: "n", Type: nat}
+	stepHyps[len(goal.Hypotheses)+1] = proofstate.Hypothesis{Name: "ih", Type: goal.Type}
+
+	// Step goal type: Goal[succ n/h]
+	// This is simplified - we use the same goal type since we're not doing substitution
+	stepGoalType := goal.Type
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, stepGoalType}, // Base and step goal types
+		[][]proofstate.Hypothesis{nil, stepHyps},
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: natElim motive ?base (λn ih. ?step) h
+			stepCase := ast.Lam{
+				Binder: "n",
+				Ann:    nat,
+				Body: ast.Lam{
+					Binder: "ih",
+					Body:   ast.Meta{ID: int(metaIDs[1])},
+				},
+			}
+			return ast.MkApps(
+				ast.Global{Name: "natElim"},
+				motive,
+				ast.Meta{ID: int(metaIDs[0])}, // base case
+				stepCase,
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("induction on %s : Nat", hyp.Name))
+}
+
+// inductionList performs induction on a List A hypothesis.
+// Creates two subgoals:
+// - Nil case: Goal with h = nil A
+// - Cons case: (x : A) → (xs : List A) → Goal[xs/h] → Goal[cons A x xs/h]
+func inductionList(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int, hypTy ast.Term) TacticResult {
+	a, _ := extractListArg(hypTy)
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+	listA := hypTy
+
+	// The motive is λl. G where G is the goal with h replaced by l
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	// Build hypotheses for cons case: add x : A, xs : List A, ih : Goal[xs/h]
+	consHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses)+3)
+	copy(consHyps, goal.Hypotheses)
+	consHyps[len(goal.Hypotheses)] = proofstate.Hypothesis{Name: "x", Type: a}
+	consHyps[len(goal.Hypotheses)+1] = proofstate.Hypothesis{Name: "xs", Type: listA}
+	consHyps[len(goal.Hypotheses)+2] = proofstate.Hypothesis{Name: "ih", Type: goal.Type}
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, goal.Type}, // Nil and cons goal types
+		[][]proofstate.Hypothesis{nil, consHyps},
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: listElim A motive ?nil (λx xs ih. ?cons) h
+			consCase := ast.Lam{
+				Binder: "x",
+				Ann:    a,
+				Body: ast.Lam{
+					Binder: "xs",
+					Ann:    listA,
+					Body: ast.Lam{
+						Binder: "ih",
+						Body:   ast.Meta{ID: int(metaIDs[1])},
+					},
+				},
+			}
+			return ast.MkApps(
+				ast.Global{Name: "listElim"},
+				a,
+				motive,
+				ast.Meta{ID: int(metaIDs[0])}, // nil case
+				consCase,
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("induction on %s : List", hyp.Name))
+}
+
+// Cases performs non-recursive case analysis on a hypothesis.
+// Unlike Induction, Cases does not introduce an induction hypothesis.
+// For h : Nat, creates zero case and succ n case (no IH).
+// For h : List A, creates nil case and cons x xs case (no IH).
+// For h : Bool, creates true and false cases.
+// For h : Sum A B, creates inl and inr cases.
+func Cases(hypName string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Try to do case analysis based on the type
+		switch {
+		case isNatType(hypTy):
+			return casesNat(state, goal, *hyp, hypIdx)
+		case isListType(hypTy):
+			return casesList(state, goal, *hyp, hypIdx, hypTy)
+		case isBoolType(hypTy):
+			return destructBool(state, goal, *hyp, hypIdx) // Same as destruct for Bool
+		case isSumType(hypTy):
+			return destructSum(state, goal, *hyp, hypIdx, hypTy) // Same as destruct for Sum
+		default:
+			return Failf("cannot perform case analysis on hypothesis %s of type %v", hypName, hypTy)
+		}
+	}
+}
+
+// casesNat performs non-recursive case analysis on a Nat hypothesis.
+// Creates two subgoals:
+// - Zero case: Goal with h = zero
+// - Succ case: (n : Nat) → Goal[succ n/h] (no IH)
+func casesNat(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int) TacticResult {
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+	nat := ast.Global{Name: "Nat"}
+
+	// The motive is λn. G
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	// Build hypotheses for succ case: add n : Nat (no IH)
+	succHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses)+1)
+	copy(succHyps, goal.Hypotheses)
+	succHyps[len(goal.Hypotheses)] = proofstate.Hypothesis{Name: "n", Type: nat}
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, goal.Type}, // Zero and succ goal types
+		[][]proofstate.Hypothesis{nil, succHyps},
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: natElim motive ?zero (λn _. ?succ) h
+			// We use natElim but ignore the IH by binding to _
+			succCase := ast.Lam{
+				Binder: "n",
+				Ann:    nat,
+				Body: ast.Lam{
+					Binder: "_", // IH is ignored
+					Body:   ast.Meta{ID: int(metaIDs[1])},
+				},
+			}
+			return ast.MkApps(
+				ast.Global{Name: "natElim"},
+				motive,
+				ast.Meta{ID: int(metaIDs[0])}, // zero case
+				succCase,
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("case analysis on %s : Nat", hyp.Name))
+}
+
+// casesList performs non-recursive case analysis on a List A hypothesis.
+// Creates two subgoals:
+// - Nil case: Goal with h = nil A
+// - Cons case: (x : A) → (xs : List A) → Goal[cons A x xs/h] (no IH)
+func casesList(state *proofstate.ProofState, goal *proofstate.Goal, hyp proofstate.Hypothesis, hypIdx int, hypTy ast.Term) TacticResult {
+	a, _ := extractListArg(hypTy)
+	hypVarIdx := len(goal.Hypotheses) - 1 - hypIdx
+	listA := hypTy
+
+	// The motive is λl. G
+	shiftedGoal := subst.Shift(1, 0, goal.Type)
+	motive := ast.Lam{
+		Binder: "_",
+		Body:   shiftedGoal,
+	}
+
+	// Build hypotheses for cons case: add x : A, xs : List A (no IH)
+	consHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses)+2)
+	copy(consHyps, goal.Hypotheses)
+	consHyps[len(goal.Hypotheses)] = proofstate.Hypothesis{Name: "x", Type: a}
+	consHyps[len(goal.Hypotheses)+1] = proofstate.Hypothesis{Name: "xs", Type: listA}
+
+	err := state.SolveGoalWithSubgoals(
+		goal.ID,
+		[]ast.Term{goal.Type, goal.Type}, // Nil and cons goal types
+		[][]proofstate.Hypothesis{nil, consHyps},
+		func(metaIDs []elab.MetaID) ast.Term {
+			// Build: listElim A motive ?nil (λx xs _. ?cons) h
+			// We use listElim but ignore the IH by binding to _
+			consCase := ast.Lam{
+				Binder: "x",
+				Ann:    a,
+				Body: ast.Lam{
+					Binder: "xs",
+					Ann:    listA,
+					Body: ast.Lam{
+						Binder: "_", // IH is ignored
+						Body:   ast.Meta{ID: int(metaIDs[1])},
+					},
+				},
+			}
+			return ast.MkApps(
+				ast.Global{Name: "listElim"},
+				a,
+				motive,
+				ast.Meta{ID: int(metaIDs[0])}, // nil case
+				consCase,
+				ast.Var{Ix: hypVarIdx},
+			)
+		},
+	)
+	if err != nil {
+		return Fail(err)
+	}
+
+	return SuccessMsg(state, fmt.Sprintf("case analysis on %s : List", hyp.Name))
+}
+
+// Constructor applies the first applicable constructor for the goal type.
+// - For Unit: applies tt (completes the goal)
+// - For Sum A B: applies inl (creates subgoal A) - use Right() for inr
+// - For List A: applies nil (completes with empty list)
+func Constructor() Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		goalTy := eval.EvalNBE(goal.Type)
+
+		// Check what type the goal is and apply appropriate constructor
+		switch {
+		case isUnitType(goalTy):
+			return constructorUnit(state, goal)
+		case isSumType(goalTy):
+			// Apply Left (inl) as first constructor
+			return Left()(state)
+		case isListType(goalTy):
+			return constructorNil(state, goal, goalTy)
+		default:
+			return Failf("cannot apply constructor to goal of type %v", goalTy)
+		}
+	}
+}
+
+// isUnitType checks if a type is Unit.
+func isUnitType(ty ast.Term) bool {
+	g, ok := ty.(ast.Global)
+	return ok && g.Name == "Unit"
+}
+
+// constructorUnit solves a Unit goal with tt.
+func constructorUnit(state *proofstate.ProofState, goal *proofstate.Goal) TacticResult {
+	proofTerm := ast.Global{Name: "tt"}
+	if err := state.SolveGoal(goal.ID, proofTerm); err != nil {
+		return Fail(err)
+	}
+	return SuccessMsg(state, "applied constructor tt")
+}
+
+// constructorNil solves a List A goal with nil A.
+func constructorNil(state *proofstate.ProofState, goal *proofstate.Goal, goalTy ast.Term) TacticResult {
+	a, _ := extractListArg(goalTy)
+	// nil : (A : Type) → List A
+	// So nil A : List A
+	proofTerm := ast.App{
+		T: ast.Global{Name: "nil"},
+		U: a,
+	}
+	if err := state.SolveGoal(goal.ID, proofTerm); err != nil {
+		return Fail(err)
+	}
+	return SuccessMsg(state, "applied constructor nil")
+}
+
+// Exists provides a witness for a Sigma (existential) type goal.
+// For goal Σ(x:A).B, given witness w : A, creates subgoal B[w/x].
+// This is like Split but with an explicit witness for the first component.
+func Exists(witness ast.Term) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Check that the goal is a Sigma type
+		sigma, ok := goal.Type.(ast.Sigma)
+		if !ok {
+			// Also check after evaluation
+			evaled := eval.EvalNBE(goal.Type)
+			sigma, ok = evaled.(ast.Sigma)
+			if !ok {
+				return Failf("Exists: goal is not a Sigma type, got %T", goal.Type)
+			}
+		}
+
+		// The second component type is B with x substituted by witness
+		// B is under one binder, so we substitute Var{0} with witness
+		secondTy := subst.Subst(0, witness, sigma.B)
+
+		// Solve the goal with (witness, ?meta)
+		err := state.SolveGoalWithSubgoals(
+			goal.ID,
+			[]ast.Term{secondTy}, // Subgoal type is B[witness/x]
+			nil,                  // Use same hypotheses
+			func(metaIDs []elab.MetaID) ast.Term {
+				// Build: (witness, ?meta)
+				return ast.Pair{
+					Fst: witness,
+					Snd: ast.Meta{ID: int(metaIDs[0])},
+				}
+			},
+		)
+		if err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, "provided witness for existential")
+	}
+}

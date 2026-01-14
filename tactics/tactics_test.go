@@ -1856,3 +1856,457 @@ func TestDestructNoGoal(t *testing.T) {
 		t.Error("Destruct should fail with no goal")
 	}
 }
+
+// --- Induction Tactic Tests ---
+
+func TestInductionNat(t *testing.T) {
+	// Goal: Nat with hypothesis n : Nat
+	// Induction should create two subgoals (base and step)
+	nat := ast.Global{Name: "Nat"}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "n", Type: nat},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Induction("n")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Induction n failed: %v", result.Err)
+	}
+
+	// Should have 2 goals (base case and step case)
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Induction, got %d", state.GoalCount())
+	}
+}
+
+func TestInductionList(t *testing.T) {
+	// Goal: Nat with hypothesis l : List Nat
+	// Induction should create two subgoals (nil and cons)
+	nat := ast.Global{Name: "Nat"}
+	listNat := ast.App{T: ast.Global{Name: "List"}, U: nat}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "l", Type: listNat},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Induction("l")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Induction l failed: %v", result.Err)
+	}
+
+	// Should have 2 goals (nil case and cons case)
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Induction, got %d", state.GoalCount())
+	}
+
+	// Cons case should have additional hypotheses (x, xs, ih)
+	goals := state.Goals
+	consGoal := goals[1] // Second goal is cons case
+	if len(consGoal.Hypotheses) < 3 {
+		t.Errorf("expected cons case to have at least 3 hypotheses (x, xs, ih), got %d", len(consGoal.Hypotheses))
+	}
+}
+
+func TestInductionNotFound(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Induction("nonexistent")(state)
+	if result.IsSuccess() {
+		t.Error("Induction should fail when hypothesis not found")
+	}
+}
+
+func TestInductionUnsupportedType(t *testing.T) {
+	// Try to do induction on a Bool - should fail (use Destruct instead)
+	hyps := []proofstate.Hypothesis{
+		{Name: "b", Type: ast.Global{Name: "Bool"}},
+	}
+	state := proofstate.NewProofState(ast.Sort{U: 0}, hyps)
+
+	result := Induction("b")(state)
+	if result.IsSuccess() {
+		t.Error("Induction should fail on unsupported type (Bool)")
+	}
+}
+
+func TestInductionNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Induction("x")(state)
+	if result.IsSuccess() {
+		t.Error("Induction should fail with no goal")
+	}
+}
+
+func TestInductionNatStepHasIH(t *testing.T) {
+	// Verify that the step case gets the induction hypothesis
+	nat := ast.Global{Name: "Nat"}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "m", Type: nat},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Induction("m")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Induction m failed: %v", result.Err)
+	}
+
+	// Step case (second goal) should have n : Nat and ih : Nat
+	goals := state.Goals
+	if len(goals) < 2 {
+		t.Fatal("expected at least 2 goals")
+	}
+	stepGoal := goals[1]
+
+	// Check for n and ih hypotheses
+	hasN := false
+	hasIH := false
+	for _, h := range stepGoal.Hypotheses {
+		if h.Name == "n" {
+			hasN = true
+		}
+		if h.Name == "ih" {
+			hasIH = true
+		}
+	}
+	if !hasN {
+		t.Error("step case should have hypothesis n : Nat")
+	}
+	if !hasIH {
+		t.Error("step case should have hypothesis ih (induction hypothesis)")
+	}
+}
+
+// --- Cases Tactic Tests ---
+
+func TestCasesNat(t *testing.T) {
+	// Goal: Nat with hypothesis n : Nat
+	// Cases should create two subgoals (zero and succ) without IH
+	nat := ast.Global{Name: "Nat"}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "n", Type: nat},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Cases("n")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Cases n failed: %v", result.Err)
+	}
+
+	// Should have 2 goals
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Cases, got %d", state.GoalCount())
+	}
+
+	// Succ case should have n : Nat but NO ih (unlike Induction)
+	succGoal := state.Goals[1]
+	hasN := false
+	hasIH := false
+	for _, h := range succGoal.Hypotheses {
+		if h.Name == "n" {
+			hasN = true
+		}
+		if h.Name == "ih" {
+			hasIH = true
+		}
+	}
+	if !hasN {
+		t.Error("succ case should have hypothesis n : Nat")
+	}
+	if hasIH {
+		t.Error("Cases should NOT introduce an induction hypothesis")
+	}
+}
+
+func TestCasesList(t *testing.T) {
+	// Goal: Nat with hypothesis l : List Nat
+	// Cases should create two subgoals without IH
+	nat := ast.Global{Name: "Nat"}
+	listNat := ast.App{T: ast.Global{Name: "List"}, U: nat}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "l", Type: listNat},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Cases("l")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Cases l failed: %v", result.Err)
+	}
+
+	// Should have 2 goals
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Cases, got %d", state.GoalCount())
+	}
+
+	// Cons case should have x and xs but NO ih
+	consGoal := state.Goals[1]
+	hasX := false
+	hasXs := false
+	hasIH := false
+	for _, h := range consGoal.Hypotheses {
+		if h.Name == "x" {
+			hasX = true
+		}
+		if h.Name == "xs" {
+			hasXs = true
+		}
+		if h.Name == "ih" {
+			hasIH = true
+		}
+	}
+	if !hasX {
+		t.Error("cons case should have hypothesis x")
+	}
+	if !hasXs {
+		t.Error("cons case should have hypothesis xs")
+	}
+	if hasIH {
+		t.Error("Cases should NOT introduce an induction hypothesis")
+	}
+}
+
+func TestCasesBool(t *testing.T) {
+	// Cases on Bool should work like Destruct
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "b", Type: bool_},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Cases("b")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Cases b failed: %v", result.Err)
+	}
+
+	// Should have 2 goals
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Cases, got %d", state.GoalCount())
+	}
+}
+
+func TestCasesSum(t *testing.T) {
+	// Cases on Sum should work like Destruct
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	hyps := []proofstate.Hypothesis{
+		{Name: "s", Type: sumType},
+	}
+	state := proofstate.NewProofState(nat, hyps)
+
+	result := Cases("s")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Cases s failed: %v", result.Err)
+	}
+
+	// Should have 2 goals
+	if state.GoalCount() != 2 {
+		t.Errorf("expected 2 goals after Cases, got %d", state.GoalCount())
+	}
+}
+
+func TestCasesNotFound(t *testing.T) {
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+
+	result := Cases("nonexistent")(state)
+	if result.IsSuccess() {
+		t.Error("Cases should fail when hypothesis not found")
+	}
+}
+
+func TestCasesUnsupportedType(t *testing.T) {
+	// Try to do cases on a Type - should fail
+	hyps := []proofstate.Hypothesis{
+		{Name: "T", Type: ast.Sort{U: 0}},
+	}
+	state := proofstate.NewProofState(ast.Sort{U: 0}, hyps)
+
+	result := Cases("T")(state)
+	if result.IsSuccess() {
+		t.Error("Cases should fail on unsupported type")
+	}
+}
+
+func TestCasesNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Cases("x")(state)
+	if result.IsSuccess() {
+		t.Error("Cases should fail with no goal")
+	}
+}
+
+// --- Constructor Tactic Tests ---
+
+func TestConstructorUnit(t *testing.T) {
+	// Goal: Unit should be solved with tt
+	unitType := ast.Global{Name: "Unit"}
+	state := proofstate.NewProofState(unitType, nil)
+
+	result := Constructor()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Constructor on Unit failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete after Constructor on Unit")
+	}
+}
+
+func TestConstructorSum(t *testing.T) {
+	// Goal: Sum Nat Bool should use inl (Left)
+	nat := ast.Global{Name: "Nat"}
+	bool_ := ast.Global{Name: "Bool"}
+	sumType := ast.App{T: ast.App{T: ast.Global{Name: "Sum"}, U: nat}, U: bool_}
+
+	state := proofstate.NewProofState(sumType, nil)
+
+	result := Constructor()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Constructor on Sum failed: %v", result.Err)
+	}
+
+	// Should have a subgoal for Nat (left injection)
+	if state.GoalCount() != 1 {
+		t.Errorf("expected 1 subgoal after Constructor on Sum, got %d", state.GoalCount())
+	}
+}
+
+func TestConstructorList(t *testing.T) {
+	// Goal: List Nat should be solved with nil Nat
+	nat := ast.Global{Name: "Nat"}
+	listNat := ast.App{T: ast.Global{Name: "List"}, U: nat}
+
+	state := proofstate.NewProofState(listNat, nil)
+
+	result := Constructor()(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Constructor on List failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete after Constructor on List (nil)")
+	}
+}
+
+func TestConstructorUnsupportedType(t *testing.T) {
+	// Constructor on Nat should fail (Nat is not Unit, Sum, or List)
+	nat := ast.Global{Name: "Nat"}
+	state := proofstate.NewProofState(nat, nil)
+
+	result := Constructor()(state)
+	if result.IsSuccess() {
+		t.Error("Constructor should fail on unsupported type Nat")
+	}
+}
+
+func TestConstructorNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	result := Constructor()(state)
+	if result.IsSuccess() {
+		t.Error("Constructor should fail with no goal")
+	}
+}
+
+// --- Exists Tactic Tests ---
+
+func TestExistsSigma(t *testing.T) {
+	// Goal: Σ(x:Nat).Nat (exists a Nat, and produce another Nat)
+	// Provide witness zero, leaving goal Nat
+	nat := ast.Global{Name: "Nat"}
+	sigmaType := ast.Sigma{
+		Binder: "x",
+		A:      nat,
+		B:      nat,
+	}
+	state := proofstate.NewProofState(sigmaType, nil)
+
+	// Provide zero as witness
+	witness := ast.Global{Name: "zero"}
+	result := Exists(witness)(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Exists failed: %v", result.Err)
+	}
+
+	// Should have 1 subgoal for the second component
+	if state.GoalCount() != 1 {
+		t.Errorf("expected 1 subgoal after Exists, got %d", state.GoalCount())
+	}
+}
+
+func TestExistsDependentSigma(t *testing.T) {
+	// Goal: Σ(A:Type).A (exists a type and an element of that type)
+	// Provide Nat as witness, leaving goal Nat
+	type0 := ast.Sort{U: 0}
+	sigmaType := ast.Sigma{
+		Binder: "A",
+		A:      type0,
+		B:      ast.Var{Ix: 0}, // A (the first component)
+	}
+	state := proofstate.NewProofState(sigmaType, nil)
+
+	// Provide Nat as the type witness
+	witness := ast.Global{Name: "Nat"}
+	result := Exists(witness)(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Exists failed: %v", result.Err)
+	}
+
+	// Should have 1 subgoal for the element of type Nat
+	if state.GoalCount() != 1 {
+		t.Errorf("expected 1 subgoal after Exists, got %d", state.GoalCount())
+	}
+}
+
+func TestExistsNotSigma(t *testing.T) {
+	// Exists on non-Sigma type should fail
+	nat := ast.Global{Name: "Nat"}
+	state := proofstate.NewProofState(nat, nil)
+
+	witness := ast.Global{Name: "zero"}
+	result := Exists(witness)(state)
+	if result.IsSuccess() {
+		t.Error("Exists should fail on non-Sigma type")
+	}
+}
+
+func TestExistsNoGoal(t *testing.T) {
+	state := &proofstate.ProofState{Goals: nil}
+	witness := ast.Global{Name: "zero"}
+	result := Exists(witness)(state)
+	if result.IsSuccess() {
+		t.Error("Exists should fail with no goal")
+	}
+}
+
+func TestExistsWithAssumption(t *testing.T) {
+	// Goal: Σ(x:Nat).Nat with hypothesis n : Nat
+	// Exists n followed by Assumption should complete proof
+	nat := ast.Global{Name: "Nat"}
+	sigmaType := ast.Sigma{
+		Binder: "x",
+		A:      nat,
+		B:      nat,
+	}
+	hyps := []proofstate.Hypothesis{
+		{Name: "n", Type: nat},
+	}
+	state := proofstate.NewProofState(sigmaType, hyps)
+
+	// Exists Var{0} (hypothesis n) followed by Assumption
+	witness := ast.Var{Ix: 0} // n
+	result := Seq(Exists(witness), Assumption())(state)
+	if !result.IsSuccess() {
+		t.Fatalf("Exists;Assumption failed: %v", result.Err)
+	}
+
+	if !state.IsComplete() {
+		t.Error("expected proof to be complete")
+	}
+}
