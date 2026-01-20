@@ -230,15 +230,16 @@ hg repl                           # interactive mode
 
 22 commands covering creation, modification, transforms, algorithms, and REPL.
 
-### `hottgo` — Type Checking
+### `hottgo` — Type Checking & Proofs
 
 ```bash
 hottgo --check FILE       # type-check a file
 hottgo --eval EXPR        # evaluate expression
 hottgo --synth EXPR       # synthesize type
+hottgo --load FILE        # verify tactic script
 ```
 
-REPL mode with `:eval`, `:synth`, `:quit`.
+REPL mode with `:eval`, `:synth`, `:prove TYPE`, `:quit`. Interactive proof mode supports tactics like `intro`, `assumption`, `reflexivity`, `destruct`, `induction`, and more.
 
 ## Architecture
 
@@ -255,11 +256,11 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 | 5 | ✅ | Inductives, recursors, positivity |
 | 6 | ✅ | Computational univalence (Glue, comp, ua) |
 | 7 | ✅ | Higher Inductive Types |
-| **8** | **✅** | **Elaboration and tactics** |
-| 9 | ⏳ | Standard library seed |
+| 8 | ✅ | Elaboration and tactics |
+| **9** | **✅** | **Standard library & proof mode** |
 | 10 | 📋 | Performance, soundness, packaging |
 
-Current: **v1.8.0** — Phase 8 complete. Next: standard library.
+Current: **v1.9.0** — Phase 9 complete. Standard library (Unit, Empty, Sum, List), interactive proof mode, tactic scripts.
 
 See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 

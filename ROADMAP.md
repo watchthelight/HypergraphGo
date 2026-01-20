@@ -86,8 +86,8 @@ HoTTGo is a standalone implementation of Homotopy Type Theory (HoTT) with cubica
 | 5 | Inductives & Recursors | ✅ Complete | v1.4.0 |
 | 6 | Computational Univalence | ✅ Complete | v1.6.0 |
 | 7 | Higher Inductive Types | ✅ Complete | v1.7.0 |
-| **8** | **Elaboration & Tactics** | **✅ Complete** | **v1.8.0** |
-| 9 | Standard Library Seed | 📋 Planned | — |
+| 8 | Elaboration & Tactics | ✅ Complete | v1.8.0 |
+| **9** | **Standard Library & Proof Mode** | **✅ Complete** | **v1.9.0** |
 | 10 | Performance & Polish | 📋 Planned | — |
 
 ---
@@ -275,25 +275,39 @@ The core Phase 8 functionality is complete. These are optional enhancements:
 - Better error messages with source spans
 - Performance optimization for large proofs
 
+### Phase 9: Standard Library & Proof Mode (v1.9.0)
+
+Standard library types and interactive proof mode.
+
+**Standard Library:**
+- `Unit` type with `tt` constructor and `unitElim` eliminator
+- `Empty` type (uninhabited) with `emptyElim` eliminator
+- `Sum` (coproduct) with `inl`/`inr` constructors and `sumElim`
+- `List` (polymorphic) with `nil`/`cons` constructors and `listElim`
+
+**Inductive Tactics:**
+- `Contradiction` — prove from `Empty` hypothesis
+- `Left`, `Right` — prove Sum with injection
+- `Destruct` — case analysis on Sum or Bool
+- `Induction` — structural induction on Nat or List
+- `Cases` — non-recursive case analysis
+- `Constructor` — apply first applicable constructor
+- `Exists` — provide witness for Sigma goal
+
+**Interactive Proof Mode:**
+- `:prove TYPE` — enter proof mode in REPL
+- `:goal`, `:goals`, `:undo`, `:qed`, `:abort` commands
+- All tactics available interactively
+- Dynamic prompt showing goal count
+
+**Tactic Scripts:**
+- `.htt` script format: `Theorem name : TYPE`, `Proof`, tactics, `Qed`
+- `--load FILE` CLI flag for batch verification
+- Parser with line number tracking for errors
+
 ---
 
 ## Future Phases
-
-### Phase 9: Standard Library Seed
-
-**Goal:** Bootstrap a minimal standard library demonstrating the system.
-
-**Planned Content:**
-- Basic types: `Unit`, `Bool`, `Nat`, `Int`, `List`, `Option`
-- Equality: `Path` lemmas, `ap`, `transport` properties
-- Algebra: `Group`, `Ring` structures
-- HoTT: `isContr`, `isProp`, `isSet`, truncation levels
-- Univalence examples: `Bool ≃ Bool` paths
-
-**Format:**
-- `.hott` proof scripts
-- Go library with embedded proofs
-- Examples directory with tutorials
 
 ### Phase 10: Performance & Polish
 
@@ -441,10 +455,9 @@ Surface Syntax
 
 ### Tactics
 
-1. **No REPL proof mode yet**: API-only for now
-2. **No script files**: `.hott` parser not implemented
-3. **Limited automation**: `Auto` is basic assumption + reflexivity
-4. **No tactic argument parsing**: Must construct terms programmatically
+1. **Limited automation**: `Auto` is basic assumption + reflexivity only
+2. **No backtracking search**: Tactics are deterministic
+3. **No tactic macros**: Cannot define new tactics from existing ones
 
 ### Performance
 
@@ -464,23 +477,29 @@ Surface Syntax
 
 ### High Priority
 
-1. **REPL Proof Mode** — Interactive proving in `hottgo` shell
-2. **Script Parser** — Parse and execute `.hott` proof scripts
-3. **Better Errors** — Source spans, suggestions, context
+1. **Better Errors** — Source spans, suggestions, context
+2. **Universe Inference** — Infer universe levels where possible
+3. **Performance** — Hash-consing, lazy normalization
 
 ### Medium Priority
 
-4. **Destruct Tactic** — Case analysis on inductive types
-5. **Induction Tactic** — Induction principles for inductives
-6. **Universe Inference** — Infer universe levels where possible
-7. **Performance** — Hash-consing, lazy normalization
+4. **LSP Server** — Editor integration
+5. **Documentation Generator** — Auto-generate docs from proofs
+6. **Proof Visualization** — Interactive proof trees
 
 ### Low Priority (Future)
 
-8. **LSP Server** — Editor integration
-9. **Documentation Generator** — Auto-generate docs from proofs
-10. **Proof Visualization** — Interactive proof trees
-11. **Formal Metatheory** — Paper/mechanization of soundness
+7. **Formal Metatheory** — Paper/mechanization of soundness
+8. **Backtracking Search** — Non-deterministic tactic execution
+9. **Tactic Macros** — User-defined tactic combinators
+
+### Recently Completed (Phase 9)
+
+- ✅ **REPL Proof Mode** — Interactive proving in `hottgo` shell
+- ✅ **Script Parser** — Parse and execute `.htt` proof scripts
+- ✅ **Destruct Tactic** — Case analysis on Sum and Bool
+- ✅ **Induction Tactic** — Induction on Nat and List
+- ✅ **Standard Library** — Unit, Empty, Sum, List types
 
 ### Known Bugs
 

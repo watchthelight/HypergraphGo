@@ -27,12 +27,31 @@
 //
 //   - [Intro] - introduce a variable from a Pi type goal
 //   - [IntroN] - introduce multiple variables
+//   - [Intros] - introduce all variables
 //   - [Exact] - provide the exact proof term
 //   - [Apply] - apply a function to the goal
 //   - [Split] - split a Sigma type goal into components
 //   - [Rewrite], [RewriteRev] - rewrite using an equality
 //   - [Reflexivity] - prove Id with refl
 //   - [Assumption] - use a hypothesis matching the goal
+//
+// # Inductive Tactics
+//
+// Working with inductive types (Unit, Empty, Sum, List, Nat, Bool):
+//
+//   - [Contradiction] - prove any goal from Empty hypothesis
+//   - [Left], [Right] - prove Sum goal with injection
+//   - [Destruct] - case analysis on Sum or Bool hypothesis
+//   - [Induction] - structural induction on Nat or List
+//   - [Cases] - non-recursive case analysis
+//   - [Constructor] - apply first applicable constructor
+//   - [Exists] - provide witness for Sigma goal
+//
+// # Automation
+//
+//   - [Trivial] - try reflexivity then assumption
+//   - [Auto] - automatic proof search
+//   - [Simpl] - simplify the goal
 //
 // # Tactic Combinators
 //
