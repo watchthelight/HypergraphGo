@@ -58,11 +58,13 @@ Type :help for more information
 Use `:synth` to find the type of a term:
 
 ```
-> :synth (Lam A (Lam x 0))
-(Pi A Type (Pi _ 0 1))
+> :synth (Pi A Type (Pi x (Var 0) (Var 1)))
+(Pi A Type (Pi x (Var 0) (Var 1))) : (Sort 1)
 ```
 
-This shows the identity function `λA.λx.x` has type `(A : Type) → A → A`.
+This shows the identity function type `(A : Type) → A → A` lives in `Type₁`.
+
+Note: Unannotated lambdas cannot be synthesized directly. Use `:prove` to construct terms of function type interactively.
 
 ### Evaluate Terms
 
@@ -97,33 +99,29 @@ Use `:prove` to enter proof mode:
 ```
 > :prove (Pi A Type (Pi x (Var 0) (Var 1)))
 Entering proof mode.
-========================
-Goal: (Pi A Type (Pi x (Var 0) (Var 1)))
+  ========================
+  (Pi A Type (Pi x (Var 0) (Var 1)))
 
 proof[1]> intro A
-Applied intro A
-========================
-Hypotheses:
+introduced A : Type
   A : Type
-
-Goal: (Pi x A A)
+  ========================
+  (Pi x (Var 0) (Var 1))
 
 proof[1]> intro x
-Applied intro x
-========================
-Hypotheses:
+introduced x : (Var 0)
   A : Type
-  x : A
-
-Goal: A
+  x : (Var 0)
+  ========================
+  (Var 1)
 
 proof[1]> assumption
-Used assumption x
+used hypothesis x
 No more goals. Type :qed to complete the proof.
 
 proof[0]> :qed
 Proof complete!
-Term: (Lam A (Lam x (Var 0)))
+Term: (Lam A Type (Lam x (Var 0) (Var 0)))
 ```
 
 In proof mode:

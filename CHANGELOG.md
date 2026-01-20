@@ -155,6 +155,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Coverage improved from 75.5% to 90.3%
 
 ### Fixed
+- **Proof mode output formatting** (`tactics/proofstate/state.go`, `tactics/core.go`)
+  - Goal types and hypothesis types now use S-expression format instead of Go struct format
+  - Output now matches input syntax for consistency
+
 - **De Bruijn index shifting in tactics** (`tactics/core.go`)
   - `inferTermType` now correctly shifts hypothesis types when looking up variables
   - `Assumption` tactic now shifts hypothesis types before comparison

@@ -9,6 +9,7 @@ import (
 
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 	"github.com/watchthelight/HypergraphGo/internal/elab"
+	"github.com/watchthelight/HypergraphGo/internal/parser"
 )
 
 // GoalID uniquely identifies a goal within a proof state.
@@ -264,12 +265,12 @@ func (p *ProofState) FormatGoal(g *Goal) string {
 
 	// Format hypotheses
 	for _, h := range g.Hypotheses {
-		result += fmt.Sprintf("  %s : %v\n", h.Name, h.Type)
+		result += fmt.Sprintf("  %s : %s\n", h.Name, parser.FormatTerm(h.Type))
 	}
 
 	// Format goal type
 	result += fmt.Sprintf("  ========================\n")
-	result += fmt.Sprintf("  %v\n", g.Type)
+	result += fmt.Sprintf("  %s\n", parser.FormatTerm(g.Type))
 
 	return result
 }

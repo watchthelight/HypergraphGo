@@ -10,6 +10,7 @@ import (
 	"github.com/watchthelight/HypergraphGo/internal/ast"
 	"github.com/watchthelight/HypergraphGo/internal/elab"
 	"github.com/watchthelight/HypergraphGo/internal/eval"
+	"github.com/watchthelight/HypergraphGo/internal/parser"
 	"github.com/watchthelight/HypergraphGo/kernel/subst"
 	"github.com/watchthelight/HypergraphGo/tactics/proofstate"
 )
@@ -66,7 +67,7 @@ func Intro(name string) Tactic {
 			return Fail(err)
 		}
 
-		return SuccessMsg(state, fmt.Sprintf("introduced %s : %v", varName, pi.A))
+		return SuccessMsg(state, fmt.Sprintf("introduced %s : %s", varName, parser.FormatTerm(pi.A)))
 	}
 }
 
