@@ -50,13 +50,16 @@ func (c *Checker) PushIVar() func() {
 }
 
 // NewChecker creates a new type checker with the given global environment.
+// Note: CumulativeUniv is disabled because it requires distinguishing equality
+// from subtyping contexts (e.g., path endpoints need exact equality).
+// TODO: Implement proper cumulative universes with separate equality/subtyping.
 func NewChecker(globals *GlobalEnv) *Checker {
 	if globals == nil {
 		globals = NewGlobalEnv()
 	}
 	return &Checker{
 		globals:  globals,
-		convOpts: core.ConvOptions{EnableEta: false},
+		convOpts: core.ConvOptions{EnableEta: false, CumulativeUniv: false},
 	}
 }
 
@@ -67,7 +70,7 @@ func NewCheckerWithEta(globals *GlobalEnv) *Checker {
 	}
 	return &Checker{
 		globals:  globals,
-		convOpts: core.ConvOptions{EnableEta: true},
+		convOpts: core.ConvOptions{EnableEta: true, CumulativeUniv: false},
 	}
 }
 
