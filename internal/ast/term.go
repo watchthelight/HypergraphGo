@@ -20,27 +20,33 @@ func (Global) isCoreTerm() {}
 
 // Pi (Π) type with domain A and codomain B in a binder (x:A).B.
 // We keep the binder name only for pretty-printing; kernel uses de Bruijn.
+// Implicit indicates whether this is an implicit argument: {x : A} -> B.
 type Pi struct {
-	Binder string
-	A      Term
-	B      Term
+	Binder   string
+	A        Term
+	B        Term
+	Implicit bool // If true, argument is implicit (inferred by unification)
 }
 
 func (Pi) isCoreTerm() {}
 
 // Lam (λ) abstraction with optional type annotation on the binder for printing.
+// Implicit indicates whether this is an implicit lambda: λ{x}. body.
 type Lam struct {
-	Binder string
-	Ann    Term // may be nil
-	Body   Term
+	Binder   string
+	Ann      Term // may be nil
+	Body     Term
+	Implicit bool // If true, this lambda binds an implicit argument
 }
 
 func (Lam) isCoreTerm() {}
 
 // App t u (application).
+// Implicit indicates whether this is an implicit application: f {arg}.
 type App struct {
-	T Term
-	U Term
+	T        Term
+	U        Term
+	Implicit bool // If true, this application was inserted by elaboration
 }
 
 func (App) isCoreTerm() {}
