@@ -175,29 +175,36 @@ User-defined inductive types with automatic eliminator generation. Parameterized
 
 ### Example Proofs
 
-The `examples/proofs/` directory contains proof scripts demonstrating HoTTGo's tactic system:
+The `examples/proofs/` directory contains **374 verified theorems** across 20 proof files:
 
 ```bash
 # Verify all example proofs
-hottgo --load examples/proofs/*.htt
+for f in examples/proofs/**/*.htt; do hottgo --load "$f"; done
 
 # Run a specific proof file
-hottgo --load examples/proofs/path_basics.htt
+hottgo --load examples/proofs/hott/path_algebra.htt
 ```
 
-**Available examples:**
+**Test Suite Structure:**
 
-| File | Content |
-|------|---------|
-| `identity.htt` | Identity function definitions and type proofs |
-| `nat_basic.htt` | Natural number reflexivity proofs |
-| `bool_basic.htt` | Boolean type and logic proofs |
-| `list_basic.htt` | List type constructor proofs |
-| `path_basics.htt` | Cubical path types with PathLam |
-| `transport.htt` | Transport and predicate preservation |
-| `equality_basic.htt` | Propositional equality (Id type) |
-| `sum_basic.htt` | Sum/coproduct type proofs |
-| `unit_empty.htt` | Unit, Empty, and ex falso |
+| Directory | Files | Theorems | Content |
+|-----------|-------|----------|---------|
+| `foundations/` | 2 | 65 | Natural number arithmetic, boolean logic |
+| `data/` | 1 | 32 | List operations and polymorphism |
+| `hott/` | 4 | 111 | Path algebra, funext, equivalences, univalence |
+| `hits/` | 2 | 48 | Circle/loop space, truncation/h-levels |
+| `integration/` | 2 | 78 | Peano arithmetic, algebraic structures |
+| *(basic)* | 9 | 40 | Identity, nat, bool, list, path, transport |
+
+**Featured files:**
+
+| File | Theorems | Content |
+|------|----------|---------|
+| `hott/path_algebra.htt` | 35 | Path types, symmetry, transitivity, 2-paths |
+| `hott/equivalences.htt` | 26 | Contractibility, fibers, isEquiv, homotopies |
+| `integration/groups.htt` | 39 | Magma → semigroup → monoid → group → ring |
+| `integration/peano.htt` | 39 | Full Peano arithmetic type structure |
+| `hits/truncation.htt` | 26 | isProp, isSet, n-types, h-level hierarchy |
 
 **Sample proof script:**
 
