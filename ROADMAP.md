@@ -330,13 +330,14 @@ Standard library types and interactive proof mode.
   - Proof mode displays `(Pi n Nat (Id Nat n n))` instead of `(Id Nat (Var 0) (Var 0))`
   - Original `FormatTerm()` preserved for round-trippable output
 
-- **Example Proof Scripts** (`examples/proofs/`)
-  - `identity.htt` — identity and constant functions
-  - `nat_basic.htt` — natural number proofs
-  - `bool_basic.htt` — boolean type proofs
-  - `unit_empty.htt` — Unit and Empty types, ex falso
-  - `sum_basic.htt` — Sum/coproduct proofs
-  - `equality_basic.htt` — identity type proofs
+- **Comprehensive HoTT Test Suite** (`examples/proofs/`)
+  - **374 theorems verified** across 20 proof files
+  - `foundations/` — natural number arithmetic (34), boolean logic (31)
+  - `data/` — list operations and polymorphism (32)
+  - `hott/` — path algebra (35), funext (26), equivalences (26), univalence (24)
+  - `hits/` — circle/loop space (22), truncation/h-levels (26)
+  - `integration/` — Peano arithmetic (39), algebraic structures (39)
+  - Basic proofs — identity, nat, bool, unit, sum, equality, list, path, transport (40)
 
 - **Implicit Arguments** (`internal/ast/term.go`, `internal/elab/elab.go`, `internal/parser/sexpr.go`)
   - `Implicit` field added to `Pi`, `Lam`, and `App` types
