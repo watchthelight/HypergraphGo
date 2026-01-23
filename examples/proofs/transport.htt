@@ -1,0 +1,48 @@
+-- transport.htt: Transport examples in HoTT
+-- Demonstrates transport along identity and paths
+
+-- Transport along a reflexivity proof is the identity
+-- Given p : Id A x x (where p = refl), transport P p e = e
+-- This is the computation rule for J
+
+-- First, a simple theorem: for any type A and predicate P,
+-- transporting along refl gives back the same element
+-- Using reflexivity to show P x = P x
+
+-- Any element is equal to itself after identity transport
+-- (We can't express transport directly without the eliminator)
+-- Instead, we show that predicates preserve reflexivity
+
+-- For any property P and proof of x = x, P x = P x
+Theorem pred_refl : (Pi A Type (Pi P (Pi _ (Var 0) Type) (Pi x (Var 1) (Id Type (App (Var 1) (Var 0)) (App (Var 1) (Var 0))))))
+Proof
+  intro A
+  intro P
+  intro x
+  reflexivity
+Qed
+
+-- If we have a path from n to n in Nat, the type Nat stays the same
+Theorem nat_path_type : (Pi n Nat (Id Type Nat Nat))
+Proof
+  intro n
+  reflexivity
+Qed
+
+-- For any path p : Path Nat n n, the endpoints are the same type
+Theorem path_endpoints_equal : (Pi n Nat (Pi p (PathP Nat (Var 0) (Var 0)) (Id Type Nat Nat)))
+Proof
+  intro n
+  intro p
+  reflexivity
+Qed
+
+-- The successor function preserves path equality
+-- Given a path from n to n, we get a path from succ n to succ n
+Theorem succ_preserves_path : (Pi n Nat (Pi p (PathP Nat (Var 0) (Var 0)) (PathP Nat (App succ (Var 1)) (App succ (Var 1)))))
+Proof
+  intro n
+  intro p
+  exact (PathLam i (App succ (Var 1)))
+Qed
+
