@@ -143,6 +143,15 @@ func (e *Elaborator) synth(ctx *ElabCtx, s STerm) (ast.Term, ast.Term, *ElabErro
 	case *STransport:
 		return e.synthTransport(ctx, span, t)
 
+	case *SIndApp:
+		return e.synthIndApp(ctx, span, t)
+
+	case *SCtorApp:
+		return e.synthCtorApp(ctx, span, t)
+
+	case *SElim:
+		return e.synthElim(ctx, span, t)
+
 	default:
 		return nil, nil, errSpan(span, "cannot synthesize type of %T", s)
 	}
@@ -221,7 +230,7 @@ func (e *Elaborator) synthPi(ctx *ElabCtx, span Span, pi *SPi) (ast.Term, ast.Te
 		return nil, nil, sortErr
 	}
 
-	return ast.Pi{Binder: pi.Binder, A: domTerm, B: codTerm},
+	return ast.Pi{Binder: pi.Binder, A: domTerm, B: codTerm, Implicit: pi.Icity == Implicit},
 		ast.Sort{U: maxLevel(levelA, levelB)},
 		nil
 }
@@ -265,8 +274,9 @@ func (e *Elaborator) synthLam(ctx *ElabCtx, span Span, lam *SLam) (ast.Term, ast
 		return nil, nil, err
 	}
 
-	return ast.Lam{Binder: lam.Binder, Ann: annTerm, Body: bodyTerm},
-		ast.Pi{Binder: lam.Binder, A: annTerm, B: bodyTy},
+	isImplicit := lam.Icity == Implicit
+	return ast.Lam{Binder: lam.Binder, Ann: annTerm, Body: bodyTerm, Implicit: isImplicit},
+		ast.Pi{Binder: lam.Binder, A: annTerm, B: bodyTy, Implicit: isImplicit},
 		nil
 }
 
@@ -303,30 +313,34 @@ func (e *Elaborator) synthApp(ctx *ElabCtx, span Span, app *SApp) (ast.Term, ast
 }
 
 // insertImplicits inserts metavariables for implicit arguments.
-// NOTE: Currently a no-op. Will be implemented in Phase 8b with unification.
+// When the function type has implicit Pi arguments and the application is explicit,
+// we insert metavariables for each implicit argument until we reach an explicit Pi.
 func (e *Elaborator) insertImplicits(ctx *ElabCtx, span Span, fn ast.Term, fnTy ast.Term, argIcity Icity) (ast.Term, ast.Term, *ElabError) {
 	// Normalize the function type
 	fnTy = normalize(fnTy)
 
-	// TODO: Track icity in the Pi type itself
-	// For now, we don't have icity in ast.Pi, so we skip implicit insertion
-	// This will be enhanced in Phase 8b when we add unification
+	// If the argument is implicit, don't insert implicits - the user is providing it explicitly
+	if argIcity == Implicit {
+		return fn, fnTy, nil
+	}
 
-	// When we have icity tracking:
-	// for {
-	//     pi, ok := fnTy.(ast.Pi)
-	//     if !ok || piIcity == Explicit || piIcity == argIcity {
-	//         break
-	//     }
-	//     // Insert implicit argument
-	//     metaTy := pi.A
-	//     meta := ctx.FreshMeta(metaTy, span)
-	//     fn = ast.App{T: fn, U: meta}
-	//     fnTy = subst.Subst(0, meta, pi.B)
-	// }
+	// Insert metavariables for implicit arguments
+	for {
+		pi, ok := fnTy.(ast.Pi)
+		if !ok {
+			// Not a Pi type, stop
+			break
+		}
+		if !pi.Implicit {
+			// Explicit Pi, stop - user will provide this argument
+			break
+		}
 
-	_ = span     // Will be used when we insert implicit metas
-	_ = argIcity // Will be used when we check icity
+		// Insert implicit argument as a metavariable
+		meta := ctx.FreshMeta(pi.A, span)
+		fn = ast.App{T: fn, U: meta, Implicit: true}
+		fnTy = normalize(subst.Subst(0, meta, pi.B))
+	}
 
 	return fn, fnTy, nil
 }
@@ -723,6 +737,150 @@ func (e *Elaborator) synthTransport(ctx *ElabCtx, span Span, tr *STransport) (as
 	return ast.Transport{A: aTerm, E: eTerm}, resultTy, nil
 }
 
+// synthIndApp synthesizes the type of an inductive type application.
+// Example: (Nat) or (List Nat) where List is a parameterized inductive.
+func (e *Elaborator) synthIndApp(ctx *ElabCtx, span Span, ind *SIndApp) (ast.Term, ast.Term, *ElabError) {
+	if ctx.Globals == nil {
+		return nil, nil, errSpan(span, "no global environment for inductive: %s", ind.Name)
+	}
+
+	// Look up the inductive type
+	info, ok := ctx.Globals.LookupInductive(ind.Name)
+	if !ok {
+		return nil, nil, errSpan(span, "unknown inductive type: %s", ind.Name)
+	}
+
+	// Elaborate all arguments
+	args := make([]ast.Term, 0, len(ind.Args))
+	for _, sarg := range ind.Args {
+		argTerm, _, err := e.synth(ctx, sarg)
+		if err != nil {
+			return nil, nil, err
+		}
+		args = append(args, argTerm)
+	}
+
+	// Build the inductive type application: (Global IndName) arg1 arg2 ...
+	result := ast.Term(ast.Global{Name: ind.Name})
+	for _, arg := range args {
+		result = ast.App{T: result, U: arg}
+	}
+
+	// The type of an inductive type is its declared type applied to arguments
+	// For a fully applied inductive, this is typically a Sort
+	resultTy := info.Type
+	for _, arg := range args {
+		if pi, ok := resultTy.(ast.Pi); ok {
+			resultTy = subst.Subst(0, arg, pi.B)
+		}
+	}
+
+	return result, resultTy, nil
+}
+
+// synthCtorApp synthesizes the type of a constructor application.
+// Example: (Nat.Z) or (Nat.S n) where Z and S are constructors of Nat.
+func (e *Elaborator) synthCtorApp(ctx *ElabCtx, span Span, ctor *SCtorApp) (ast.Term, ast.Term, *ElabError) {
+	if ctx.Globals == nil {
+		return nil, nil, errSpan(span, "no global environment for constructor: %s.%s", ctor.Ind, ctor.Ctor)
+	}
+
+	// Look up the constructor - try fully qualified name first
+	fullName := ctor.Ind + "_" + ctor.Ctor
+	info, ok := ctx.Globals.LookupConstructor(fullName)
+	if !ok {
+		// Try just the constructor name
+		info, ok = ctx.Globals.LookupConstructor(ctor.Ctor)
+		if !ok {
+			return nil, nil, errSpan(span, "unknown constructor: %s.%s", ctor.Ind, ctor.Ctor)
+		}
+	}
+
+	// Elaborate all arguments
+	args := make([]ast.Term, 0, len(ctor.Args))
+	for _, sarg := range ctor.Args {
+		argTerm, _, err := e.synth(ctx, sarg)
+		if err != nil {
+			return nil, nil, err
+		}
+		args = append(args, argTerm)
+	}
+
+	// Build the constructor application: (Global CtorName) arg1 arg2 ...
+	result := ast.Term(ast.Global{Name: info.Name})
+	for _, arg := range args {
+		result = ast.App{T: result, U: arg}
+	}
+
+	// The type is the constructor's type with arguments substituted
+	resultTy := info.Type
+	for _, arg := range args {
+		if pi, ok := resultTy.(ast.Pi); ok {
+			resultTy = subst.Subst(0, arg, pi.B)
+		}
+	}
+
+	return result, resultTy, nil
+}
+
+// synthElim synthesizes the type of an eliminator (recursor) application.
+// Example: (Nat_elim motive baseCase stepCase target)
+func (e *Elaborator) synthElim(ctx *ElabCtx, span Span, elim *SElim) (ast.Term, ast.Term, *ElabError) {
+	if ctx.Globals == nil {
+		return nil, nil, errSpan(span, "no global environment for eliminator: %s", elim.Name)
+	}
+
+	// Look up the eliminator as a global definition
+	elimTy, _, ok := ctx.Globals.LookupGlobal(elim.Name)
+	if !ok {
+		return nil, nil, errSpan(span, "unknown eliminator: %s", elim.Name)
+	}
+
+	// Elaborate the motive
+	motiveTerm, _, err := e.synth(ctx, elim.Motive)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Elaborate all methods
+	methods := make([]ast.Term, 0, len(elim.Methods))
+	for _, smethod := range elim.Methods {
+		methodTerm, _, err := e.synth(ctx, smethod)
+		if err != nil {
+			return nil, nil, err
+		}
+		methods = append(methods, methodTerm)
+	}
+
+	// Elaborate the target
+	targetTerm, _, err := e.synth(ctx, elim.Target)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Build the eliminator application: (Global ElimName) motive method1 method2 ... target
+	result := ast.Term(ast.Global{Name: elim.Name})
+	result = ast.App{T: result, U: motiveTerm}
+	for _, method := range methods {
+		result = ast.App{T: result, U: method}
+	}
+	result = ast.App{T: result, U: targetTerm}
+
+	// Compute the result type by applying the motive to the target
+	// For a well-typed eliminator call, the result is (motive target)
+	resultTy := elimTy
+	// Apply type to each argument to get final result type
+	allArgs := append([]ast.Term{motiveTerm}, methods...)
+	allArgs = append(allArgs, targetTerm)
+	for _, arg := range allArgs {
+		if pi, ok := resultTy.(ast.Pi); ok {
+			resultTy = subst.Subst(0, arg, pi.B)
+		}
+	}
+
+	return result, resultTy, nil
+}
+
 // check checks a surface term against an expected type.
 func (e *Elaborator) check(ctx *ElabCtx, s STerm, expected ast.Term) (ast.Term, *ElabError) {
 	if s == nil {
@@ -733,6 +891,26 @@ func (e *Elaborator) check(ctx *ElabCtx, s STerm, expected ast.Term) (ast.Term, 
 
 	// Normalize expected type
 	expected = normalize(expected)
+
+	// Insert implicit lambdas: if expected is {x : A} -> B and term is not an implicit lambda,
+	// wrap the term in an implicit lambda
+	if pi, ok := expected.(ast.Pi); ok && pi.Implicit {
+		// Check if term is already an implicit lambda
+		if lam, isLam := s.(*SLam); isLam && lam.Icity == Implicit {
+			// Already an implicit lambda, check normally
+			return e.checkLam(ctx, span, lam, expected)
+		}
+		// Not an implicit lambda - insert one
+		// Extend context with the implicit binder
+		extCtx := ctx.Extend(pi.Binder, pi.A, Implicit)
+		// Check the term against the codomain (the term can reference the implicit var)
+		bodyTerm, err := e.check(extCtx, s, pi.B)
+		if err != nil {
+			return nil, err
+		}
+		// Wrap in an implicit lambda
+		return ast.Lam{Binder: pi.Binder, Ann: pi.A, Body: bodyTerm, Implicit: true}, nil
+	}
 
 	switch t := s.(type) {
 	case *SLam:
@@ -779,7 +957,14 @@ func (e *Elaborator) checkLam(ctx *ElabCtx, span Span, lam *SLam, expected ast.T
 		return nil, piErr
 	}
 
-	// TODO: Check icity matches (when we track icity in Pi)
+	// Check icity compatibility
+	lamIsImplicit := lam.Icity == Implicit
+	if pi.Implicit != lamIsImplicit {
+		if pi.Implicit {
+			return nil, errSpan(span, "expected implicit lambda {%s}, got explicit lambda", pi.Binder)
+		}
+		return nil, errSpan(span, "expected explicit lambda (%s), got implicit lambda", pi.Binder)
+	}
 
 	// Extend context with binder
 	extCtx := ctx.Extend(lam.Binder, pi.A, lam.Icity)
@@ -790,7 +975,7 @@ func (e *Elaborator) checkLam(ctx *ElabCtx, span Span, lam *SLam, expected ast.T
 		return nil, err
 	}
 
-	return ast.Lam{Binder: lam.Binder, Ann: pi.A, Body: bodyTerm}, nil
+	return ast.Lam{Binder: lam.Binder, Ann: pi.A, Body: bodyTerm, Implicit: pi.Implicit}, nil
 }
 
 // checkPair checks a pair against a Sigma type.
