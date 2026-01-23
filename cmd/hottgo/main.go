@@ -646,17 +646,7 @@ func handleProofModeCommand(state *replState, line string) bool {
 		}
 		tacticName := parts[0]
 		tacticArgs := parts[1:]
-		msg, err := pm.ApplyTactic(tacticName, tacticArgs)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "tactic error: %v\n", err)
-		} else {
-			fmt.Println(msg)
-			if pm.IsComplete() {
-				fmt.Println("No more goals. Type :qed to complete the proof.")
-			} else {
-				fmt.Println(pm.FormatCurrentGoal())
-			}
-		}
+		applyTacticWithOutput(state, tacticName, tacticArgs)
 		return true
 
 	default:
@@ -665,22 +655,36 @@ func handleProofModeCommand(state *replState, line string) bool {
 		if len(parts) > 0 && !strings.HasPrefix(line, ":") {
 			tacticName := parts[0]
 			tacticArgs := parts[1:]
-			msg, err := pm.ApplyTactic(tacticName, tacticArgs)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "tactic error: %v\n", err)
-			} else {
-				fmt.Println(msg)
-				if pm.IsComplete() {
-					fmt.Println("No more goals. Type :qed to complete the proof.")
-				} else {
-					fmt.Println(pm.FormatCurrentGoal())
-				}
-			}
+			applyTacticWithOutput(state, tacticName, tacticArgs)
 			return true
 		}
 	}
 
 	return false
+}
+
+// applyTacticWithOutput applies a tactic and shows the result with optional verbose info.
+func applyTacticWithOutput(state *replState, name string, args []string) {
+	pm := state.proofMode
+
+	msg, err := pm.ApplyTactic(name, args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tactic error: %v\n", err)
+		return
+	}
+
+	fmt.Println(msg)
+
+	// In verbose mode, show additional info
+	if state.settings.verbose {
+		fmt.Printf("  [%d goal(s) remaining]\n", pm.GoalCount())
+	}
+
+	if pm.IsComplete() {
+		fmt.Println("No more goals. Type :qed to complete the proof.")
+	} else {
+		fmt.Println(pm.FormatCurrentGoal())
+	}
 }
 
 // handleTypeCommand shows the type of a term in proof mode context.
