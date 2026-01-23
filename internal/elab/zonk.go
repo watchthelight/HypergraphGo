@@ -41,9 +41,9 @@ func (z *zonker) zonkTerm(t ast.Term) ast.Term {
 		if sol, ok := z.metas.GetSolution(MetaID(tt.ID)); ok {
 			// Recursively zonk the solution
 			result := z.zonkTerm(sol)
-			// Apply arguments to solution
+			// Apply arguments to solution (implicit since these are meta args)
 			for _, arg := range tt.Args {
-				result = ast.App{T: result, U: z.zonkTerm(arg)}
+				result = ast.App{T: result, U: z.zonkTerm(arg), Implicit: true}
 			}
 			return result
 		}
@@ -59,22 +59,25 @@ func (z *zonker) zonkTerm(t ast.Term) ast.Term {
 
 	case ast.Pi:
 		return ast.Pi{
-			Binder: tt.Binder,
-			A:      z.zonkTerm(tt.A),
-			B:      z.zonkTerm(tt.B),
+			Binder:   tt.Binder,
+			A:        z.zonkTerm(tt.A),
+			B:        z.zonkTerm(tt.B),
+			Implicit: tt.Implicit,
 		}
 
 	case ast.Lam:
 		return ast.Lam{
-			Binder: tt.Binder,
-			Ann:    z.zonkTerm(tt.Ann),
-			Body:   z.zonkTerm(tt.Body),
+			Binder:   tt.Binder,
+			Ann:      z.zonkTerm(tt.Ann),
+			Body:     z.zonkTerm(tt.Body),
+			Implicit: tt.Implicit,
 		}
 
 	case ast.App:
 		return ast.App{
-			T: z.zonkTerm(tt.T),
-			U: z.zonkTerm(tt.U),
+			T:        z.zonkTerm(tt.T),
+			U:        z.zonkTerm(tt.U),
+			Implicit: tt.Implicit,
 		}
 
 	case ast.Sigma:
@@ -160,8 +163,8 @@ func (z *zonker) zonkTerm(t ast.Term) ast.Term {
 			E: z.zonkTerm(tt.E),
 		}
 
-	// Interval endpoints
-	case ast.Interval, ast.I0, ast.I1:
+	// Interval endpoints and variables
+	case ast.Interval, ast.I0, ast.I1, ast.IVar:
 		return t
 
 	default:
@@ -180,7 +183,7 @@ func HasMeta(t ast.Term) bool {
 	case ast.Meta:
 		return true
 
-	case ast.Var, ast.Global, ast.Sort, ast.Interval, ast.I0, ast.I1:
+	case ast.Var, ast.Global, ast.Sort, ast.Interval, ast.I0, ast.I1, ast.IVar:
 		return false
 
 	case ast.Pi:
@@ -326,7 +329,7 @@ func (c *metaCollector) collect(t ast.Term) {
 			c.collect(arg)
 		}
 
-	case ast.Var, ast.Global, ast.Sort, ast.Interval, ast.I0, ast.I1:
+	case ast.Var, ast.Global, ast.Sort, ast.Interval, ast.I0, ast.I1, ast.IVar:
 		// No metas
 
 	case ast.Pi:
