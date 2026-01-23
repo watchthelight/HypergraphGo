@@ -24,17 +24,19 @@ func (e *Env) Extend(t ast.Term) *Env {
 
 // ConvOptions controls the behavior of definitional equality checking.
 type ConvOptions struct {
-	EnableEta bool // Enable η-equality for functions (Π) and pairs (Σ)
+	EnableEta        bool // Enable η-equality for functions (Π) and pairs (Σ)
+	CumulativeUniv   bool // Enable universe cumulativity (Type_i ≤ Type_j for i ≤ j)
 }
 
 // Conv reports whether t and u are definitionally equal under env.
 // If opts.EnableEta is true, use η-rules for functions (Pi) and pairs (Sigma).
+// If opts.CumulativeUniv is true, allows Type_i to convert to Type_j when i ≤ j.
 //
 // Implementation strategy:
 // 1. Evaluate both terms to Values using NbE
 // 2. Reify both Values back to normal forms
 // 3. Apply η-expansion if enabled
-// 4. Compare normal forms structurally
+// 4. Compare normal forms structurally (with cumulative universes if enabled)
 func Conv(env *Env, t, u ast.Term, opts ConvOptions) bool {
 	// Handle nil environment
 	if env == nil {
@@ -48,6 +50,16 @@ func Conv(env *Env, t, u ast.Term, opts ConvOptions) bool {
 	// Reify to normal forms
 	nfT := eval.Reify(valT)
 	nfU := eval.Reify(valU)
+
+	// Handle cumulative universe checking: Type_i ≤ Type_j when i ≤ j
+	// This is applied before eta-equality for efficiency
+	if opts.CumulativeUniv {
+		if sortT, okT := nfT.(ast.Sort); okT {
+			if sortU, okU := nfU.(ast.Sort); okU {
+				return sortT.U <= sortU.U
+			}
+		}
+	}
 
 	// Compare normal forms with η-equality if enabled
 	if opts.EnableEta {
