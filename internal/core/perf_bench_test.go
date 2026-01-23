@@ -118,7 +118,7 @@ func BenchmarkNormalize_DeepNested50(b *testing.B) {
 // BenchmarkNormalize_PairChain benchmarks normalization of chained pair projections.
 func BenchmarkNormalize_PairChain10(b *testing.B) {
 	// fst (fst (fst ... (pair (pair ... a b) c) ...))
-	var term ast.Term = pair(glob("a"), glob("b"))
+	term := pair(glob("a"), glob("b"))
 	for i := 0; i < 10; i++ {
 		term = pair(term, glob("c"))
 	}
@@ -135,7 +135,7 @@ func BenchmarkNormalize_PairChain10(b *testing.B) {
 // BenchmarkNormalize_BetaChain benchmarks chained beta reductions.
 func BenchmarkNormalize_BetaChain20(b *testing.B) {
 	// (λx. (λy. (λz. ... z) c) b) a
-	var term ast.Term = vr(0)
+	term := vr(0)
 	for i := 0; i < 20; i++ {
 		term = app(lam("_", term), glob("arg"))
 	}
@@ -171,7 +171,7 @@ func BenchmarkConv_DependentType(b *testing.B) {
 // BenchmarkAlphaEq_Large benchmarks alpha-equality on large terms.
 func BenchmarkAlphaEq_LargeTerm(b *testing.B) {
 	// Build a large term with many subterms
-	var term ast.Term = glob("base")
+	term := glob("base")
 	for i := 0; i < 50; i++ {
 		term = app(lam("_", term), glob("arg"))
 	}
@@ -195,7 +195,7 @@ func BenchmarkAlphaEq_MismatchEarly(b *testing.B) {
 
 func BenchmarkAlphaEq_MismatchLate(b *testing.B) {
 	// Build deep terms that differ only at the end
-	var term1, term2 ast.Term = glob("same"), glob("same")
+	term1, term2 := glob("same"), glob("same")
 	for i := 0; i < 20; i++ {
 		term1 = lam("_", term1)
 		term2 = lam("_", term2)
