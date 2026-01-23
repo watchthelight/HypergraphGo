@@ -1365,8 +1365,7 @@ func TestFluentAPIWithErrors(t *testing.T) {
 	// Intros_ succeeds (does nothing on non-Pi)
 	prover = NewProver(goalType)
 	prover.Intros_()
-	err = prover.Error()
-	// Intros uses repeat, so it succeeds even with no intros
+	_ = prover.Error() // Intros uses repeat, so it succeeds even with no intros
 
 	// Exact_ - test that it's called (may or may not error depending on type checking)
 	prover = NewProver(goalType)
@@ -1477,12 +1476,9 @@ func TestOrElseFirstFailsSecondSucceeds(t *testing.T) {
 
 func TestProgressWithChange(t *testing.T) {
 	// Test that Progress runs the tactic
-	goalType := ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
-	state := proofstate.NewProofState(goalType, nil)
-
 	// Use a tactic that definitely changes state - Split on Sigma creates new goals
 	sigmaGoal := ast.Sigma{Binder: "a", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
-	state = proofstate.NewProofState(sigmaGoal, nil)
+	state := proofstate.NewProofState(sigmaGoal, nil)
 
 	tactic := Progress(Split())
 	result := tactic(state)

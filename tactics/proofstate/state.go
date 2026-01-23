@@ -151,7 +151,7 @@ func (p *ProofState) ReplaceGoal(id GoalID, newGoals []Goal) error {
 // The termBuilder receives the MetaIDs of the created subgoals and returns the proof term.
 func (p *ProofState) SolveGoalWithSubgoals(id GoalID, subgoalTypes []ast.Term, subgoalHyps [][]Hypothesis, termBuilder func([]elab.MetaID) ast.Term) error {
 	// Find the goal
-	var goalIdx int = -1
+	goalIdx := -1
 	var goal Goal
 	for i, g := range p.Goals {
 		if g.ID == id {
@@ -277,7 +277,7 @@ func (p *ProofState) FormatGoal(g *Goal) string {
 	}
 
 	// Format goal type with full context
-	result += fmt.Sprintf("  ========================\n")
+	result += "  ========================\n"
 	result += fmt.Sprintf("  %s\n", parser.FormatTermWithContext(g.Type, ctx))
 
 	return result

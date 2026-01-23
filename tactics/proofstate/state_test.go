@@ -245,7 +245,7 @@ func TestGoalLookupHypothesis(t *testing.T) {
 	}
 
 	// Find first hypothesis
-	hyp, ix, ok = goal.LookupHypothesis("A")
+	_, ix, ok = goal.LookupHypothesis("A")
 	if !ok {
 		t.Error("expected to find hypothesis A")
 	}

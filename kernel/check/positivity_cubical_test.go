@@ -1032,9 +1032,6 @@ func TestCheckPositivity_CubicalErrorPaths(t *testing.T) {
 
 // TestOccursInFace_AllBranches tests all branches of occursInFace.
 func TestOccursInFace_AllBranches(t *testing.T) {
-	// Default case with unknown face type
-	type unknownFace struct{}
-
 	// Test nested face formulas
 	tests := []struct {
 		name string
