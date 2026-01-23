@@ -1,8 +1,8 @@
 # HoTTGo Roadmap
 
-> **Current Version:** v1.8.0
-> **Status:** Phase 8 Complete — Elaboration and Tactics
-> **Last Updated:** 2026-01-08
+> **Current Version:** v1.10.0
+> **Status:** Phase 10 Complete — Usability Improvements
+> **Last Updated:** 2026-01-22
 
 This document provides a comprehensive overview of HoTTGo's development status, architecture, and future direction.
 
@@ -14,7 +14,7 @@ This document provides a comprehensive overview of HoTTGo's development status, 
 2. [Current State](#current-state)
 3. [Phase Summary](#phase-summary)
 4. [Completed Phases](#completed-phases)
-5. [Current Work: Phase 8](#current-work-phase-8)
+5. [Current Work: Phase 10](#current-work-phase-10)
 6. [Future Phases](#future-phases)
 7. [Architecture](#architecture)
 8. [Test Coverage](#test-coverage)
@@ -87,8 +87,8 @@ HoTTGo is a standalone implementation of Homotopy Type Theory (HoTT) with cubica
 | 6 | Computational Univalence | ✅ Complete | v1.6.0 |
 | 7 | Higher Inductive Types | ✅ Complete | v1.7.0 |
 | 8 | Elaboration & Tactics | ✅ Complete | v1.8.0 |
-| **9** | **Standard Library & Proof Mode** | **✅ Complete** | **v1.9.0** |
-| 10 | Performance & Polish | 📋 Planned | — |
+| 9 | Standard Library & Proof Mode | ✅ Complete | v1.9.0 |
+| **10** | **Usability Improvements** | **✅ Complete** | **v1.10.0** |
 
 ---
 
@@ -307,9 +307,57 @@ Standard library types and interactive proof mode.
 
 ---
 
+## Current Work: Phase 10
+
+### Phase 10: Usability Improvements (v1.10.0)
+
+**Completed:**
+
+- **Script Definitions & Axioms** (`tactics/script/`)
+  - `Definition name : TYPE := TERM` syntax
+  - `Axiom name : TYPE` for postulated axioms
+  - Items processed in order, added to environment
+  - Later items can reference earlier definitions/theorems
+
+- **REPL Definition Commands** (`cmd/hottgo/main.go`)
+  - `:define NAME TYPE TERM` — define a constant
+  - `:axiom NAME TYPE` — postulate an axiom
+  - `:prove NAME : TYPE` — enter proof mode with named theorem
+  - Proved theorems automatically added to environment with `:qed`
+
+- **Context-Aware Printing** (`internal/parser/sexpr.go`)
+  - `FormatTermWithContext(term, ctx)` shows variable names
+  - Proof mode displays `(Pi n Nat (Id Nat n n))` instead of `(Id Nat (Var 0) (Var 0))`
+  - Original `FormatTerm()` preserved for round-trippable output
+
+- **Example Proof Scripts** (`examples/proofs/`)
+  - `identity.htt` — identity and constant functions
+  - `nat_basic.htt` — natural number proofs
+  - `bool_basic.htt` — boolean type proofs
+  - `unit_empty.htt` — Unit and Empty types, ex falso
+  - `sum_basic.htt` — Sum/coproduct proofs
+  - `equality_basic.htt` — identity type proofs
+
+- **Implicit Arguments** (`internal/ast/term.go`, `internal/elab/elab.go`, `internal/parser/sexpr.go`)
+  - `Implicit` field added to `Pi`, `Lam`, and `App` types
+  - S-expression syntax: `(Pi {A} Type ...)`, `(Lam {x} body)`
+  - `insertImplicits()` inserts metavariables for implicit Pi arguments
+  - Implicit lambda insertion when checking against implicit Pi types
+  - Round-trip parser/printer support
+
+- **Surface Inductive Syntax** (`internal/elab/elab.go`)
+  - `SIndApp` elaboration: `(Nat)` or `(List Nat)` for inductive type applications
+  - `SCtorApp` elaboration: `(Nat.zero)` or `(Nat.succ n)` for constructor applications
+  - `SElim` elaboration: `(natElim motive zCase sCase target)` for eliminator applications
+  - Uses `GlobalEnv.LookupInductive()` and `LookupConstructor()` for type info
+
+**Phase 10 Complete!**
+
+---
+
 ## Future Phases
 
-### Phase 10: Performance & Polish
+### Phase 11: Performance & Polish
 
 **Performance:**
 - Hash-consing for terms

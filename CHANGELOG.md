@@ -7,7 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Zonking preserves Implicit field** (`internal/elab/zonk.go`)
+  - `ast.Pi`, `ast.Lam`, and `ast.App` now preserve the `Implicit` field during zonking
+  - Meta argument applications marked as implicit during solution substitution
+  - Added `ast.IVar` to zonking cases to handle interval variables
+
 ### Added
+
+#### Phase 10: Usability Improvements (M1-M10)
+
+- **Surface inductive syntax** (`internal/elab/elab.go`, `internal/elab/surface.go`)
+  - `SIndApp` elaboration: `(Nat)` or `(List Nat)` for inductive type applications
+  - `SCtorApp` elaboration: `(Nat.zero)` or `(Nat.succ n)` for constructor applications
+  - `SElim` elaboration: `(natElim motive zCase sCase target)` for eliminator applications
+  - Uses `GlobalEnv.LookupInductive()` and `LookupConstructor()` for type info
+  - Comprehensive tests for all three surface inductive forms
+
+- **Implicit arguments** (`internal/ast/term.go`, `internal/elab/elab.go`, `internal/parser/sexpr.go`)
+  - `Implicit` field added to `Pi`, `Lam`, and `App` types
+  - S-expression syntax: `(Pi {A} Type (Var 0))` for implicit Pi, `(Lam {x} body)` for implicit lambda
+  - `insertImplicits()` inserts metavariables for implicit arguments at application sites
+  - Implicit lambda insertion: checking a term against `{A : Type} -> B` wraps in implicit lambda
+  - Icity checking: lambdas must match Pi implicitness or error
+  - `FormatTerm` outputs implicit binders with `{...}` syntax for round-tripping
+
+- **Script definitions and axioms** (`tactics/script/`)
+  - `Definition name : TYPE := TERM` syntax for defining constants
+  - `Axiom name : TYPE` syntax for postulated axioms
+  - Script items processed in order, definitions/axioms added to environment
+  - Theorems added to environment after successful proof (as opaque definitions)
+  - Later items can reference earlier definitions/theorems
+  - `Item`, `Definition`, `Axiom` AST types (`ast.go`)
+  - Comprehensive parser tests (`parser_test.go`)
+
+- **REPL definition commands** (`cmd/hottgo/main.go`)
+  - `:define NAME TYPE TERM` - define a new constant
+  - `:axiom NAME TYPE` - postulate an axiom
+  - `:prove NAME : TYPE` - enter proof mode with named theorem
+  - Proved theorems automatically added to environment with `:qed`
+  - Anonymous theorems named `anon_1`, `anon_2`, etc.
+
+- **Context-aware printing** (`internal/parser/sexpr.go`, `tactics/proofstate/state.go`)
+  - `FormatTermWithContext(term, ctx)` shows variable names instead of de Bruijn indices
+  - Proof mode uses context from hypotheses for readable goal display
+  - Example: `(Pi n Nat (Id Nat n n))` instead of `(Pi n Nat (Id Nat (Var 0) (Var 0)))`
+  - Original `FormatTerm()` preserved for round-trippable output
+
+- **Unfold tactic** (`tactics/core.go`, `kernel/check/env.go`)
+  - `UnfoldWith(globals)(name)` unfolds a definition in the current goal and hypotheses
+  - Replaces `Global{name}` with the definition body throughout the goal type
+  - Also unfolds in hypothesis types for complete substitution
+  - `LookupDefinitionBodyForced()` added to `GlobalEnv` for forced unfolding regardless of transparency
+  - Script executor supports `unfold NAME` tactic in proof scripts
+
+- **Example proof scripts** (`examples/proofs/`)
+  - `identity.htt` - identity function definitions and proofs
+  - `nat_basic.htt` - natural number reflexivity proofs
+  - `bool_basic.htt` - boolean type proofs
+  - `unit_empty.htt` - Unit and Empty type proofs (ex falso quodlibet)
+  - `sum_basic.htt` - Sum/coproduct type proofs
+  - `equality_basic.htt` - identity type (propositional equality) proofs
+  - `list_basic.htt` - List type proofs (nil, cons, reflexivity)
+  - `path_basics.htt` - Cubical PathP type proofs using PathLam
 
 #### Phase 9: Standard Library & Inductive Tactics (M1-M6)
 

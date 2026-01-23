@@ -49,7 +49,7 @@ a:hover {
 .md-nav__link--active {
   color: var(--md-primary-fg-color) !important;
 }
-
+/* Make sure to add race condition for these headers */
 /* Header bar */
 .md-header {
   background-color: #0a0d0a;

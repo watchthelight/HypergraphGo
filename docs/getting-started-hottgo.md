@@ -169,6 +169,51 @@ Output:
 2/2 theorems verified.
 ```
 
+### Definitions and Axioms in Scripts
+
+Scripts can also contain definitions and axioms:
+
+```
+-- Define the identity function
+Definition id : (Pi A Type (Pi x (Var 0) (Var 1))) := (Lam A (Lam x (Var 0)))
+
+-- Postulate an axiom (no proof required)
+Axiom funext : (Pi A Type (Pi B Type Type))
+
+-- Use the definition in a theorem
+Theorem id_exists : (Sigma f (Pi A Type (Pi x (Var 0) (Var 1))) Unit)
+Proof
+  split
+  exact id
+  constructor
+Qed
+```
+
+Definitions and theorems are added to the environment, so later items can reference them.
+
+### REPL Definitions
+
+In the REPL, use `:define` and `:axiom`:
+
+```
+> :define id (Pi A Type (Pi x (Var 0) (Var 1))) (Lam A (Lam x (Var 0)))
+Defined id : (Pi A Type (Pi x (Var 0) (Var 1)))
+
+> :axiom myaxiom (Pi A Type A)
+Axiom myaxiom : (Pi A Type A)
+```
+
+Use `:prove NAME : TYPE` to name your theorem:
+
+```
+> :prove my_theorem : (Id Nat zero zero)
+Entering proof mode for theorem 'my_theorem'.
+...
+> :qed
+Proof complete!
+Added theorem: my_theorem : (Id Nat zero zero)
+```
+
 ## Type Checking a File
 
 Create a file `myterms.sexpr`:
@@ -214,6 +259,15 @@ HoTTGo uses S-expression syntax for terms:
 | Identity | `(Id A X Y)` | `(Id Nat zero zero)` |
 | Reflexivity | `(Refl A X)` | `(Refl Nat zero)` |
 | J eliminator | `(J A C D X Y P)` | `(J Nat ...)` |
+
+**Implicit Arguments:** Use curly braces around binders for implicit arguments:
+
+| Form | Syntax | Example |
+|------|--------|---------|
+| Implicit Pi | `(Pi {BINDER} DOMAIN CODOMAIN)` | `(Pi {A} Type (Var 0))` |
+| Implicit Lambda | `(Lam {BINDER} BODY)` | `(Lam {A} (Var 0))` |
+
+Implicit arguments are inferred by unification during elaboration. When applying a function with an implicit Pi type, the elaborator automatically inserts metavariables for implicit arguments.
 
 **Note:** Variables use de Bruijn indices. `0` refers to the innermost binder, `1` to the next, etc.
 

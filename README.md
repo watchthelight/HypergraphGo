@@ -241,6 +241,27 @@ hottgo --load FILE        # verify tactic script
 
 REPL mode with `:eval`, `:synth`, `:prove TYPE`, `:quit`. Interactive proof mode supports tactics like `intro`, `assumption`, `reflexivity`, `destruct`, `induction`, and more.
 
+**Definitions and Axioms:**
+
+```bash
+hottgo                  # start REPL
+> :define id (Pi A Type (Pi x (Var 0) (Var 1))) (Lam A (Lam x (Var 0)))
+> :axiom myaxiom (Pi A Type A)
+> :prove my_theorem : (Id Nat zero zero)
+```
+
+**Example Proof Scripts:**
+
+See `examples/proofs/` for learning material:
+- `identity.htt` — identity and constant functions
+- `nat_basic.htt` — natural number proofs
+- `bool_basic.htt` — boolean type proofs
+- `unit_empty.htt` — Unit and Empty types, ex falso
+- `sum_basic.htt` — Sum/coproduct proofs
+- `equality_basic.htt` — identity type proofs
+
+Verify all examples: `for f in examples/proofs/*.htt; do hottgo --load "$f"; done`
+
 ## Architecture
 
 Design docs: [`DESIGN.md`](DESIGN.md), [`DIAGRAMS.md`](DIAGRAMS.md)
@@ -258,9 +279,9 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 | 7 | ✅ | Higher Inductive Types |
 | 8 | ✅ | Elaboration and tactics |
 | **9** | **✅** | **Standard library & proof mode** |
-| 10 | 📋 | Performance, soundness, packaging |
+| **10** | **✅** | **Usability improvements** |
 
-Current: **v1.9.0** — Phase 9 complete. Standard library (Unit, Empty, Sum, List), interactive proof mode, tactic scripts.
+Current: **v1.10.0** — Phase 10 complete. Implicit arguments, surface inductive syntax, definitions/axioms in scripts, context-aware printing, example proofs.
 
 See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 
