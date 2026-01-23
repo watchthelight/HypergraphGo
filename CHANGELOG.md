@@ -75,6 +75,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `verbose on|off` - toggle verbose output (default: off)
   - `replSettings` struct for configurable options
 
+- **Environment inspection commands** (`cmd/hottgo/main.go`, `kernel/check/env.go`)
+  - `:env [FILTER]` - list environment entries (axioms/defs/inductives)
+  - `:print NAME` - print full definition body and type
+  - `:search PATTERN` - search for entries by type pattern (case-insensitive)
+  - `EntryKind` type and `GetKind()` method for categorizing entries
+  - `Axioms()`, `Definitions()`, `Inductives()` getter methods on GlobalEnv
+
+- **Unfold tactic in REPL** (`cmd/hottgo/proofmode.go`)
+  - `unfold NAME` - unfolds a definition in the current goal
+
 ### Fixed
 
 - **Comprehensive cubical type coverage** (`internal/elab/zonk.go`, `kernel/check/positivity.go`, `kernel/check/positivity_cubical.go`)
