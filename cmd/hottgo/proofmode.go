@@ -14,9 +14,10 @@ import (
 
 // ProofMode manages interactive proof construction.
 type ProofMode struct {
-	state   *proofstate.ProofState
-	checker *check.Checker
-	goalTy  ast.Term
+	state      *proofstate.ProofState
+	checker    *check.Checker
+	goalTy     ast.Term
+	theoremName string // Optional name for the theorem
 }
 
 // NewProofMode creates a new proof mode for the given goal type.
@@ -26,6 +27,26 @@ func NewProofMode(goalTy ast.Term, checker *check.Checker) *ProofMode {
 		checker: checker,
 		goalTy:  goalTy,
 	}
+}
+
+// NewProofModeNamed creates a new proof mode with a theorem name.
+func NewProofModeNamed(name string, goalTy ast.Term, checker *check.Checker) *ProofMode {
+	return &ProofMode{
+		state:       proofstate.NewProofState(goalTy, nil),
+		checker:     checker,
+		goalTy:      goalTy,
+		theoremName: name,
+	}
+}
+
+// TheoremName returns the name of the theorem being proved (may be empty).
+func (pm *ProofMode) TheoremName() string {
+	return pm.theoremName
+}
+
+// GoalType returns the goal type.
+func (pm *ProofMode) GoalType() ast.Term {
+	return pm.goalTy
 }
 
 // IsComplete returns true if the proof is complete.

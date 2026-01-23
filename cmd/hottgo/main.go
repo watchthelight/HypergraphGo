@@ -13,7 +13,10 @@
 //
 //	:eval EXPR                 Evaluate an expression
 //	:synth EXPR                Synthesize the type of an expression
+//	:define NAME TYPE TERM     Define a new constant
+//	:axiom NAME TYPE           Postulate an axiom
 //	:prove TYPE                Start proof mode with goal TYPE
+//	:prove NAME : TYPE         Start proof mode with named theorem
 //	:quit                      Exit the REPL
 //
 // Proof Mode Commands (when in proof mode):
@@ -22,7 +25,7 @@
 //	:goal                      Show current goal
 //	:goals                     Show all goals
 //	:undo                      Undo last tactic
-//	:qed                       Extract and verify proof
+//	:qed                       Extract and verify proof, add to environment
 //	:abort                     Exit proof mode without completing
 package main
 
@@ -183,15 +186,23 @@ func doLoad(filename string) error {
 	return nil
 }
 
+// replState holds the state for the REPL session.
+type replState struct {
+	checker      *check.Checker
+	proofMode    *ProofMode
+	theoremCount int // For generating anonymous theorem names
+}
+
 func repl() {
-	checker := check.NewCheckerWithStdlib()
+	state := &replState{
+		checker: check.NewCheckerWithStdlib(),
+	}
 	scanner := bufio.NewScanner(os.Stdin)
-	var proofMode *ProofMode
 
 	for {
 		// Show different prompt based on mode
-		if proofMode != nil {
-			fmt.Printf("proof[%d]> ", proofMode.GoalCount())
+		if state.proofMode != nil {
+			fmt.Printf("proof[%d]> ", state.proofMode.GoalCount())
 		} else {
 			fmt.Print("> ")
 		}
@@ -206,21 +217,21 @@ func repl() {
 		}
 
 		if line == ":quit" || line == ":q" {
-			if proofMode != nil {
+			if state.proofMode != nil {
 				fmt.Println("Aborting proof mode.")
-				proofMode = nil
+				state.proofMode = nil
 			}
 			break
 		}
 
 		if line == ":help" || line == ":h" {
-			printHelp(proofMode != nil)
+			printHelp(state.proofMode != nil)
 			continue
 		}
 
 		// Handle proof mode commands
-		if proofMode != nil {
-			handled := handleProofModeCommand(proofMode, line, &proofMode)
+		if state.proofMode != nil {
+			handled := handleProofModeCommand(state, line)
 			if handled {
 				continue
 			}
@@ -228,21 +239,22 @@ func repl() {
 
 		// Handle :prove command to enter proof mode
 		if strings.HasPrefix(line, ":prove ") {
-			expr := strings.TrimPrefix(line, ":prove ")
-			goalTy, err := parser.ParseTerm(expr)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
-				continue
-			}
-			// Verify it's a valid type
-			_, checkErr := checker.Synth(nil, check.Span{}, goalTy)
-			if checkErr != nil {
-				fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
-				continue
-			}
-			proofMode = NewProofMode(goalTy, checker)
-			fmt.Println("Entering proof mode.")
-			fmt.Println(proofMode.FormatCurrentGoal())
+			rest := strings.TrimPrefix(line, ":prove ")
+			handleProveCommand(state, rest)
+			continue
+		}
+
+		// Handle :define command
+		if strings.HasPrefix(line, ":define ") {
+			rest := strings.TrimPrefix(line, ":define ")
+			handleDefineCommand(state, rest)
+			continue
+		}
+
+		// Handle :axiom command
+		if strings.HasPrefix(line, ":axiom ") {
+			rest := strings.TrimPrefix(line, ":axiom ")
+			handleAxiomCommand(state, rest)
 			continue
 		}
 
@@ -261,7 +273,7 @@ func repl() {
 				fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
 				continue
 			}
-			ty, checkErr := checker.Synth(nil, check.Span{}, term)
+			ty, checkErr := state.checker.Synth(nil, check.Span{}, term)
 			if checkErr != nil {
 				fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
 				continue
@@ -276,7 +288,7 @@ func repl() {
 			fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
 			continue
 		}
-		ty, checkErr := checker.Synth(nil, check.Span{}, term)
+		ty, checkErr := state.checker.Synth(nil, check.Span{}, term)
 		if checkErr != nil {
 			fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
 			continue
@@ -289,9 +301,187 @@ func repl() {
 	}
 }
 
+// handleProveCommand parses ":prove TYPE" or ":prove NAME : TYPE".
+func handleProveCommand(state *replState, rest string) {
+	var name string
+	var typeStr string
+
+	// Check if there's a "NAME : TYPE" pattern
+	if colonIdx := strings.Index(rest, ":"); colonIdx > 0 {
+		possibleName := strings.TrimSpace(rest[:colonIdx])
+		// Only treat it as a named theorem if the name doesn't contain spaces
+		// and doesn't start with '('
+		if !strings.Contains(possibleName, " ") && !strings.HasPrefix(possibleName, "(") {
+			name = possibleName
+			typeStr = strings.TrimSpace(rest[colonIdx+1:])
+		} else {
+			typeStr = rest
+		}
+	} else {
+		typeStr = rest
+	}
+
+	goalTy, err := parser.ParseTerm(typeStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
+		return
+	}
+
+	// Verify it's a valid type
+	_, checkErr := state.checker.Synth(nil, check.Span{}, goalTy)
+	if checkErr != nil {
+		fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
+		return
+	}
+
+	if name != "" {
+		state.proofMode = NewProofModeNamed(name, goalTy, state.checker)
+		fmt.Printf("Entering proof mode for theorem '%s'.\n", name)
+	} else {
+		state.proofMode = NewProofMode(goalTy, state.checker)
+		fmt.Println("Entering proof mode.")
+	}
+	fmt.Println(state.proofMode.FormatCurrentGoal())
+}
+
+// handleDefineCommand parses ":define NAME TYPE TERM" and adds a definition.
+func handleDefineCommand(state *replState, rest string) {
+	// Parse: NAME TYPE TERM
+	// First token is the name
+	parts := strings.Fields(rest)
+	if len(parts) < 3 {
+		fmt.Fprintln(os.Stderr, "usage: :define NAME TYPE TERM")
+		return
+	}
+
+	name := parts[0]
+
+	// Need to find where TYPE ends and TERM begins
+	// This is tricky because both are S-expressions
+	// Let's require them to be space-separated top-level terms
+	restAfterName := strings.TrimPrefix(rest, name)
+	restAfterName = strings.TrimSpace(restAfterName)
+
+	// Parse the type (first complete S-expression)
+	typeStr, termStr, err := splitTwoTerms(restAfterName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return
+	}
+
+	defType, err := parser.ParseTerm(typeStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error in type: %v\n", err)
+		return
+	}
+
+	defBody, err := parser.ParseTerm(termStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error in body: %v\n", err)
+		return
+	}
+
+	// Verify the type is valid
+	_, checkErr := state.checker.Synth(nil, check.Span{}, defType)
+	if checkErr != nil {
+		fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
+		return
+	}
+
+	// Check that the body has the declared type
+	checkErr = state.checker.Check(nil, check.Span{}, defBody, defType)
+	if checkErr != nil {
+		fmt.Fprintf(os.Stderr, "body type mismatch: %v\n", checkErr)
+		return
+	}
+
+	// Add to global environment
+	state.checker.Globals().AddDefinition(name, defType, defBody, check.Transparent)
+	fmt.Printf("Defined %s : %s\n", name, parser.FormatTerm(defType))
+}
+
+// handleAxiomCommand parses ":axiom NAME TYPE" and adds an axiom.
+func handleAxiomCommand(state *replState, rest string) {
+	// Parse: NAME TYPE
+	parts := strings.Fields(rest)
+	if len(parts) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: :axiom NAME TYPE")
+		return
+	}
+
+	name := parts[0]
+	typeStr := strings.TrimPrefix(rest, name)
+	typeStr = strings.TrimSpace(typeStr)
+
+	axType, err := parser.ParseTerm(typeStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
+		return
+	}
+
+	// Verify the type is valid
+	_, checkErr := state.checker.Synth(nil, check.Span{}, axType)
+	if checkErr != nil {
+		fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
+		return
+	}
+
+	// Add to global environment
+	state.checker.Globals().AddAxiom(name, axType)
+	fmt.Printf("Axiom %s : %s\n", name, parser.FormatTerm(axType))
+}
+
+// splitTwoTerms splits a string into two S-expression terms.
+func splitTwoTerms(s string) (string, string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", "", fmt.Errorf("expected two terms")
+	}
+
+	// Find the end of the first term
+	var firstEnd int
+	if s[0] == '(' {
+		// Find matching closing paren
+		depth := 0
+		for i, c := range s {
+			if c == '(' {
+				depth++
+			} else if c == ')' {
+				depth--
+				if depth == 0 {
+					firstEnd = i + 1
+					break
+				}
+			}
+		}
+		if depth != 0 {
+			return "", "", fmt.Errorf("unbalanced parentheses in type")
+		}
+	} else {
+		// Simple atom - find first whitespace
+		idx := strings.IndexFunc(s, func(r rune) bool {
+			return r == ' ' || r == '\t' || r == '\n'
+		})
+		if idx == -1 {
+			return "", "", fmt.Errorf("expected two terms, got one")
+		}
+		firstEnd = idx
+	}
+
+	first := strings.TrimSpace(s[:firstEnd])
+	second := strings.TrimSpace(s[firstEnd:])
+	if second == "" {
+		return "", "", fmt.Errorf("expected two terms, got one")
+	}
+
+	return first, second, nil
+}
+
 // handleProofModeCommand processes proof mode specific commands.
 // Returns true if the command was handled.
-func handleProofModeCommand(pm *ProofMode, line string, proofModePtr **ProofMode) bool {
+func handleProofModeCommand(state *replState, line string) bool {
+	pm := state.proofMode
+
 	switch {
 	case line == ":goal" || line == ":g":
 		fmt.Println(pm.FormatCurrentGoal())
@@ -324,14 +514,26 @@ func handleProofModeCommand(pm *ProofMode, line string, proofModePtr **ProofMode
 			fmt.Fprintf(os.Stderr, "type check failed: %v\n", err)
 			return true
 		}
+
+		// Generate theorem name if not provided
+		thmName := pm.TheoremName()
+		if thmName == "" {
+			state.theoremCount++
+			thmName = fmt.Sprintf("anon_%d", state.theoremCount)
+		}
+
+		// Add theorem to global environment
+		state.checker.Globals().AddDefinition(thmName, pm.GoalType(), term, check.Opaque)
+
 		fmt.Println("Proof complete!")
+		fmt.Printf("Added theorem: %s : %s\n", thmName, parser.FormatTerm(pm.GoalType()))
 		fmt.Printf("Term: %s\n", parser.FormatTerm(term))
-		*proofModePtr = nil
+		state.proofMode = nil
 		return true
 
 	case line == ":abort":
 		fmt.Println("Proof aborted.")
-		*proofModePtr = nil
+		state.proofMode = nil
 		return true
 
 	case strings.HasPrefix(line, ":tactic ") || strings.HasPrefix(line, ":t "):
@@ -389,11 +591,14 @@ func handleProofModeCommand(pm *ProofMode, line string, proofModePtr **ProofMode
 func printHelp(inProofMode bool) {
 	fmt.Println("HoTTGo REPL Commands:")
 	fmt.Println()
-	fmt.Println("  :eval EXPR        Evaluate an expression")
-	fmt.Println("  :synth EXPR       Synthesize the type of an expression")
-	fmt.Println("  :prove TYPE       Enter proof mode with goal TYPE")
-	fmt.Println("  :help, :h         Show this help")
-	fmt.Println("  :quit, :q         Exit the REPL")
+	fmt.Println("  :eval EXPR            Evaluate an expression")
+	fmt.Println("  :synth EXPR           Synthesize the type of an expression")
+	fmt.Println("  :define NAME TYPE TERM  Define a new constant")
+	fmt.Println("  :axiom NAME TYPE      Postulate an axiom")
+	fmt.Println("  :prove TYPE           Enter proof mode with goal TYPE")
+	fmt.Println("  :prove NAME : TYPE    Enter proof mode with named theorem")
+	fmt.Println("  :help, :h             Show this help")
+	fmt.Println("  :quit, :q             Exit the REPL")
 	fmt.Println()
 	if inProofMode {
 		fmt.Println("Proof Mode Commands:")
@@ -402,7 +607,7 @@ func printHelp(inProofMode bool) {
 		fmt.Println("  :goals            Show all goals")
 		fmt.Println("  :tactic NAME      Apply a tactic (or just type tactic name)")
 		fmt.Println("  :undo, :u         Undo last tactic")
-		fmt.Println("  :qed              Complete and verify the proof")
+		fmt.Println("  :qed              Complete proof and add to environment")
 		fmt.Println("  :abort            Exit proof mode")
 		fmt.Println()
 		fmt.Println("Available Tactics:")
@@ -424,5 +629,6 @@ func printHelp(inProofMode bool) {
 		fmt.Println("  simpl             Simplify the goal")
 		fmt.Println("  trivial           Try reflexivity and assumption")
 		fmt.Println("  auto              Automatic proof search")
+		fmt.Println("  apply TERM        Apply a function/theorem to the goal")
 	}
 }
