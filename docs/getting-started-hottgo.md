@@ -494,8 +494,36 @@ error: no matching hypothesis found
 ```
 `Assumption` found no hypothesis matching the goal.
 
+## Learning from the Proof Suite
+
+The `examples/proofs/` directory contains **374 verified theorems** demonstrating HoTTGo's capabilities:
+
+```bash
+# Verify all example proofs
+for f in examples/proofs/**/*.htt; do hottgo --load "$f"; done
+```
+
+### Proof Files by Category
+
+| Directory | Content | Start Here |
+|-----------|---------|------------|
+| `foundations/` | Natural numbers, booleans | `nat_arith.htt`, `bool_logic.htt` |
+| `data/` | List operations | `list_ops.htt` |
+| `hott/` | Path algebra, equivalences | `path_algebra.htt`, `equivalences.htt` |
+| `hits/` | Loop spaces, truncation | `circle.htt`, `truncation.htt` |
+| `integration/` | Peano arithmetic, groups | `peano.htt`, `groups.htt` |
+
+### Recommended Learning Path
+
+1. **Start simple:** `examples/proofs/identity.htt` - basic intro/assumption tactics
+2. **Learn paths:** `examples/proofs/path_basics.htt` - PathLam and cubical paths
+3. **Explore types:** `examples/proofs/hott/path_algebra.htt` - symmetry, transitivity, 2-paths
+4. **See structure:** `examples/proofs/hott/equivalences.htt` - fibers, isEquiv, homotopies
+5. **Study integration:** `examples/proofs/integration/groups.htt` - algebraic structure types
+
 ## Next Steps
 
+- **Proof Suite:** See `examples/proofs/` for 374 verified theorems
 - **Examples:** See `examples/` directory for more code samples
 - **API Reference:** See `docs/API.md` for detailed API documentation
 - **Architecture:** See `docs/architecture.md` to understand the codebase
