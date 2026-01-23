@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Comprehensive HoTT Audit & Repair Implementation
+
+- **New path reasoning tactics** (`tactics/core.go`)
+  - `Symmetry(hypName)` - reverses an equality/path using J eliminator
+  - `Transitivity(hyp1, hyp2)` - chains two equalities/paths using J eliminator
+  - `Ap(funcTerm, hypName)` - applies function to both sides of equality (congruence)
+  - `Transport(pathHyp, termHyp)` - moves a term along a path
+  - `PathAppAt(hypName, endpoint)` - applies a path at an interval endpoint (i0/i1)
+
+- **Rich error context for tactics** (`tactics/tactic.go`)
+  - `TacticError` struct with Goal, ExpectedType, ActualType, and Hints fields
+  - `FailWithContext()` helper for errors with goal context
+  - `FailTypeMismatch()` helper for type mismatch errors with hints
+  - Improved `Apply` tactic error messages with helpful hints
+
+- **New REPL commands** (`cmd/hottgo/main.go`, `cmd/hottgo/proofmode.go`)
+  - `:examples` - displays working proof examples for learning
+  - `:tutorial` - interactive walkthrough of proof mode features
+  - `:type HYP` - shows type of a hypothesis in proof mode
+  - `:reduce TERM` - beta-reduces a term and displays result
+  - `:focus N` - switches to goal N in multi-goal proofs
+
+- **Proof mode REPL support for new tactics** (`cmd/hottgo/proofmode.go`)
+  - `symmetry HYP` / `sym HYP` - apply symmetry tactic
+  - `transitivity HYP1 HYP2` / `trans HYP1 HYP2` - apply transitivity tactic
+  - `ap FUNC HYP` / `congruence FUNC HYP` - apply congruence tactic
+  - `transport PATH_HYP TERM_HYP` - apply transport tactic
+
+- **Auto-display goals after tactics** (`cmd/hottgo/proofmode.go`)
+  - Goal is automatically displayed after each successful tactic application
+  - Improves proof workflow visibility
+
+- **Universe cumulativity infrastructure** (`internal/core/conv.go`, `kernel/check/check.go`)
+  - Added `CumulativeUniv` option to `ConvOptions` struct
+  - Modified `Conv` function to handle cumulative universe subtyping (Type_i ≤ Type_j for i ≤ j)
+  - Currently disabled (`CumulativeUniv: false`) pending proper implementation
+  - Note: Requires distinguishing equality from subtyping contexts (path endpoints need exact equality)
+
+- **Proof history and checkpoints** (`cmd/hottgo/proofmode.go`, `cmd/hottgo/main.go`)
+  - `:history` / `:hist` - displays sequence of applied tactics
+  - `:checkpoint NAME` / `:cp NAME` - saves current proof state with a name
+  - `:restore NAME` - restores a previously saved checkpoint
+  - `:checkpoints` / `:cps` - lists all saved checkpoints
+  - `TacticHistoryEntry` struct tracks tactic name, args, and result message
+  - `Checkpoint` struct stores proof state and history snapshot
+
+- **Pair type inference** (`kernel/check/bidir.go`)
+  - `synthPair()` infers non-dependent Sigma type for pairs
+  - For `(a, b)` where `a : A` and `b : B`, infers `Σ(_ : A). B`
+  - Enables type synthesis for pairs without explicit annotation
+
+- **AST substitution performance optimizations** (`kernel/subst/subst.go`, `kernel/subst/subst_cubical.go`)
+  - `maxFreeVar()` / `maxFreeVarUnder()` - computes maximum free variable index
+  - `IsClosed()` - checks if a term has no free variables
+  - `substClosed()` - optimized substitution that skips shifting for closed terms
+  - `substClosedExtension()` - cubical extension for closed term substitution
+  - Early exit in `Shift()` when `d == 0` or term has no variables above cutoff
+  - Significant performance improvement for proofs with many closed terms
+
+- **REPL settings system** (`cmd/hottgo/main.go`)
+  - `:set OPTION VALUE` - configure display options
+  - `:settings` - show current settings
+  - `named on|off` - toggle named variable display (default: on)
+  - `verbose on|off` - toggle verbose output (default: off)
+  - `replSettings` struct for configurable options
+
 ### Fixed
 
 - **Comprehensive cubical type coverage** (`internal/elab/zonk.go`, `kernel/check/positivity.go`, `kernel/check/positivity_cubical.go`)
