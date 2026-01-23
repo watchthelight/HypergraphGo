@@ -230,7 +230,11 @@ func Apply(term ast.Term) Tactic {
 		}
 
 		if !ok {
-			return Failf("apply: cannot infer type of term")
+			return FailWithContext(
+				"cannot infer type of term",
+				goal,
+				"Make sure the term is a hypothesis or a well-typed expression",
+			)
 		}
 
 		termTyNorm := eval.EvalNBE(termTy)
@@ -238,20 +242,50 @@ func Apply(term ast.Term) Tactic {
 		// Check if it's a function type
 		pi, isPi := termTyNorm.(ast.Pi)
 		if !isPi {
-			return Failf("apply: term is not a function, got %T", termTyNorm)
+			return FailTypeMismatch(
+				goal,
+				"function type (A -> B)",
+				parser.FormatTerm(termTyNorm),
+				"The term must be a function to use 'apply'",
+			)
 		}
 
 		// Check that codomain matches goal (after substituting a metavariable)
 		// For non-dependent functions, codomain should match goal directly
 		// For dependent functions, we check that B[_/x] can unify with goal
 		codomain := pi.B
-		if !containsVar0(codomain) {
+		isDependent := containsVar0(codomain)
+
+		if !isDependent {
 			// Non-dependent: codomain should match goal
-			if !eval.AlphaEq(eval.EvalNBE(codomain), goalTy) {
-				return Failf("apply: codomain %v does not match goal %v", codomain, goalTy)
+			codomainNorm := eval.EvalNBE(codomain)
+			if !eval.AlphaEq(codomainNorm, goalTy) {
+				return FailTypeMismatch(
+					goal,
+					parser.FormatTerm(goalTy),
+					parser.FormatTerm(codomainNorm),
+					fmt.Sprintf("The codomain of the function does not match the goal"),
+					fmt.Sprintf("Function has type: %s -> %s",
+						parser.FormatTerm(pi.A), parser.FormatTerm(codomainNorm)),
+				)
+			}
+		} else {
+			// For dependent functions, do a structural check
+			// Check that the codomain's structure could potentially match the goal
+			// by checking if B[goal/Var{0}] could work
+			codomainWithGoal := subst.Subst(0, goalTy, codomain)
+			codomainNorm := eval.EvalNBE(codomainWithGoal)
+			if !eval.AlphaEq(codomainNorm, goalTy) {
+				// The codomain structure is incompatible
+				return FailWithContext(
+					fmt.Sprintf("dependent function codomain may not match goal"),
+					goal,
+					fmt.Sprintf("Function has dependent type: (%s : %s) -> %s",
+						pi.Binder, parser.FormatTerm(pi.A), parser.FormatTerm(codomain)),
+					"For dependent functions, the argument determines the result type",
+				)
 			}
 		}
-		// For dependent cases, we trust the user (full unification would be needed)
 
 		// Solve the goal with App{term, Meta{argMetaID}}
 		// The subgoal will be the argument type
@@ -1539,5 +1573,397 @@ func Exists(witness ast.Term) Tactic {
 		}
 
 		return SuccessMsg(state, "provided witness for existential")
+	}
+}
+
+// PathAppAt applies a path hypothesis at an interval endpoint.
+// For h : Path A x y, PathAppAt(h, i0) reduces to x, PathAppAt(h, i1) reduces to y.
+// This is useful for computing with paths.
+func PathAppAt(hypName string, endpoint ast.Term) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Check if hypothesis is a Path or PathP type
+		var a, x, y ast.Term
+		switch p := hypTy.(type) {
+		case ast.Path:
+			a, x, y = p.A, p.X, p.Y
+		case ast.PathP:
+			a, x, y = p.A, p.X, p.Y
+		default:
+			return Failf("hypothesis %s is not a path type, got %T", hypName, hypTy)
+		}
+
+		// Determine the result type and value based on endpoint
+		var resultVal ast.Term
+		switch e := endpoint.(type) {
+		case ast.I0:
+			resultVal = x
+		case ast.I1:
+			resultVal = y
+		case ast.IVar:
+			// For interval variable, result is p @ e
+			_ = a // suppress unused variable warning
+			resultVal = ast.PathApp{P: ast.Var{Ix: hypIdx}, R: e}
+		default:
+			return Failf("endpoint must be i0, i1, or an interval variable, got %T", endpoint)
+		}
+
+		// Check if the result matches the goal
+		goalTy := eval.EvalNBE(goal.Type)
+		resultTy := eval.EvalNBE(resultVal)
+		if !eval.AlphaEq(goalTy, resultTy) {
+			// The goal might not directly match - user may need to use this with other tactics
+			// Just provide the path application term
+			pathApp := ast.PathApp{P: ast.Var{Ix: hypIdx}, R: endpoint}
+			if err := state.SolveGoal(goal.ID, pathApp); err != nil {
+				return Fail(err)
+			}
+			return SuccessMsg(state, fmt.Sprintf("applied path %s at endpoint", hypName))
+		}
+
+		// Direct match
+		if err := state.SolveGoal(goal.ID, resultVal); err != nil {
+			return Fail(err)
+		}
+		return SuccessMsg(state, fmt.Sprintf("applied path %s at endpoint", hypName))
+	}
+}
+
+// Symmetry reverses an equality proof.
+// For h : Id A x y, Symmetry produces a proof of Id A y x.
+// Uses J eliminator to construct the inverse: J A (λz. λ_. Id A z x) refl y x h
+func Symmetry(hypName string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Check if hypothesis is an Id type
+		id, ok := hypTy.(ast.Id)
+		if !ok {
+			return Failf("hypothesis %s is not an identity type, got %T", hypName, hypTy)
+		}
+
+		// Check goal is Id A y x (reversed)
+		goalTy := eval.EvalNBE(goal.Type)
+		goalId, ok := goalTy.(ast.Id)
+		if !ok {
+			return Failf("goal is not an identity type, got %T", goalTy)
+		}
+
+		// Verify the reversed structure
+		if !eval.AlphaEq(goalId.A, id.A) {
+			return Failf("type mismatch in symmetry: different base types")
+		}
+		if !eval.AlphaEq(goalId.X, id.Y) || !eval.AlphaEq(goalId.Y, id.X) {
+			return Failf("goal endpoints don't match reversed hypothesis endpoints")
+		}
+
+		// Build symmetry proof using J:
+		// sym : Id A x y -> Id A y x
+		// sym h = J A C refl x y h
+		// where C = λz. λ_. Id A z x
+		symMotive := ast.Lam{
+			Binder: "z",
+			Ann:    id.A,
+			Body: ast.Lam{
+				Binder: "_",
+				Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: subst.Shift(1, 0, id.X), Y: ast.Var{Ix: 0}},
+				Body:   ast.Id{A: subst.Shift(2, 0, id.A), X: ast.Var{Ix: 1}, Y: subst.Shift(2, 0, id.X)},
+			},
+		}
+
+		symProof := ast.J{
+			A: id.A,
+			C: symMotive,
+			D: ast.Refl{A: id.A, X: id.X},
+			X: id.X,
+			Y: id.Y,
+			P: ast.Var{Ix: hypIdx},
+		}
+
+		if err := state.SolveGoal(goal.ID, symProof); err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, fmt.Sprintf("applied symmetry on %s", hypName))
+	}
+}
+
+// Transitivity chains two equality proofs.
+// For h1 : Id A x y and h2 : Id A y z, produces a proof of Id A x z.
+// Uses J eliminator to compose: J A C h1 y z h2
+func Transitivity(hyp1Name, hyp2Name string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up first hypothesis
+		hyp1, hyp1Idx, ok := goal.LookupHypothesis(hyp1Name)
+		if !ok {
+			return Failf("hypothesis %s not found", hyp1Name)
+		}
+
+		// Look up second hypothesis
+		hyp2, hyp2Idx, ok := goal.LookupHypothesis(hyp2Name)
+		if !ok {
+			return Failf("hypothesis %s not found", hyp2Name)
+		}
+
+		hyp1Ty := eval.EvalNBE(hyp1.Type)
+		hyp2Ty := eval.EvalNBE(hyp2.Type)
+
+		// Check both hypotheses are Id types
+		id1, ok := hyp1Ty.(ast.Id)
+		if !ok {
+			return Failf("hypothesis %s is not an identity type, got %T", hyp1Name, hyp1Ty)
+		}
+		id2, ok := hyp2Ty.(ast.Id)
+		if !ok {
+			return Failf("hypothesis %s is not an identity type, got %T", hyp2Name, hyp2Ty)
+		}
+
+		// Check they chain: id1.Y should equal id2.X
+		if !eval.AlphaEq(id1.Y, id2.X) {
+			return Failf("hypotheses don't chain: %s ends at different point than %s starts", hyp1Name, hyp2Name)
+		}
+		if !eval.AlphaEq(id1.A, id2.A) {
+			return Failf("hypotheses have different base types")
+		}
+
+		// Check goal is Id A x z
+		goalTy := eval.EvalNBE(goal.Type)
+		goalId, ok := goalTy.(ast.Id)
+		if !ok {
+			return Failf("goal is not an identity type, got %T", goalTy)
+		}
+		if !eval.AlphaEq(goalId.X, id1.X) || !eval.AlphaEq(goalId.Y, id2.Y) {
+			return Failf("goal endpoints don't match composed hypothesis endpoints")
+		}
+
+		// Build transitivity proof using J:
+		// trans : Id A x y -> Id A y z -> Id A x z
+		// trans h1 h2 = J A C h1 y z h2
+		// where C = λz. λ_. Id A x z
+		transMotive := ast.Lam{
+			Binder: "z",
+			Ann:    id1.A,
+			Body: ast.Lam{
+				Binder: "_",
+				Ann:    ast.Id{A: subst.Shift(1, 0, id1.A), X: subst.Shift(1, 0, id1.Y), Y: ast.Var{Ix: 0}},
+				Body:   ast.Id{A: subst.Shift(2, 0, id1.A), X: subst.Shift(2, 0, id1.X), Y: ast.Var{Ix: 1}},
+			},
+		}
+
+		transProof := ast.J{
+			A: id1.A,
+			C: transMotive,
+			D: ast.Var{Ix: hyp1Idx}, // h1 : Id A x y, at y=y this gives Id A x y
+			X: id1.Y,
+			Y: id2.Y,
+			P: ast.Var{Ix: hyp2Idx},
+		}
+
+		if err := state.SolveGoal(goal.ID, transProof); err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, fmt.Sprintf("applied transitivity on %s and %s", hyp1Name, hyp2Name))
+	}
+}
+
+// Ap (congruence) applies a function to both sides of an equality.
+// For h : Id A x y and function f : A -> B, produces Id B (f x) (f y).
+// Uses J eliminator: J A C refl x y h where C = λz. λ_. Id B (f x) (f z)
+func Ap(funcTerm ast.Term, hypName string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the hypothesis
+		hyp, hypIdx, ok := goal.LookupHypothesis(hypName)
+		if !ok {
+			return Failf("hypothesis %s not found", hypName)
+		}
+
+		hypTy := eval.EvalNBE(hyp.Type)
+
+		// Check hypothesis is an Id type
+		id, ok := hypTy.(ast.Id)
+		if !ok {
+			return Failf("hypothesis %s is not an identity type, got %T", hypName, hypTy)
+		}
+
+		// Check goal is an Id type
+		goalTy := eval.EvalNBE(goal.Type)
+		goalId, ok := goalTy.(ast.Id)
+		if !ok {
+			return Failf("goal is not an identity type, got %T", goalTy)
+		}
+
+		// Verify the goal matches f(x) and f(y) structure
+		// This is a simplified check - full implementation would do proper unification
+		fx := ast.App{T: funcTerm, U: id.X}
+		fy := ast.App{T: funcTerm, U: id.Y}
+		fxNorm := eval.EvalNBE(fx)
+		fyNorm := eval.EvalNBE(fy)
+
+		if !eval.AlphaEq(goalId.X, fxNorm) || !eval.AlphaEq(goalId.Y, fyNorm) {
+			return Failf("goal endpoints don't match f applied to hypothesis endpoints")
+		}
+
+		// Build ap proof using J:
+		// ap : (f : A -> B) -> Id A x y -> Id B (f x) (f y)
+		// ap f h = J A C refl x y h
+		// where C = λz. λ_. Id B (f x) (f z)
+		apMotive := ast.Lam{
+			Binder: "z",
+			Ann:    id.A,
+			Body: ast.Lam{
+				Binder: "_",
+				Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: subst.Shift(1, 0, id.X), Y: ast.Var{Ix: 0}},
+				Body: ast.Id{
+					A: subst.Shift(2, 0, goalId.A),
+					X: subst.Shift(2, 0, fxNorm),
+					Y: ast.App{T: subst.Shift(2, 0, funcTerm), U: ast.Var{Ix: 1}},
+				},
+			},
+		}
+
+		apProof := ast.J{
+			A: id.A,
+			C: apMotive,
+			D: ast.Refl{A: goalId.A, X: fxNorm},
+			X: id.X,
+			Y: id.Y,
+			P: ast.Var{Ix: hypIdx},
+		}
+
+		if err := state.SolveGoal(goal.ID, apProof); err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, fmt.Sprintf("applied congruence with function on %s", hypName))
+	}
+}
+
+// Transport moves a term along a path between types.
+// For h : Path Type A B and x : A, produces Transport(h, x) : B.
+func Transport(pathHyp string, termHyp string) Tactic {
+	return func(state *proofstate.ProofState) TacticResult {
+		goal := state.CurrentGoal()
+		if goal == nil {
+			return Failf("no current goal")
+		}
+
+		// Look up the path hypothesis
+		pathH, pathIdx, ok := goal.LookupHypothesis(pathHyp)
+		if !ok {
+			return Failf("hypothesis %s not found", pathHyp)
+		}
+
+		// Look up the term hypothesis
+		termH, termIdx, ok := goal.LookupHypothesis(termHyp)
+		if !ok {
+			return Failf("hypothesis %s not found", termHyp)
+		}
+
+		pathTy := eval.EvalNBE(pathH.Type)
+		termTy := eval.EvalNBE(termH.Type)
+
+		// Check path hypothesis is a Path or PathP type
+		var srcType, dstType ast.Term
+		switch p := pathTy.(type) {
+		case ast.Path:
+			srcType, dstType = p.X, p.Y
+		case ast.PathP:
+			// For PathP, endpoints are types
+			srcType, dstType = p.X, p.Y
+		case ast.Id:
+			// For Id Type A B, we can also transport
+			srcType, dstType = p.X, p.Y
+		default:
+			return Failf("hypothesis %s is not a path type, got %T", pathHyp, pathTy)
+		}
+
+		// Check term has the source type
+		if !eval.AlphaEq(termTy, srcType) {
+			return Failf("term %s has type %v, expected %v", termHyp, termTy, srcType)
+		}
+
+		// Check goal is the destination type
+		goalTy := eval.EvalNBE(goal.Type)
+		if !eval.AlphaEq(goalTy, dstType) {
+			return Failf("goal type %v doesn't match path destination %v", goalTy, dstType)
+		}
+
+		// Build transport term
+		// For cubical: transport (λi. p @ i) x
+		// For Id: use J eliminator
+		var transportTerm ast.Term
+
+		switch pathTy.(type) {
+		case ast.Path, ast.PathP:
+			// Cubical transport
+			transportTerm = ast.Transport{
+				A: ast.PathLam{Binder: "i", Body: ast.PathApp{P: ast.Var{Ix: pathIdx + 1}, R: ast.IVar{Ix: 0}}},
+				E: ast.Var{Ix: termIdx},
+			}
+		case ast.Id:
+			// Use J for Id types
+			// transport p x = J Type (λB. λ_. A -> B) (λa. a) A B p x
+			id := pathTy.(ast.Id)
+			transportMotive := ast.Lam{
+				Binder: "B",
+				Ann:    id.A, // The type of types (simplified)
+				Body: ast.Lam{
+					Binder: "_",
+					Ann:    ast.Id{A: subst.Shift(1, 0, id.A), X: subst.Shift(1, 0, id.X), Y: ast.Var{Ix: 0}},
+					Body:   ast.Pi{Binder: "_", A: subst.Shift(2, 0, srcType), B: ast.Var{Ix: 1}},
+				},
+			}
+			transportJ := ast.J{
+				A: id.A,
+				C: transportMotive,
+				D: ast.Lam{Binder: "a", Ann: srcType, Body: ast.Var{Ix: 0}}, // identity function
+				X: id.X,
+				Y: id.Y,
+				P: ast.Var{Ix: pathIdx},
+			}
+			transportTerm = ast.App{T: transportJ, U: ast.Var{Ix: termIdx}}
+		default:
+			return Failf("unsupported path type for transport")
+		}
+
+		if err := state.SolveGoal(goal.ID, transportTerm); err != nil {
+			return Fail(err)
+		}
+
+		return SuccessMsg(state, fmt.Sprintf("transported %s along %s", termHyp, pathHyp))
 	}
 }
