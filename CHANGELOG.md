@@ -85,6 +85,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unfold tactic in REPL** (`cmd/hottgo/proofmode.go`)
   - `unfold NAME` - unfolds a definition in the current goal
 
+- **Additional REPL improvements** (`cmd/hottgo/main.go`)
+  - `:clear` / `:cls` - clear the terminal using ANSI escape codes
+  - `:print NAME` now shows constructors for inductive types
+  - Verbose mode shows remaining goal count after each tactic
+  - `GetInductive()` method on GlobalEnv for accessing inductive types
+
 ### Fixed
 
 - **Comprehensive cubical type coverage** (`internal/elab/zonk.go`, `kernel/check/positivity.go`, `kernel/check/positivity_cubical.go`)
