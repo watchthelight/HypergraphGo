@@ -35,8 +35,7 @@ func (c *Checker) synth(context *tyctx.Ctx, span Span, term ast.Term) (ast.Term,
 		return c.synthApp(context, span, t)
 
 	case ast.Pair:
-		// Pairs cannot be synthesized without type annotation
-		return nil, errCannotInfer(span, term)
+		return c.synthPair(context, span, t)
 
 	case ast.Fst:
 		return c.synthFst(context, span, t)
@@ -131,6 +130,32 @@ func (c *Checker) synthSigma(context *tyctx.Ctx, span Span, sigma ast.Sigma) (as
 	}
 
 	return ast.Sort{U: maxLevel(levelA, levelB)}, nil
+}
+
+// synthPair synthesizes the type of a pair by inferring a (non-dependent) Sigma type.
+// For (a, b) where a : A and b : B, we infer Σ(_ : A). B' where B' is B shifted.
+func (c *Checker) synthPair(context *tyctx.Ctx, span Span, pair ast.Pair) (ast.Term, *TypeError) {
+	// Synthesize the type of the first component
+	tyA, err := c.synth(context, span, pair.Fst)
+	if err != nil {
+		return nil, err
+	}
+
+	// Synthesize the type of the second component
+	tyB, err := c.synth(context, span, pair.Snd)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a non-dependent Sigma type: Σ(_ : A). (shift B)
+	// We shift B by 1 because the Sigma introduces a binder that B doesn't reference
+	shiftedB := subst.Shift(1, 0, tyB)
+
+	return ast.Sigma{
+		Binder: "_",
+		A:      tyA,
+		B:      shiftedB,
+	}, nil
 }
 
 // synthLam synthesizes the type of an annotated lambda.
