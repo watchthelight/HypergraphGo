@@ -9,10 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Comprehensive cubical type coverage** (`internal/elab/zonk.go`, `kernel/check/positivity.go`, `kernel/check/positivity_cubical.go`)
+  - Zonking now handles all cubical types: Partial, System, Comp, HComp, Fill, Glue, GlueElem, Unglue, UA, UABeta
+  - Added `zonkFace()` helper for face formula zonking (FaceAnd, FaceOr)
+  - Fixed field names for Glue (`System`), GlueElem (`System`, `Base`), Unglue (`Ty`, `G`), UABeta (`Equiv`, `Arg`)
+  - `HasMeta` and `CollectMetas` now cover all cubical types
+  - `OccursIn` now explicitly handles `Var`, `Sort`, `Meta`, and `HITApp` types
+  - Added `ast.IVar` to zonking, HasMeta, and CollectMetas for interval variable handling
+
 - **Zonking preserves Implicit field** (`internal/elab/zonk.go`)
   - `ast.Pi`, `ast.Lam`, and `ast.App` now preserve the `Implicit` field during zonking
   - Meta argument applications marked as implicit during solution substitution
-  - Added `ast.IVar` to zonking cases to handle interval variables
+
+- **Explicit Implicit field in elab.go** (`internal/elab/elab.go`)
+  - All `ast.App` constructions now explicitly set `Implicit: false` for explicit applications
+  - Prevents field value drift when new fields are added to structs
 
 ### Added
 
