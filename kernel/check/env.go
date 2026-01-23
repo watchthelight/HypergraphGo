@@ -932,3 +932,8 @@ func (g *GlobalEnv) Inductives() []string {
 	}
 	return names
 }
+
+// GetInductive returns the inductive type with the given name, or nil if not found.
+func (g *GlobalEnv) GetInductive(name string) *Inductive {
+	return g.inductives[name]
+}

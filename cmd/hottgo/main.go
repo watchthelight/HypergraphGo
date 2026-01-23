@@ -1139,7 +1139,14 @@ func handlePrintCommand(state *replState, name string) {
 	case check.KindInductive:
 		ty := globals.LookupType(name)
 		fmt.Printf("inductive %s : %s\n", name, parser.FormatTerm(ty))
-		// TODO: Could also print constructors here
+		// Print constructors
+		ind := globals.GetInductive(name)
+		if ind != nil && len(ind.Constructors) > 0 {
+			fmt.Println("  constructors:")
+			for _, c := range ind.Constructors {
+				fmt.Printf("    %s : %s\n", c.Name, parser.FormatTerm(c.Type))
+			}
+		}
 
 	case check.KindConstructor:
 		ty := globals.LookupType(name)
