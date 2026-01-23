@@ -1761,8 +1761,7 @@ func TestElaborateImplicitApp(t *testing.T) {
 
 	term, _, err := elab.Elaborate(ctx, app)
 	if err != nil {
-		// Implicit application may require more context
-		t.Skipf("Implicit application not fully supported: %v", err)
+		t.Fatalf("implicit application failed: %v", err)
 	}
 
 	if _, ok := term.(ast.App); !ok {
@@ -1930,8 +1929,7 @@ func TestElaborateLamCheck(t *testing.T) {
 	piType := ast.Pi{Binder: "x", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}}
 	term, err := elab.ElaborateCheck(ctx, lam, piType)
 	if err != nil {
-		// Check mode may require more sophisticated type checking
-		t.Skipf("Lambda check not fully supported: %v", err)
+		t.Fatalf("lambda check failed: %v", err)
 	}
 
 	if _, ok := term.(ast.Lam); !ok {
@@ -1984,6 +1982,14 @@ func (m *mockGlobalEnv) LookupConstructor(name string) (CtorInfo, bool) {
 
 func (m *mockGlobalEnv) AddGlobal(name string, ty, def ast.Term) {
 	m.globals[name] = struct{ ty, def ast.Term }{ty, def}
+}
+
+func (m *mockGlobalEnv) AddInductive(info IndInfo) {
+	m.inductives[info.Name] = info
+}
+
+func (m *mockGlobalEnv) AddConstructor(info CtorInfo) {
+	m.constructors[info.Name] = info
 }
 
 // --- SGlobal Tests ---
@@ -2933,5 +2939,258 @@ func TestSynthPathAppError_NotPath(t *testing.T) {
 	_, _, err := elab.Elaborate(ctx, pathApp)
 	if err == nil {
 		t.Error("expected error when P is not a path")
+	}
+}
+
+// --- Surface Inductive Type Tests ---
+
+func TestElaborateSIndApp(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Without global env
+	_, _, err := elab.Elaborate(ctx, &SIndApp{Name: "Nat", Args: nil})
+	if err == nil {
+		t.Error("expected error without global env")
+	}
+
+	// Set up mock environment with Nat inductive
+	genv := newMockGlobalEnv()
+	genv.AddInductive(IndInfo{
+		Name:       "Nat",
+		Type:       ast.Sort{U: 0},
+		NumParams:  0,
+		NumIndices: 0,
+		Ctors:      []string{"zero", "succ"},
+	})
+	ctx = ctx.WithGlobals(genv)
+
+	// Elaborate (Nat)
+	term, ty, err := elab.Elaborate(ctx, &SIndApp{Name: "Nat", Args: nil})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if g, ok := term.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("expected Global{Nat}, got %v", term)
+	}
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("expected Sort, got %T", ty)
+	}
+}
+
+func TestElaborateSIndAppWithParams(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Set up mock environment with List inductive (parameterized)
+	// List : Type -> Type
+	genv := newMockGlobalEnv()
+	genv.AddInductive(IndInfo{
+		Name:       "List",
+		Type:       ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Sort{U: 0}},
+		NumParams:  1,
+		NumIndices: 0,
+		Ctors:      []string{"nil", "cons"},
+	})
+	genv.AddGlobal("Nat", ast.Sort{U: 0}, nil)
+	ctx = ctx.WithGlobals(genv)
+
+	// Elaborate (List Nat)
+	term, ty, err := elab.Elaborate(ctx, &SIndApp{
+		Name: "List",
+		Args: []STerm{&SGlobal{Name: "Nat"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Result should be (App (Global List) (Global Nat))
+	if app, ok := term.(ast.App); !ok {
+		t.Errorf("expected App, got %T", term)
+	} else if g, ok := app.T.(ast.Global); !ok || g.Name != "List" {
+		t.Errorf("expected List in App.T, got %v", app.T)
+	}
+
+	// Type should be Sort{0}
+	if _, ok := ty.(ast.Sort); !ok {
+		t.Errorf("expected Sort, got %T", ty)
+	}
+}
+
+func TestElaborateSIndAppUnknown(t *testing.T) {
+	elab := NewElaborator()
+	genv := newMockGlobalEnv()
+	ctx := NewElabCtx().WithGlobals(genv)
+
+	_, _, err := elab.Elaborate(ctx, &SIndApp{Name: "Unknown", Args: nil})
+	if err == nil {
+		t.Error("expected error for unknown inductive")
+	}
+}
+
+func TestElaborateSCtorApp(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Without global env
+	_, _, err := elab.Elaborate(ctx, &SCtorApp{Ind: "Nat", Ctor: "zero", Args: nil})
+	if err == nil {
+		t.Error("expected error without global env")
+	}
+
+	// Set up mock environment with Nat constructors
+	genv := newMockGlobalEnv()
+	genv.AddGlobal("Nat", ast.Sort{U: 0}, nil)
+	genv.AddConstructor(CtorInfo{
+		Name:    "zero",
+		IndName: "Nat",
+		Type:    ast.Global{Name: "Nat"},
+		Index:   0,
+	})
+	genv.AddConstructor(CtorInfo{
+		Name:    "succ",
+		IndName: "Nat",
+		Type:    ast.Pi{Binder: "n", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+		Index:   1,
+	})
+	ctx = ctx.WithGlobals(genv)
+
+	// Elaborate (Nat.zero)
+	term, ty, err := elab.Elaborate(ctx, &SCtorApp{Ind: "Nat", Ctor: "zero", Args: nil})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if g, ok := term.(ast.Global); !ok || g.Name != "zero" {
+		t.Errorf("expected Global{zero}, got %v", term)
+	}
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("expected Global{Nat}, got %v", ty)
+	}
+}
+
+func TestElaborateSCtorAppWithArgs(t *testing.T) {
+	elab := NewElaborator()
+
+	// Set up mock environment with Nat constructors
+	genv := newMockGlobalEnv()
+	genv.AddGlobal("Nat", ast.Sort{U: 0}, nil)
+	genv.AddGlobal("zero", ast.Global{Name: "Nat"}, nil)
+	genv.AddConstructor(CtorInfo{
+		Name:    "succ",
+		IndName: "Nat",
+		Type:    ast.Pi{Binder: "n", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
+		Index:   1,
+	})
+	ctx := NewElabCtx().WithGlobals(genv)
+
+	// Elaborate (Nat.succ zero)
+	term, ty, err := elab.Elaborate(ctx, &SCtorApp{
+		Ind:  "Nat",
+		Ctor: "succ",
+		Args: []STerm{&SGlobal{Name: "zero"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Result should be (App (Global succ) (Global zero))
+	if app, ok := term.(ast.App); !ok {
+		t.Errorf("expected App, got %T", term)
+	} else if g, ok := app.T.(ast.Global); !ok || g.Name != "succ" {
+		t.Errorf("expected succ in App.T, got %v", app.T)
+	}
+
+	// Type should be Nat
+	if g, ok := ty.(ast.Global); !ok || g.Name != "Nat" {
+		t.Errorf("expected Nat, got %v", ty)
+	}
+}
+
+func TestElaborateSCtorAppUnknown(t *testing.T) {
+	elab := NewElaborator()
+	genv := newMockGlobalEnv()
+	ctx := NewElabCtx().WithGlobals(genv)
+
+	_, _, err := elab.Elaborate(ctx, &SCtorApp{Ind: "Nat", Ctor: "unknown", Args: nil})
+	if err == nil {
+		t.Error("expected error for unknown constructor")
+	}
+}
+
+func TestElaborateSElim(t *testing.T) {
+	elab := NewElaborator()
+	ctx := NewElabCtx()
+
+	// Without global env
+	_, _, err := elab.Elaborate(ctx, &SElim{
+		Name:    "natElim",
+		Motive:  &SType{Level: 0},
+		Methods: nil,
+		Target:  &SType{Level: 0},
+	})
+	if err == nil {
+		t.Error("expected error without global env")
+	}
+
+	// Set up mock environment with natElim
+	// natElim : (P : Nat -> Type) -> P zero -> ((n : Nat) -> P n -> P (succ n)) -> (n : Nat) -> P n
+	genv := newMockGlobalEnv()
+	genv.AddGlobal("Nat", ast.Sort{U: 0}, nil)
+	genv.AddGlobal("zero", ast.Global{Name: "Nat"}, nil)
+	// Simplified eliminator type
+	elimType := ast.Pi{
+		Binder: "P",
+		A:      ast.Pi{Binder: "_", A: ast.Global{Name: "Nat"}, B: ast.Sort{U: 0}},
+		B: ast.Pi{
+			Binder: "z",
+			A:      ast.Sort{U: 0}, // Simplified: should be P zero
+			B: ast.Pi{
+				Binder: "s",
+				A:      ast.Sort{U: 0}, // Simplified: should be step case type
+				B: ast.Pi{
+					Binder: "n",
+					A:      ast.Global{Name: "Nat"},
+					B:      ast.Sort{U: 0}, // Simplified: should be P n
+				},
+			},
+		},
+	}
+	genv.AddGlobal("natElim", elimType, nil)
+	ctx = ctx.WithGlobals(genv)
+
+	// Elaborate (natElim P zCase sCase target)
+	sElim := &SElim{
+		Name:    "natElim",
+		Motive:  &SType{Level: 0}, // Simplified motive
+		Methods: []STerm{&SType{Level: 0}, &SType{Level: 0}},
+		Target:  &SGlobal{Name: "zero"},
+	}
+
+	term, _, err := elab.Elaborate(ctx, sElim)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Result should be a nested App
+	if _, ok := term.(ast.App); !ok {
+		t.Errorf("expected App, got %T", term)
+	}
+}
+
+func TestElaborateSElimUnknown(t *testing.T) {
+	elab := NewElaborator()
+	genv := newMockGlobalEnv()
+	ctx := NewElabCtx().WithGlobals(genv)
+
+	_, _, err := elab.Elaborate(ctx, &SElim{
+		Name:    "unknownElim",
+		Motive:  &SType{Level: 0},
+		Methods: nil,
+		Target:  &SType{Level: 0},
+	})
+	if err == nil {
+		t.Error("expected error for unknown eliminator")
 	}
 }
