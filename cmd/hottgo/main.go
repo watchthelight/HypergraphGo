@@ -40,6 +40,7 @@ import (
 	"github.com/watchthelight/HypergraphGo/internal/parser"
 	"github.com/watchthelight/HypergraphGo/internal/version"
 	"github.com/watchthelight/HypergraphGo/kernel/check"
+	"github.com/watchthelight/HypergraphGo/tactics/proofstate"
 	"github.com/watchthelight/HypergraphGo/tactics/script"
 )
 
@@ -186,16 +187,27 @@ func doLoad(filename string) error {
 	return nil
 }
 
+// replSettings holds configurable display options.
+type replSettings struct {
+	namedVariables bool // Show named variables instead of de Bruijn indices
+	verbose        bool // Show verbose output
+}
+
 // replState holds the state for the REPL session.
 type replState struct {
 	checker      *check.Checker
 	proofMode    *ProofMode
 	theoremCount int // For generating anonymous theorem names
+	settings     replSettings
 }
 
 func repl() {
 	state := &replState{
 		checker: check.NewCheckerWithStdlib(),
+		settings: replSettings{
+			namedVariables: true, // Default: show named variables in proof mode
+			verbose:        false,
+		},
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -255,6 +267,26 @@ func repl() {
 		if strings.HasPrefix(line, ":axiom ") {
 			rest := strings.TrimPrefix(line, ":axiom ")
 			handleAxiomCommand(state, rest)
+			continue
+		}
+
+		if line == ":examples" {
+			printExamples()
+			continue
+		}
+
+		if line == ":tutorial" {
+			printTutorial()
+			continue
+		}
+
+		if strings.HasPrefix(line, ":set ") {
+			handleSetCommand(state, strings.TrimPrefix(line, ":set "))
+			continue
+		}
+
+		if line == ":settings" {
+			printSettings(state)
 			continue
 		}
 
@@ -536,6 +568,44 @@ func handleProofModeCommand(state *replState, line string) bool {
 		state.proofMode = nil
 		return true
 
+	case strings.HasPrefix(line, ":type "):
+		expr := strings.TrimPrefix(line, ":type ")
+		handleTypeCommand(state, expr)
+		return true
+
+	case strings.HasPrefix(line, ":reduce "):
+		expr := strings.TrimPrefix(line, ":reduce ")
+		handleReduceCommand(state, expr)
+		return true
+
+	case strings.HasPrefix(line, ":focus "):
+		expr := strings.TrimPrefix(line, ":focus ")
+		handleFocusCommand(state, expr)
+		return true
+
+	case line == ":history" || line == ":hist":
+		handleHistoryCommand(state)
+		return true
+
+	case strings.HasPrefix(line, ":checkpoint ") || strings.HasPrefix(line, ":cp "):
+		var name string
+		if strings.HasPrefix(line, ":checkpoint ") {
+			name = strings.TrimPrefix(line, ":checkpoint ")
+		} else {
+			name = strings.TrimPrefix(line, ":cp ")
+		}
+		handleCheckpointCommand(state, name)
+		return true
+
+	case strings.HasPrefix(line, ":restore "):
+		name := strings.TrimPrefix(line, ":restore ")
+		handleRestoreCommand(state, name)
+		return true
+
+	case line == ":checkpoints" || line == ":cps":
+		handleListCheckpointsCommand(state)
+		return true
+
 	case strings.HasPrefix(line, ":tactic ") || strings.HasPrefix(line, ":t "):
 		var rest string
 		if strings.HasPrefix(line, ":tactic ") {
@@ -587,6 +657,146 @@ func handleProofModeCommand(state *replState, line string) bool {
 	return false
 }
 
+// handleTypeCommand shows the type of a term in proof mode context.
+func handleTypeCommand(state *replState, expr string) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	term, err := parser.ParseTerm(expr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
+		return
+	}
+
+	// Try to synthesize the type
+	ty, checkErr := state.checker.Synth(nil, check.Span{}, term)
+	if checkErr != nil {
+		fmt.Fprintf(os.Stderr, "type error: %v\n", checkErr)
+		return
+	}
+
+	fmt.Printf("%s : %s\n", parser.FormatTerm(term), parser.FormatTerm(ty))
+}
+
+// handleReduceCommand normalizes and displays a term.
+func handleReduceCommand(state *replState, expr string) {
+	term, err := parser.ParseTerm(expr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
+		return
+	}
+
+	reduced := eval.EvalNBE(term)
+	fmt.Printf("%s\n", parser.FormatTerm(reduced))
+}
+
+// handleFocusCommand focuses on a specific goal by ID.
+func handleFocusCommand(state *replState, expr string) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	var goalID int
+	if _, err := fmt.Sscanf(expr, "%d", &goalID); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid goal ID: %s\n", expr)
+		return
+	}
+
+	// Access the underlying proof state to focus
+	ps := state.proofMode.state
+	if err := ps.Focus(proofstate.GoalID(goalID)); err != nil {
+		fmt.Fprintf(os.Stderr, "focus error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Focused on goal %d\n", goalID)
+	fmt.Println(state.proofMode.FormatCurrentGoal())
+}
+
+// handleHistoryCommand displays the tactic history.
+func handleHistoryCommand(state *replState) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	history := state.proofMode.History()
+	if len(history) == 0 {
+		fmt.Println("No tactics applied yet.")
+		return
+	}
+
+	fmt.Println("Tactic History:")
+	for i, entry := range history {
+		argsStr := ""
+		if len(entry.Args) > 0 {
+			argsStr = " " + strings.Join(entry.Args, " ")
+		}
+		fmt.Printf("  %d. %s%s\n", i+1, entry.Name, argsStr)
+	}
+}
+
+// handleCheckpointCommand saves a checkpoint with the given name.
+func handleCheckpointCommand(state *replState, name string) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		fmt.Fprintf(os.Stderr, "usage: :checkpoint NAME\n")
+		return
+	}
+
+	state.proofMode.SaveCheckpoint(name)
+	fmt.Printf("Saved checkpoint '%s'\n", name)
+}
+
+// handleRestoreCommand restores a previously saved checkpoint.
+func handleRestoreCommand(state *replState, name string) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		fmt.Fprintf(os.Stderr, "usage: :restore NAME\n")
+		return
+	}
+
+	if err := state.proofMode.RestoreCheckpoint(name); err != nil {
+		fmt.Fprintf(os.Stderr, "restore error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Restored checkpoint '%s'\n", name)
+	fmt.Println(state.proofMode.FormatCurrentGoal())
+}
+
+// handleListCheckpointsCommand lists all saved checkpoints.
+func handleListCheckpointsCommand(state *replState) {
+	if state.proofMode == nil {
+		fmt.Fprintf(os.Stderr, "not in proof mode\n")
+		return
+	}
+
+	checkpoints := state.proofMode.ListCheckpoints()
+	if len(checkpoints) == 0 {
+		fmt.Println("No checkpoints saved.")
+		return
+	}
+
+	fmt.Println("Saved Checkpoints:")
+	for _, name := range checkpoints {
+		fmt.Printf("  - %s\n", name)
+	}
+}
+
 // printHelp displays help information.
 func printHelp(inProofMode bool) {
 	fmt.Println("HoTTGo REPL Commands:")
@@ -597,6 +807,8 @@ func printHelp(inProofMode bool) {
 	fmt.Println("  :axiom NAME TYPE      Postulate an axiom")
 	fmt.Println("  :prove TYPE           Enter proof mode with goal TYPE")
 	fmt.Println("  :prove NAME : TYPE    Enter proof mode with named theorem")
+	fmt.Println("  :set OPTION VALUE     Set display option (named, verbose)")
+	fmt.Println("  :settings             Show current settings")
 	fmt.Println("  :help, :h             Show this help")
 	fmt.Println("  :quit, :q             Exit the REPL")
 	fmt.Println()
@@ -607,28 +819,211 @@ func printHelp(inProofMode bool) {
 		fmt.Println("  :goals            Show all goals")
 		fmt.Println("  :tactic NAME      Apply a tactic (or just type tactic name)")
 		fmt.Println("  :undo, :u         Undo last tactic")
+		fmt.Println("  :history, :hist   Show tactic history")
+		fmt.Println("  :type TERM        Show type of a term")
+		fmt.Println("  :reduce TERM      Normalize and display a term")
+		fmt.Println("  :focus N          Focus on goal N")
+		fmt.Println("  :checkpoint NAME  Save current proof state")
+		fmt.Println("  :restore NAME     Restore saved checkpoint")
+		fmt.Println("  :checkpoints      List saved checkpoints")
 		fmt.Println("  :qed              Complete proof and add to environment")
 		fmt.Println("  :abort            Exit proof mode")
 		fmt.Println()
 		fmt.Println("Available Tactics:")
-		fmt.Println("  intro [NAME]      Introduce a hypothesis")
-		fmt.Println("  intros            Introduce all hypotheses")
-		fmt.Println("  exact TERM        Provide exact proof term")
-		fmt.Println("  assumption        Use a hypothesis matching the goal")
-		fmt.Println("  reflexivity       Prove equality by reflexivity")
-		fmt.Println("  split             Split a Sigma goal into two subgoals")
-		fmt.Println("  left              Prove Sum goal with left injection")
-		fmt.Println("  right             Prove Sum goal with right injection")
-		fmt.Println("  destruct H        Case analysis on H (Sum, Bool)")
-		fmt.Println("  induction H       Induction on H (Nat, List)")
-		fmt.Println("  cases H           Non-recursive case analysis")
-		fmt.Println("  constructor       Apply first applicable constructor")
-		fmt.Println("  exists TERM       Provide witness for existential")
-		fmt.Println("  contradiction     Prove from Empty hypothesis")
-		fmt.Println("  rewrite H         Rewrite using equality H")
-		fmt.Println("  simpl             Simplify the goal")
-		fmt.Println("  trivial           Try reflexivity and assumption")
-		fmt.Println("  auto              Automatic proof search")
-		fmt.Println("  apply TERM        Apply a function/theorem to the goal")
+		fmt.Println()
+		fmt.Println("  Introduction:")
+		fmt.Println("    intro [NAME]      Introduce a hypothesis from Pi type")
+		fmt.Println("    intros            Introduce all hypotheses")
+		fmt.Println()
+		fmt.Println("  Proof Completion:")
+		fmt.Println("    exact TERM        Provide exact proof term")
+		fmt.Println("    assumption        Use hypothesis matching the goal")
+		fmt.Println("    reflexivity       Prove by reflexivity (refl, Id, Path)")
+		fmt.Println("    trivial           Try reflexivity and assumption")
+		fmt.Println("    auto              Automatic proof search")
+		fmt.Println()
+		fmt.Println("  Equality Reasoning:")
+		fmt.Println("    rewrite H         Rewrite using equality H : Id A x y")
+		fmt.Println("    symmetry H        Reverse H : Id A x y to Id A y x")
+		fmt.Println("    transitivity H1 H2  Chain H1 : Id A x y, H2 : Id A y z")
+		fmt.Println("    ap FUNC H         Apply function to both sides of H")
+		fmt.Println("    transport P X     Transport x : A along path P : Path Type A B")
+		fmt.Println()
+		fmt.Println("  Product/Sum Types:")
+		fmt.Println("    split             Split Sigma goal into two subgoals")
+		fmt.Println("    exists TERM       Provide witness for Sigma goal")
+		fmt.Println("    left              Prove Sum goal with left injection")
+		fmt.Println("    right             Prove Sum goal with right injection")
+		fmt.Println()
+		fmt.Println("  Case Analysis:")
+		fmt.Println("    destruct H        Case analysis on H (Sum, Bool)")
+		fmt.Println("    induction H       Induction on H (Nat, List)")
+		fmt.Println("    cases H           Non-recursive case analysis")
+		fmt.Println("    constructor       Apply first applicable constructor")
+		fmt.Println("    contradiction     Prove from Empty hypothesis")
+		fmt.Println()
+		fmt.Println("  Simplification:")
+		fmt.Println("    simpl             Simplify (normalize) the goal")
+		fmt.Println("    apply TERM        Apply function/theorem to the goal")
 	}
+}
+
+// printExamples displays example proofs for the REPL.
+func printExamples() {
+	fmt.Println("HoTTGo Examples")
+	fmt.Println("===============")
+	fmt.Println()
+	fmt.Println("Example 1: Reflexivity")
+	fmt.Println("-----------------------")
+	fmt.Println("  :prove (Id Nat zero zero)")
+	fmt.Println("  reflexivity")
+	fmt.Println("  :qed")
+	fmt.Println()
+	fmt.Println("Example 2: Function composition")
+	fmt.Println("-------------------------------")
+	fmt.Println("  :prove (Pi (A Type) (Pi (B Type) (Pi (C Type)")
+	fmt.Println("    (Pi (f (Pi (_ A) B)) (Pi (g (Pi (_ B) C)) (Pi (_ A) C))))))")
+	fmt.Println("  intros")
+	fmt.Println("  exact (g (f x))")
+	fmt.Println("  :qed")
+	fmt.Println()
+	fmt.Println("Example 3: Dependent pair")
+	fmt.Println("--------------------------")
+	fmt.Println("  :prove (Sigma (n Nat) (Id Nat n n))")
+	fmt.Println("  split")
+	fmt.Println("  exact zero")
+	fmt.Println("  reflexivity")
+	fmt.Println("  :qed")
+	fmt.Println()
+	fmt.Println("Example 4: Symmetry of equality")
+	fmt.Println("-------------------------------")
+	fmt.Println("  :prove (Pi (A Type) (Pi (x A) (Pi (y A)")
+	fmt.Println("    (Pi (p (Id A x y)) (Id A y x)))))")
+	fmt.Println("  intros")
+	fmt.Println("  symmetry p")
+	fmt.Println("  :qed")
+	fmt.Println()
+}
+
+// printTutorial displays an interactive tutorial.
+func printTutorial() {
+	fmt.Println("HoTTGo Interactive Tutorial")
+	fmt.Println("===========================")
+	fmt.Println()
+	fmt.Println("Welcome to HoTTGo! This tutorial will guide you through basic proof")
+	fmt.Println("construction in Homotopy Type Theory.")
+	fmt.Println()
+	fmt.Println("STEP 1: Starting a Proof")
+	fmt.Println("------------------------")
+	fmt.Println("Use ':prove TYPE' to start proving a theorem. For example:")
+	fmt.Println()
+	fmt.Println("  :prove (Pi (A Type) (Pi (x A) A))")
+	fmt.Println()
+	fmt.Println("This starts a proof that, given any type A and element x : A, we can")
+	fmt.Println("produce an element of A (the identity function).")
+	fmt.Println()
+	fmt.Println("STEP 2: Understanding Goals")
+	fmt.Println("---------------------------")
+	fmt.Println("After entering proof mode, you'll see your current goal:")
+	fmt.Println()
+	fmt.Println("  Goal 0 (focused):")
+	fmt.Println("    ========================")
+	fmt.Println("    (Pi (A Type) (Pi (x A) A))")
+	fmt.Println()
+	fmt.Println("The line above '====' shows your hypotheses (assumptions),")
+	fmt.Println("and below shows what you need to prove.")
+	fmt.Println()
+	fmt.Println("STEP 3: Introduction")
+	fmt.Println("--------------------")
+	fmt.Println("For Pi types, use 'intro' to move the argument into hypotheses:")
+	fmt.Println()
+	fmt.Println("  intro A")
+	fmt.Println("  intro x")
+	fmt.Println()
+	fmt.Println("Now your goal becomes:")
+	fmt.Println()
+	fmt.Println("    A : Type")
+	fmt.Println("    x : A")
+	fmt.Println("    ========================")
+	fmt.Println("    A")
+	fmt.Println()
+	fmt.Println("STEP 4: Completing the Proof")
+	fmt.Println("----------------------------")
+	fmt.Println("Use 'assumption' when the goal matches a hypothesis, or")
+	fmt.Println("use 'exact TERM' to provide an explicit proof term:")
+	fmt.Println()
+	fmt.Println("  assumption  -- uses x since x : A and goal is A")
+	fmt.Println()
+	fmt.Println("STEP 5: Finishing Up")
+	fmt.Println("--------------------")
+	fmt.Println("When all goals are solved, use ':qed' to complete the proof:")
+	fmt.Println()
+	fmt.Println("  :qed")
+	fmt.Println()
+	fmt.Println("The theorem will be type-checked and added to your environment.")
+	fmt.Println()
+	fmt.Println("OTHER USEFUL COMMANDS:")
+	fmt.Println("  :undo          -- undo the last tactic")
+	fmt.Println("  :goal          -- show current goal")
+	fmt.Println("  :goals         -- show all goals")
+	fmt.Println("  :help          -- show available tactics")
+	fmt.Println("  :examples      -- show more examples")
+	fmt.Println()
+}
+
+// handleSetCommand processes :set option value commands.
+func handleSetCommand(state *replState, args string) {
+	parts := strings.Fields(args)
+	if len(parts) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: :set OPTION VALUE\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "  named on|off    Show named variables (default: on)\n")
+		fmt.Fprintf(os.Stderr, "  verbose on|off  Verbose output (default: off)\n")
+		return
+	}
+
+	option := parts[0]
+	value := parts[1]
+
+	switch option {
+	case "named":
+		switch value {
+		case "on", "true", "1":
+			state.settings.namedVariables = true
+			fmt.Println("Named variables: on")
+		case "off", "false", "0":
+			state.settings.namedVariables = false
+			fmt.Println("Named variables: off")
+		default:
+			fmt.Fprintf(os.Stderr, "invalid value for 'named': use on or off\n")
+		}
+	case "verbose":
+		switch value {
+		case "on", "true", "1":
+			state.settings.verbose = true
+			fmt.Println("Verbose: on")
+		case "off", "false", "0":
+			state.settings.verbose = false
+			fmt.Println("Verbose: off")
+		default:
+			fmt.Fprintf(os.Stderr, "invalid value for 'verbose': use on or off\n")
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "unknown option: %s\n", option)
+		fmt.Fprintf(os.Stderr, "Available options: named, verbose\n")
+	}
+}
+
+// printSettings displays current REPL settings.
+func printSettings(state *replState) {
+	fmt.Println("Current Settings:")
+	fmt.Printf("  named variables: %v\n", boolToOnOff(state.settings.namedVariables))
+	fmt.Printf("  verbose: %v\n", boolToOnOff(state.settings.verbose))
+}
+
+func boolToOnOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
 }
