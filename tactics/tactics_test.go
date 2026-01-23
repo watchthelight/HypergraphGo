@@ -608,7 +608,136 @@ func TestUnfold(t *testing.T) {
 	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
 	result := Unfold("name")(state)
 	if result.IsSuccess() {
-		t.Error("unfold should fail (not implemented)")
+		t.Error("unfold should fail (requires GlobalEnv)")
+	}
+}
+
+// mockGlobalEnvForUnfold implements GlobalEnvLookup for testing UnfoldWith.
+type mockGlobalEnvForUnfold struct {
+	defs map[string]ast.Term
+}
+
+func (m *mockGlobalEnvForUnfold) LookupDefinitionBodyForced(name string) (ast.Term, bool) {
+	body, ok := m.defs[name]
+	return body, ok
+}
+
+func TestUnfoldWith(t *testing.T) {
+	// Create a mock environment with a definition
+	// Define "id" as λA.λx.x
+	env := &mockGlobalEnvForUnfold{
+		defs: map[string]ast.Term{
+			"id": ast.Lam{
+				Binder: "A",
+				Ann:    ast.Sort{U: 0},
+				Body: ast.Lam{
+					Binder: "x",
+					Ann:    ast.Var{Ix: 0}, // A
+					Body:   ast.Var{Ix: 0}, // x
+				},
+			},
+		},
+	}
+
+	// Goal containing Global{Name: "id"}
+	goalType := ast.App{
+		T: ast.App{
+			T: ast.Global{Name: "id"},
+			U: ast.Global{Name: "Nat"},
+		},
+		U: ast.Global{Name: "zero"},
+	}
+	state := proofstate.NewProofState(goalType, nil)
+
+	// Unfold "id"
+	result := UnfoldWith(env)("id")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("UnfoldWith failed: %v", result.Err)
+	}
+
+	// Check that the goal type was transformed
+	newGoal := state.CurrentGoal()
+	if newGoal == nil {
+		t.Fatal("no current goal after unfold")
+	}
+
+	// The goal should now have the lambda instead of Global{id}
+	app1, ok := newGoal.Type.(ast.App)
+	if !ok {
+		t.Fatalf("expected App type, got %T", newGoal.Type)
+	}
+	app2, ok := app1.T.(ast.App)
+	if !ok {
+		t.Fatalf("expected nested App, got %T", app1.T)
+	}
+	lam, ok := app2.T.(ast.Lam)
+	if !ok {
+		t.Fatalf("expected Lam after unfold, got %T", app2.T)
+	}
+	if lam.Binder != "A" {
+		t.Errorf("expected binder 'A', got '%s'", lam.Binder)
+	}
+}
+
+func TestUnfoldWithUnknownDefinition(t *testing.T) {
+	env := &mockGlobalEnvForUnfold{
+		defs: map[string]ast.Term{},
+	}
+
+	state := proofstate.NewProofState(ast.Sort{U: 0}, nil)
+	result := UnfoldWith(env)("unknown")(state)
+	if result.IsSuccess() {
+		t.Error("UnfoldWith should fail for unknown definition")
+	}
+}
+
+func TestUnfoldWithNoGoal(t *testing.T) {
+	env := &mockGlobalEnvForUnfold{
+		defs: map[string]ast.Term{
+			"test": ast.Sort{U: 0},
+		},
+	}
+
+	state := &proofstate.ProofState{Goals: nil}
+	result := UnfoldWith(env)("test")(state)
+	if result.IsSuccess() {
+		t.Error("UnfoldWith should fail with no goal")
+	}
+}
+
+func TestUnfoldWithInHypothesis(t *testing.T) {
+	// Create a mock environment with a definition
+	env := &mockGlobalEnvForUnfold{
+		defs: map[string]ast.Term{
+			"myType": ast.Global{Name: "Nat"},
+		},
+	}
+
+	// Goal with hypothesis that contains the definition
+	hyps := []proofstate.Hypothesis{
+		{Name: "x", Type: ast.Global{Name: "myType"}},
+	}
+	state := proofstate.NewProofState(ast.Sort{U: 0}, hyps)
+
+	// Unfold "myType" in hypotheses
+	result := UnfoldWith(env)("myType")(state)
+	if !result.IsSuccess() {
+		t.Fatalf("UnfoldWith failed: %v", result.Err)
+	}
+
+	// Check that the hypothesis type was transformed
+	newGoal := state.CurrentGoal()
+	if len(newGoal.Hypotheses) != 1 {
+		t.Fatal("expected 1 hypothesis")
+	}
+
+	// The hypothesis type should now be Nat instead of myType
+	g, ok := newGoal.Hypotheses[0].Type.(ast.Global)
+	if !ok {
+		t.Fatalf("expected Global type, got %T", newGoal.Hypotheses[0].Type)
+	}
+	if g.Name != "Nat" {
+		t.Errorf("expected hypothesis type 'Nat', got '%s'", g.Name)
 	}
 }
 

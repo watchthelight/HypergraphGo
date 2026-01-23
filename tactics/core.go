@@ -400,11 +400,189 @@ func Simpl() Tactic {
 }
 
 // Unfold unfolds a definition in the goal.
+// Note: This requires a GlobalEnv, so use UnfoldWith when globals are available.
 func Unfold(name string) Tactic {
 	return func(state *proofstate.ProofState) TacticResult {
-		// TODO: Implement definition unfolding
-		// This requires access to a global environment
-		return Failf("unfold: not yet implemented")
+		return Failf("unfold: requires GlobalEnv, use UnfoldWith instead")
+	}
+}
+
+// UnfoldWith returns a tactic builder that uses the given GlobalEnv for definition lookup.
+// Usage: UnfoldWith(globals)("defName")
+func UnfoldWith(globals GlobalEnvLookup) func(name string) Tactic {
+	return func(name string) Tactic {
+		return func(state *proofstate.ProofState) TacticResult {
+			goal := state.CurrentGoal()
+			if goal == nil {
+				return Failf("no current goal")
+			}
+
+			// Look up the definition body
+			body, ok := globals.LookupDefinitionBodyForced(name)
+			if !ok {
+				return Failf("unfold: unknown definition '%s'", name)
+			}
+
+			// Unfold the definition in the goal type
+			newGoalTy := unfoldInTerm(goal.Type, name, body)
+
+			// Also unfold in hypotheses
+			newHyps := make([]proofstate.Hypothesis, len(goal.Hypotheses))
+			for i, hyp := range goal.Hypotheses {
+				newHyps[i] = proofstate.Hypothesis{
+					Name: hyp.Name,
+					Type: unfoldInTerm(hyp.Type, name, body),
+				}
+			}
+
+			// Update the goal
+			goal.Type = newGoalTy
+			goal.Hypotheses = newHyps
+
+			return SuccessMsg(state, fmt.Sprintf("unfolded %s", name))
+		}
+	}
+}
+
+// GlobalEnvLookup is an interface for looking up definition bodies.
+type GlobalEnvLookup interface {
+	LookupDefinitionBodyForced(name string) (ast.Term, bool)
+}
+
+// unfoldInTerm replaces all occurrences of Global{name} with body in a term.
+func unfoldInTerm(term ast.Term, name string, body ast.Term) ast.Term {
+	switch t := term.(type) {
+	case ast.Global:
+		if t.Name == name {
+			return body
+		}
+		return t
+
+	case ast.Var, ast.Sort, ast.Meta, ast.Interval, ast.I0, ast.I1, ast.IVar:
+		return term
+
+	case ast.Pi:
+		return ast.Pi{
+			Binder:   t.Binder,
+			A:        unfoldInTerm(t.A, name, body),
+			B:        unfoldInTerm(t.B, name, body),
+			Implicit: t.Implicit,
+		}
+
+	case ast.Lam:
+		var ann ast.Term
+		if t.Ann != nil {
+			ann = unfoldInTerm(t.Ann, name, body)
+		}
+		return ast.Lam{
+			Binder:   t.Binder,
+			Ann:      ann,
+			Body:     unfoldInTerm(t.Body, name, body),
+			Implicit: t.Implicit,
+		}
+
+	case ast.App:
+		return ast.App{
+			T:        unfoldInTerm(t.T, name, body),
+			U:        unfoldInTerm(t.U, name, body),
+			Implicit: t.Implicit,
+		}
+
+	case ast.Sigma:
+		return ast.Sigma{
+			Binder: t.Binder,
+			A:      unfoldInTerm(t.A, name, body),
+			B:      unfoldInTerm(t.B, name, body),
+		}
+
+	case ast.Pair:
+		return ast.Pair{
+			Fst: unfoldInTerm(t.Fst, name, body),
+			Snd: unfoldInTerm(t.Snd, name, body),
+		}
+
+	case ast.Fst:
+		return ast.Fst{P: unfoldInTerm(t.P, name, body)}
+
+	case ast.Snd:
+		return ast.Snd{P: unfoldInTerm(t.P, name, body)}
+
+	case ast.Id:
+		return ast.Id{
+			A: unfoldInTerm(t.A, name, body),
+			X: unfoldInTerm(t.X, name, body),
+			Y: unfoldInTerm(t.Y, name, body),
+		}
+
+	case ast.Refl:
+		return ast.Refl{
+			A: unfoldInTerm(t.A, name, body),
+			X: unfoldInTerm(t.X, name, body),
+		}
+
+	case ast.J:
+		return ast.J{
+			A: unfoldInTerm(t.A, name, body),
+			C: unfoldInTerm(t.C, name, body),
+			D: unfoldInTerm(t.D, name, body),
+			X: unfoldInTerm(t.X, name, body),
+			Y: unfoldInTerm(t.Y, name, body),
+			P: unfoldInTerm(t.P, name, body),
+		}
+
+	case ast.Path:
+		return ast.Path{
+			A: unfoldInTerm(t.A, name, body),
+			X: unfoldInTerm(t.X, name, body),
+			Y: unfoldInTerm(t.Y, name, body),
+		}
+
+	case ast.PathP:
+		return ast.PathP{
+			A: unfoldInTerm(t.A, name, body),
+			X: unfoldInTerm(t.X, name, body),
+			Y: unfoldInTerm(t.Y, name, body),
+		}
+
+	case ast.PathLam:
+		return ast.PathLam{
+			Binder: t.Binder,
+			Body:   unfoldInTerm(t.Body, name, body),
+		}
+
+	case ast.PathApp:
+		return ast.PathApp{
+			P: unfoldInTerm(t.P, name, body),
+			R: unfoldInTerm(t.R, name, body),
+		}
+
+	case ast.Transport:
+		return ast.Transport{
+			A: unfoldInTerm(t.A, name, body),
+			E: unfoldInTerm(t.E, name, body),
+		}
+
+	case ast.HComp:
+		return ast.HComp{
+			A:    unfoldInTerm(t.A, name, body),
+			Phi:  t.Phi, // Face formulas don't contain globals
+			Tube: unfoldInTerm(t.Tube, name, body),
+			Base: unfoldInTerm(t.Base, name, body),
+		}
+
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: t.IBinder,
+			A:       unfoldInTerm(t.A, name, body),
+			Phi:     t.Phi, // Face formulas don't contain globals
+			Tube:    unfoldInTerm(t.Tube, name, body),
+			Base:    unfoldInTerm(t.Base, name, body),
+		}
+
+	default:
+		// For any other terms (Glue types, face formulas, etc.), return unchanged
+		// The common cases are handled above
+		return term
 	}
 }
 

@@ -833,6 +833,15 @@ func (g *GlobalEnv) LookupDefinitionBody(name string) (ast.Term, bool) {
 	return nil, false
 }
 
+// LookupDefinitionBodyForced returns the body of a definition regardless of transparency.
+// This is used by tactics like 'unfold' where the user explicitly requests unfolding.
+func (g *GlobalEnv) LookupDefinitionBodyForced(name string) (ast.Term, bool) {
+	if def, ok := g.defs[name]; ok {
+		return def.Body, true
+	}
+	return nil, false
+}
+
 // Has returns true if the name is defined in the environment.
 func (g *GlobalEnv) Has(name string) bool {
 	return g.LookupType(name) != nil
