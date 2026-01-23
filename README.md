@@ -173,6 +173,44 @@ User-defined inductive types with automatic eliminator generation. Parameterized
 | Glue | `Glue A [φ ↦ (T,e)]`, `glue`, `unglue` |
 | Universes | Predicative cumulative tower, explicit levels |
 
+### Example Proofs
+
+The `examples/proofs/` directory contains proof scripts demonstrating HoTTGo's tactic system:
+
+```bash
+# Verify all example proofs
+hottgo --load examples/proofs/*.htt
+
+# Run a specific proof file
+hottgo --load examples/proofs/path_basics.htt
+```
+
+**Available examples:**
+
+| File | Content |
+|------|---------|
+| `identity.htt` | Identity function definitions and type proofs |
+| `nat_basic.htt` | Natural number reflexivity proofs |
+| `bool_basic.htt` | Boolean type and logic proofs |
+| `list_basic.htt` | List type constructor proofs |
+| `path_basics.htt` | Cubical path types with PathLam |
+| `transport.htt` | Transport and predicate preservation |
+| `equality_basic.htt` | Propositional equality (Id type) |
+| `sum_basic.htt` | Sum/coproduct type proofs |
+| `unit_empty.htt` | Unit, Empty, and ex falso |
+
+**Sample proof script:**
+
+```htt
+-- path_basics.htt: Reflexivity via path abstraction
+Theorem pathp_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+```
+
 ## Hypergraph Library
 
 Hypergraphs generalize graphs—edges connect any number of vertices, not just two. The library is generic over vertex types, provides standard transforms, and includes common algorithms.
