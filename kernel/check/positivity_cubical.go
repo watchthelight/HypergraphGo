@@ -308,6 +308,20 @@ func occursInExtension(name string, ty ast.Term) (bool, bool) {
 	case ast.UABeta:
 		return OccursIn(name, t.Equiv) || OccursIn(name, t.Arg), true
 
+	// HIT path application
+	case ast.HITApp:
+		for _, arg := range t.Args {
+			if OccursIn(name, arg) {
+				return true, true
+			}
+		}
+		for _, iarg := range t.IArgs {
+			if OccursIn(name, iarg) {
+				return true, true
+			}
+		}
+		return false, true
+
 	default:
 		return false, false
 	}

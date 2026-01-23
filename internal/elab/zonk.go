@@ -163,6 +163,117 @@ func (z *zonker) zonkTerm(t ast.Term) ast.Term {
 			E: z.zonkTerm(tt.E),
 		}
 
+	// Face formulas
+	case ast.FaceTop, ast.FaceBot:
+		return t
+
+	case ast.FaceEq:
+		return t // FaceEq only contains interval variable index, no terms
+
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  z.zonkFace(tt.Left),
+			Right: z.zonkFace(tt.Right),
+		}
+
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  z.zonkFace(tt.Left),
+			Right: z.zonkFace(tt.Right),
+		}
+
+	// Partial types and systems
+	case ast.Partial:
+		return ast.Partial{
+			Phi: z.zonkFace(tt.Phi),
+			A:   z.zonkTerm(tt.A),
+		}
+
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tt.Branches))
+		for i, br := range tt.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  z.zonkFace(br.Phi),
+				Term: z.zonkTerm(br.Term),
+			}
+		}
+		return ast.System{Branches: branches}
+
+	// Composition operations
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: tt.IBinder,
+			A:       z.zonkTerm(tt.A),
+			Phi:     z.zonkFace(tt.Phi),
+			Tube:    z.zonkTerm(tt.Tube),
+			Base:    z.zonkTerm(tt.Base),
+		}
+
+	case ast.HComp:
+		return ast.HComp{
+			A:    z.zonkTerm(tt.A),
+			Phi:  z.zonkFace(tt.Phi),
+			Tube: z.zonkTerm(tt.Tube),
+			Base: z.zonkTerm(tt.Base),
+		}
+
+	case ast.Fill:
+		return ast.Fill{
+			IBinder: tt.IBinder,
+			A:       z.zonkTerm(tt.A),
+			Phi:     z.zonkFace(tt.Phi),
+			Tube:    z.zonkTerm(tt.Tube),
+			Base:    z.zonkTerm(tt.Base),
+		}
+
+	// Glue types
+	case ast.Glue:
+		system := make([]ast.GlueBranch, len(tt.System))
+		for i, br := range tt.System {
+			system[i] = ast.GlueBranch{
+				Phi:   z.zonkFace(br.Phi),
+				T:     z.zonkTerm(br.T),
+				Equiv: z.zonkTerm(br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      z.zonkTerm(tt.A),
+			System: system,
+		}
+
+	case ast.GlueElem:
+		system := make([]ast.GlueElemBranch, len(tt.System))
+		for i, br := range tt.System {
+			system[i] = ast.GlueElemBranch{
+				Phi:  z.zonkFace(br.Phi),
+				Term: z.zonkTerm(br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: system,
+			Base:   z.zonkTerm(tt.Base),
+		}
+
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: z.zonkTerm(tt.Ty),
+			G:  z.zonkTerm(tt.G),
+		}
+
+	// Univalence
+	case ast.UA:
+		return ast.UA{
+			A:     z.zonkTerm(tt.A),
+			B:     z.zonkTerm(tt.B),
+			Equiv: z.zonkTerm(tt.Equiv),
+		}
+
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: z.zonkTerm(tt.Equiv),
+			Arg:   z.zonkTerm(tt.Arg),
+		}
+
 	// Interval endpoints and variables
 	case ast.Interval, ast.I0, ast.I1, ast.IVar:
 		return t
@@ -170,6 +281,29 @@ func (z *zonker) zonkTerm(t ast.Term) ast.Term {
 	default:
 		// Unknown term type, return as-is
 		return t
+	}
+}
+
+// zonkFace zonks a face formula (which may contain terms in complex cases).
+func (z *zonker) zonkFace(f ast.Face) ast.Face {
+	if f == nil {
+		return nil
+	}
+	switch ff := f.(type) {
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq:
+		return f
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  z.zonkFace(ff.Left),
+			Right: z.zonkFace(ff.Right),
+		}
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  z.zonkFace(ff.Left),
+			Right: z.zonkFace(ff.Right),
+		}
+	default:
+		return f
 	}
 }
 
@@ -234,6 +368,61 @@ func HasMeta(t ast.Term) bool {
 
 	case ast.Transport:
 		return HasMeta(tt.A) || HasMeta(tt.E)
+
+	// Face formulas don't contain metas (they only reference interval variables)
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq, ast.FaceAnd, ast.FaceOr:
+		return false
+
+	case ast.Partial:
+		return HasMeta(tt.A)
+
+	case ast.System:
+		for _, br := range tt.Branches {
+			if HasMeta(br.Term) {
+				return true
+			}
+		}
+		return false
+
+	case ast.Comp:
+		return HasMeta(tt.A) || HasMeta(tt.Tube) || HasMeta(tt.Base)
+
+	case ast.HComp:
+		return HasMeta(tt.A) || HasMeta(tt.Tube) || HasMeta(tt.Base)
+
+	case ast.Fill:
+		return HasMeta(tt.A) || HasMeta(tt.Tube) || HasMeta(tt.Base)
+
+	case ast.Glue:
+		if HasMeta(tt.A) {
+			return true
+		}
+		for _, br := range tt.System {
+			if HasMeta(br.T) || HasMeta(br.Equiv) {
+				return true
+			}
+		}
+		return false
+
+	case ast.GlueElem:
+		if HasMeta(tt.Base) {
+			return true
+		}
+		for _, br := range tt.System {
+			if HasMeta(br.Term) {
+				return true
+			}
+		}
+		return false
+
+	case ast.Unglue:
+		return HasMeta(tt.Ty) || HasMeta(tt.G)
+
+	case ast.UA:
+		return HasMeta(tt.A) || HasMeta(tt.B) || HasMeta(tt.Equiv)
+
+	case ast.UABeta:
+		return HasMeta(tt.Equiv) || HasMeta(tt.Arg)
 
 	default:
 		return false
@@ -400,5 +589,58 @@ func (c *metaCollector) collect(t ast.Term) {
 	case ast.Transport:
 		c.collect(tt.A)
 		c.collect(tt.E)
+
+	// Face formulas don't contain metas
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq, ast.FaceAnd, ast.FaceOr:
+		// No metas in face formulas
+
+	case ast.Partial:
+		c.collect(tt.A)
+
+	case ast.System:
+		for _, br := range tt.Branches {
+			c.collect(br.Term)
+		}
+
+	case ast.Comp:
+		c.collect(tt.A)
+		c.collect(tt.Tube)
+		c.collect(tt.Base)
+
+	case ast.HComp:
+		c.collect(tt.A)
+		c.collect(tt.Tube)
+		c.collect(tt.Base)
+
+	case ast.Fill:
+		c.collect(tt.A)
+		c.collect(tt.Tube)
+		c.collect(tt.Base)
+
+	case ast.Glue:
+		c.collect(tt.A)
+		for _, br := range tt.System {
+			c.collect(br.T)
+			c.collect(br.Equiv)
+		}
+
+	case ast.GlueElem:
+		c.collect(tt.Base)
+		for _, br := range tt.System {
+			c.collect(br.Term)
+		}
+
+	case ast.Unglue:
+		c.collect(tt.Ty)
+		c.collect(tt.G)
+
+	case ast.UA:
+		c.collect(tt.A)
+		c.collect(tt.B)
+		c.collect(tt.Equiv)
+
+	case ast.UABeta:
+		c.collect(tt.Equiv)
+		c.collect(tt.Arg)
 	}
 }

@@ -433,6 +433,17 @@ func checkArgTypePositivity(indName, ctorName string, ty ast.Term, pol Polarity,
 // OccursIn("List", consType) returns true because List appears in the argument type.
 func OccursIn(name string, ty ast.Term) bool {
 	switch t := ty.(type) {
+	case ast.Var, ast.Sort:
+		// Variables and sorts contain no global references
+		return false
+	case ast.Meta:
+		// Check metavariable arguments (defensive - metas should be zonked before positivity check)
+		for _, arg := range t.Args {
+			if OccursIn(name, arg) {
+				return true
+			}
+		}
+		return false
 	case ast.Global:
 		return t.Name == name
 	case ast.Pi:
