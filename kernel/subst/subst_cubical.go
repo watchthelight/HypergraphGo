@@ -965,3 +965,152 @@ func simplifyFaceOrAST(left, right ast.Face) ast.Face {
 	}
 	return ast.FaceOr{Left: left, Right: right}
 }
+
+// substClosedExtension extends substClosed to handle cubical term types.
+// This is an optimization when s is a closed term (no shifting needed).
+func substClosedExtension(j int, s ast.Term, t ast.Term) (ast.Term, bool) {
+	switch tm := t.(type) {
+	case ast.Interval, ast.I0, ast.I1, ast.IVar:
+		return tm, true // Interval terms have no term variables
+	case ast.Path:
+		return ast.Path{
+			A: substClosed(j, s, tm.A),
+			X: substClosed(j, s, tm.X),
+			Y: substClosed(j, s, tm.Y),
+		}, true
+	case ast.PathP:
+		return ast.PathP{
+			A: substClosed(j, s, tm.A),
+			X: substClosed(j, s, tm.X),
+			Y: substClosed(j, s, tm.Y),
+		}, true
+	case ast.PathLam:
+		return ast.PathLam{
+			Binder: tm.Binder,
+			Body:   substClosed(j, s, tm.Body),
+		}, true
+	case ast.PathApp:
+		return ast.PathApp{
+			P: substClosed(j, s, tm.P),
+			R: substClosed(j, s, tm.R),
+		}, true
+	case ast.Transport:
+		return ast.Transport{
+			A: substClosed(j, s, tm.A),
+			E: substClosed(j, s, tm.E),
+		}, true
+	// Face formulas - no term variables
+	case ast.FaceTop, ast.FaceBot, ast.FaceEq:
+		return tm, true
+	case ast.FaceAnd:
+		return ast.FaceAnd{
+			Left:  SubstFace(j, s, tm.Left),
+			Right: SubstFace(j, s, tm.Right),
+		}, true
+	case ast.FaceOr:
+		return ast.FaceOr{
+			Left:  SubstFace(j, s, tm.Left),
+			Right: SubstFace(j, s, tm.Right),
+		}, true
+	// Partial types
+	case ast.Partial:
+		return ast.Partial{
+			Phi: SubstFace(j, s, tm.Phi),
+			A:   substClosed(j, s, tm.A),
+		}, true
+	case ast.System:
+		branches := make([]ast.SystemBranch, len(tm.Branches))
+		for i, br := range tm.Branches {
+			branches[i] = ast.SystemBranch{
+				Phi:  SubstFace(j, s, br.Phi),
+				Term: substClosed(j, s, br.Term),
+			}
+		}
+		return ast.System{Branches: branches}, true
+	// Composition operations - no term variable binders
+	case ast.Comp:
+		return ast.Comp{
+			IBinder: tm.IBinder,
+			A:       substClosed(j, s, tm.A),
+			Phi:     SubstFace(j, s, tm.Phi),
+			Tube:    substClosed(j, s, tm.Tube),
+			Base:    substClosed(j, s, tm.Base),
+		}, true
+	case ast.HComp:
+		return ast.HComp{
+			A:    substClosed(j, s, tm.A),
+			Phi:  SubstFace(j, s, tm.Phi),
+			Tube: substClosed(j, s, tm.Tube),
+			Base: substClosed(j, s, tm.Base),
+		}, true
+	case ast.Fill:
+		return ast.Fill{
+			IBinder: tm.IBinder,
+			A:       substClosed(j, s, tm.A),
+			Phi:     SubstFace(j, s, tm.Phi),
+			Tube:    substClosed(j, s, tm.Tube),
+			Base:    substClosed(j, s, tm.Base),
+		}, true
+	// Glue types - no term variable binders
+	case ast.Glue:
+		branches := make([]ast.GlueBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueBranch{
+				Phi:   SubstFace(j, s, br.Phi),
+				T:     substClosed(j, s, br.T),
+				Equiv: substClosed(j, s, br.Equiv),
+			}
+		}
+		return ast.Glue{
+			A:      substClosed(j, s, tm.A),
+			System: branches,
+		}, true
+	case ast.GlueElem:
+		branches := make([]ast.GlueElemBranch, len(tm.System))
+		for i, br := range tm.System {
+			branches[i] = ast.GlueElemBranch{
+				Phi:  SubstFace(j, s, br.Phi),
+				Term: substClosed(j, s, br.Term),
+			}
+		}
+		return ast.GlueElem{
+			System: branches,
+			Base:   substClosed(j, s, tm.Base),
+		}, true
+	case ast.Unglue:
+		return ast.Unglue{
+			Ty: substClosed(j, s, tm.Ty),
+			G:  substClosed(j, s, tm.G),
+		}, true
+	// Univalence - no term variable binders
+	case ast.UA:
+		return ast.UA{
+			A:     substClosed(j, s, tm.A),
+			B:     substClosed(j, s, tm.B),
+			Equiv: substClosed(j, s, tm.Equiv),
+		}, true
+	case ast.UABeta:
+		return ast.UABeta{
+			Equiv: substClosed(j, s, tm.Equiv),
+			Arg:   substClosed(j, s, tm.Arg),
+		}, true
+	// Higher Inductive Types - no term variable binders in HITApp
+	case ast.HITApp:
+		args := make([]ast.Term, len(tm.Args))
+		for i, arg := range tm.Args {
+			args[i] = substClosed(j, s, arg)
+		}
+		iargs := make([]ast.Term, len(tm.IArgs))
+		for i, iarg := range tm.IArgs {
+			iargs[i] = substClosed(j, s, iarg)
+		}
+		return ast.HITApp{
+			HITName: tm.HITName,
+			Ctor:    tm.Ctor,
+			Args:    args,
+			IArgs:   iargs,
+		}, true
+	default:
+		return nil, false
+	}
+}
