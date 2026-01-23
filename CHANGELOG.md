@@ -82,6 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `equality_basic.htt` - identity type (propositional equality) proofs
   - `list_basic.htt` - List type proofs (nil, cons, reflexivity)
   - `path_basics.htt` - Cubical PathP type proofs using PathLam
+  - `transport.htt` - Transport-related proofs (predicate preservation, path endpoints)
+
+- **CI verification of examples** (`.github/workflows/go.yml`)
+  - Automated verification of all `.htt` proof scripts in examples/proofs/
+  - Builds hottgo binary and runs `--load` on each script
 
 #### Phase 9: Standard Library & Inductive Tactics (M1-M6)
 
