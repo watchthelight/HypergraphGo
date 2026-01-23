@@ -1,0 +1,47 @@
+-- sum_basic.htt
+-- Basic Sum (coproduct/disjoint union) proofs
+--
+-- Sum A B represents "A or B" - the disjoint union of A and B.
+-- inl : A -> Sum A B  (left injection)
+-- inr : B -> Sum A B  (right injection)
+
+-- We can inject into Sum from the left
+Theorem sum_left : (Pi A Type (Pi B Type (Pi a (Var 1) (App (App Sum (Var 2)) (Var 1)))))
+Proof
+  intro A
+  intro B
+  intro a
+  left
+  assumption
+Qed
+
+-- We can inject into Sum from the right
+Theorem sum_right : (Pi A Type (Pi B Type (Pi b (Var 0) (App (App Sum (Var 2)) (Var 1)))))
+Proof
+  intro A
+  intro B
+  intro b
+  right
+  assumption
+Qed
+
+-- Sum A Unit is always inhabited (via right injection)
+Theorem sum_with_unit : (Pi A Type (App (App Sum (Var 0)) Unit))
+Proof
+  intro A
+  right
+  constructor
+Qed
+
+-- Sum Unit A is always inhabited (via left injection)
+Theorem unit_sum : (Pi A Type (App (App Sum Unit) (Var 0)))
+Proof
+  intro A
+  left
+  constructor
+Qed
+
+-- Note: Case analysis for Sum elimination requires more advanced tactics
+-- The eliminator sumElim is available but proving this type directly
+-- requires dependent pattern matching support.
+-- Theorem sum_elim_type : ...

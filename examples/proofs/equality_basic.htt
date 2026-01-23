@@ -1,0 +1,51 @@
+-- equality_basic.htt
+-- Basic equality (identity type) proofs
+--
+-- Id A x y represents propositional equality: x and y are equal in type A.
+-- The only constructor is refl : Id A x x (reflexivity).
+
+-- Reflexivity: anything equals itself
+Theorem eq_refl : (Pi A Type (Pi x (Var 0) (Id (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  reflexivity
+Qed
+
+-- Note: Equality at Type level requires universe polymorphism
+-- Id Type Type Type lives at Type1, not Type0
+-- Theorem type_eq : (Id Type Type Type)  -- would need Type1
+
+-- Equality of natural numbers
+Theorem nat_eq : (Id Type Nat Nat)
+Proof
+  reflexivity
+Qed
+
+-- If we have x = y, we can produce x = y (identity on proofs)
+Theorem eq_id : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) (Pi p (Id (Var 2) (Var 1) (Var 0)) (Id (Var 3) (Var 2) (Var 1))))))
+Proof
+  intro A
+  intro x
+  intro y
+  intro p
+  assumption
+Qed
+
+-- Symmetry: if x = y then y = x
+-- This requires J eliminator, which is complex in tactic mode
+-- Instead, we show a simpler property
+
+-- Congruence: if x = y, then f x = f y (for any f)
+-- This is provable using J, but also complex
+-- Let's show some simpler facts
+
+-- Zero applied to succ twice equals succ (succ zero)
+Theorem succ_succ_zero : (Id Nat (App succ (App succ zero)) (App succ (App succ zero)))
+Proof
+  reflexivity
+Qed
+
+-- Note: Pair equality requires proper typing with dependent Sigma
+-- which needs correct de Bruijn indices handling
+-- Theorem pair_eq : ...

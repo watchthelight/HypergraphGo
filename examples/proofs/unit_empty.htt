@@ -1,0 +1,58 @@
+-- unit_empty.htt
+-- Unit and Empty type proofs
+--
+-- This file demonstrates proofs involving Unit (true type) and Empty (false type).
+
+-- Unit is inhabited
+Theorem unit_inhabited : Unit
+Proof
+  constructor
+Qed
+
+-- Any two elements of Unit are equal (Unit is a proposition)
+-- Since we can only construct tt, this is trivial
+Theorem unit_eq : (Id Unit tt tt)
+Proof
+  reflexivity
+Qed
+
+-- From a proof of Unit, we can always produce a Unit
+Theorem unit_to_unit : (Pi u Unit Unit)
+Proof
+  intro u
+  constructor
+Qed
+
+-- Empty implies anything (ex falso quodlibet)
+-- If we have a proof of Empty, we can prove any type A
+Theorem efq : (Pi A Type (Pi e Empty (Var 1)))
+Proof
+  intro A
+  intro e
+  contradiction
+Qed
+
+-- Empty implies Empty
+Theorem empty_to_empty : (Pi e Empty Empty)
+Proof
+  intro e
+  contradiction
+Qed
+
+-- Negation as function to Empty
+-- not A = A -> Empty
+-- If A implies Empty, then A is "false"
+Theorem not_empty : (Pi e Empty Empty)
+Proof
+  intro e
+  assumption
+Qed
+
+-- Unit is not Empty (we can't prove Unit -> Empty)
+-- We can prove: there exists something of type Unit, showing Unit is inhabited
+Theorem unit_nonempty : (Sigma u Unit Unit)
+Proof
+  split
+  constructor
+  constructor
+Qed

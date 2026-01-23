@@ -1,0 +1,39 @@
+-- path_basics.htt: Basic path type proofs in HoTTGo
+-- Demonstrates cubical Path types and path abstraction
+
+-- PathP is the dependent path type used with PathLam
+-- A dependent path from x to x using a constant type family
+Theorem pathp_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+-- Path between zero and zero in Nat
+-- Path desugars to PathP with constant family, so we use PathP directly
+Theorem zero_pathp_zero : (PathP Nat zero zero)
+Proof
+  exact (PathLam i zero)
+Qed
+
+-- For any natural number n, there exists a path n = n
+Theorem nat_pathp_refl : (Pi n Nat (PathP Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  exact (PathLam i (Var 0))
+Qed
+
+-- The identity path on Bool
+Theorem bool_pathp_refl : (Pi b Bool (PathP Bool (Var 0) (Var 0)))
+Proof
+  intro b
+  exact (PathLam i (Var 0))
+Qed
+
+-- Succ preserves path equality
+Theorem succ_pathp : (Pi n Nat (PathP Nat (App succ (Var 0)) (App succ (Var 0))))
+Proof
+  intro n
+  exact (PathLam i (App succ (Var 0)))
+Qed

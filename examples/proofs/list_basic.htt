@@ -1,0 +1,38 @@
+-- list_basic.htt: Basic list proofs in HoTTGo
+-- Demonstrates the List type and its constructors
+
+-- nil Nat is equal to itself (reflexivity on empty list)
+Theorem nil_eq_nil : (Id (App List Nat) (App nil Nat) (App nil Nat))
+Proof
+  reflexivity
+Qed
+
+-- A singleton list [zero] is equal to itself
+Theorem singleton_eq_singleton : (Id (App List Nat) (App (App (App cons Nat) zero) (App nil Nat)) (App (App (App cons Nat) zero) (App nil Nat)))
+Proof
+  reflexivity
+Qed
+
+-- Any list is equal to itself (list reflexivity)
+Theorem list_refl : (Pi A Type (Pi l (App List (Var 0)) (Id (App List (Var 1)) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro l
+  reflexivity
+Qed
+
+-- We can always construct an empty list for any type
+Theorem list_nil_exists : (Pi A Type (App List (Var 0)))
+Proof
+  intro A
+  exact (App nil (Var 0))
+Qed
+
+-- We can construct a singleton list from any element
+-- Given an element x : A, we can build cons A x (nil A) : List A
+Theorem singleton_list : (Pi A Type (Pi x (Var 0) (App List (Var 1))))
+Proof
+  intro A
+  intro x
+  exact (App (App (App cons (Var 1)) (Var 0)) (App nil (Var 1)))
+Qed

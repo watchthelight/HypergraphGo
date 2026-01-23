@@ -1,0 +1,43 @@
+-- bool_basic.htt
+-- Basic boolean proofs
+--
+-- This file demonstrates proving theorems about booleans.
+
+-- true is true
+Theorem true_eq_true : (Id Bool true true)
+Proof
+  reflexivity
+Qed
+
+-- false is false
+Theorem false_eq_false : (Id Bool false false)
+Proof
+  reflexivity
+Qed
+
+-- There exists a boolean
+Theorem bool_exists : (Sigma b Bool Unit)
+Proof
+  split
+  exact true
+  constructor
+Qed
+
+-- For any b : Bool, b = b
+Theorem bool_refl : (Pi b Bool (Id Bool (Var 0) (Var 0)))
+Proof
+  intro b
+  reflexivity
+Qed
+
+-- Note: Proof by cases requires proper substitution in the goal type,
+-- which is a more advanced feature. The following would work with full
+-- dependent pattern matching:
+--
+-- Theorem bool_cases_example : (Pi b Bool (Sum (Id Bool b true) (Id Bool b false)))
+-- Proof
+--   intro b
+--   cases b
+--   left; reflexivity   -- when b = true
+--   right; reflexivity  -- when b = false
+-- Qed

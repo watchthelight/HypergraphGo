@@ -1,0 +1,35 @@
+-- identity.htt
+-- Basic identity function proofs
+--
+-- This file demonstrates proving theorems about the identity function.
+
+-- Define the polymorphic identity function
+Definition id : (Pi A Type (Pi x (Var 0) (Var 1))) := (Lam A (Lam x (Var 0)))
+
+-- Prove that there exists an identity function (witness)
+Theorem id_exists : (Sigma f (Pi A Type (Pi x (Var 0) (Var 1))) Unit)
+Proof
+  split
+  exact id
+  constructor
+Qed
+
+-- Prove that applying id to any term yields a term of the same type
+-- (This is essentially expressing that id has the expected type)
+Theorem id_type : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  assumption
+Qed
+
+-- Define a constant function
+Definition const : (Pi A Type (Pi B Type (Pi a (Var 1) (Pi b (Var 1) (Var 3))))) := (Lam A (Lam B (Lam a (Lam b (Var 1)))))
+
+-- Prove const exists
+Theorem const_exists : (Sigma f (Pi A Type (Pi B Type (Pi a (Var 1) (Pi b (Var 1) (Var 3))))) Unit)
+Proof
+  split
+  exact const
+  constructor
+Qed

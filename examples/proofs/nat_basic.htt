@@ -1,0 +1,43 @@
+-- nat_basic.htt
+-- Basic natural number proofs
+--
+-- This file demonstrates proving theorems about natural numbers.
+
+-- Reflexivity: zero equals zero
+Theorem zero_eq_zero : (Id Nat zero zero)
+Proof
+  reflexivity
+Qed
+
+-- Reflexivity with successor
+Theorem succ_zero_eq_succ_zero : (Id Nat (App succ zero) (App succ zero))
+Proof
+  reflexivity
+Qed
+
+-- For any n, n = n
+Theorem nat_refl : (Pi n Nat (Id Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  reflexivity
+Qed
+
+-- Existential: there exists a natural number
+Theorem nat_exists : (Sigma n Nat Unit)
+Proof
+  split
+  exact zero
+  constructor
+Qed
+
+-- Note: The following more advanced proofs require dependent pattern matching
+-- or J eliminator tactics which are not yet fully implemented.
+-- They are left as comments to show the intended proofs.
+
+-- Existential: there exists a natural number equal to zero
+-- (This requires dependent substitution in split tactic)
+-- Theorem zero_exists : (Sigma n Nat (Id Nat (Var 0) zero))
+
+-- For any property P, if P(zero) and P(n)->P(succ n), then for all n, P(n)
+-- (This is the induction principle - complex recursive proof)
+-- Theorem nat_ind_type : ...
