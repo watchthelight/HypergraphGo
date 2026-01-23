@@ -260,17 +260,25 @@ func (p *ProofState) ExtractTerm() (ast.Term, error) {
 }
 
 // FormatGoal returns a string representation of a goal.
+// Uses context-aware printing to show variable names instead of de Bruijn indices.
 func (p *ProofState) FormatGoal(g *Goal) string {
 	result := ""
 
-	// Format hypotheses
+	// Build context from hypotheses for context-aware printing
+	ctx := make([]string, 0, len(g.Hypotheses))
 	for _, h := range g.Hypotheses {
-		result += fmt.Sprintf("  %s : %s\n", h.Name, parser.FormatTerm(h.Type))
+		ctx = append(ctx, h.Name)
 	}
 
-	// Format goal type
+	// Format hypotheses - each hypothesis can only reference earlier hypotheses
+	for i, h := range g.Hypotheses {
+		hypCtx := ctx[:i] // Context for this hypothesis (only earlier hypotheses)
+		result += fmt.Sprintf("  %s : %s\n", h.Name, parser.FormatTermWithContext(h.Type, hypCtx))
+	}
+
+	// Format goal type with full context
 	result += fmt.Sprintf("  ========================\n")
-	result += fmt.Sprintf("  %s\n", parser.FormatTerm(g.Type))
+	result += fmt.Sprintf("  %s\n", parser.FormatTermWithContext(g.Type, ctx))
 
 	return result
 }
