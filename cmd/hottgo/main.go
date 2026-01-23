@@ -887,6 +887,7 @@ func printHelp(inProofMode bool) {
 		fmt.Println()
 		fmt.Println("  Simplification:")
 		fmt.Println("    simpl             Simplify (normalize) the goal")
+		fmt.Println("    unfold NAME       Unfold a definition in the goal")
 		fmt.Println("    apply TERM        Apply function/theorem to the goal")
 	}
 }
