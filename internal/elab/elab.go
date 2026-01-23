@@ -309,7 +309,7 @@ func (e *Elaborator) synthApp(ctx *ElabCtx, span Span, app *SApp) (ast.Term, ast
 	// Result type is codomain with argument substituted
 	resultTy := subst.Subst(0, argTerm, pi.B)
 
-	return ast.App{T: fnTerm, U: argTerm}, resultTy, nil
+	return ast.App{T: fnTerm, U: argTerm, Implicit: false}, resultTy, nil
 }
 
 // insertImplicits inserts metavariables for implicit arguments.
@@ -709,7 +709,7 @@ func (e *Elaborator) synthPathApp(ctx *ElabCtx, span Span, papp *SPathApp) (ast.
 		resultTy = pt.A
 	case ast.PathP:
 		// Apply the type family to the interval argument
-		resultTy = ast.App{T: pt.A, U: argTerm}
+		resultTy = ast.App{T: pt.A, U: argTerm, Implicit: false}
 	default:
 		return nil, nil, errSpan(span, "expected path type, got %T", pathTy)
 	}
@@ -732,7 +732,7 @@ func (e *Elaborator) synthTransport(ctx *ElabCtx, span Span, tr *STransport) (as
 	}
 
 	// Result type is A applied to i1 (simplified)
-	resultTy := ast.App{T: aTerm, U: ast.I1{}}
+	resultTy := ast.App{T: aTerm, U: ast.I1{}, Implicit: false}
 
 	return ast.Transport{A: aTerm, E: eTerm}, resultTy, nil
 }
@@ -763,7 +763,7 @@ func (e *Elaborator) synthIndApp(ctx *ElabCtx, span Span, ind *SIndApp) (ast.Ter
 	// Build the inductive type application: (Global IndName) arg1 arg2 ...
 	result := ast.Term(ast.Global{Name: ind.Name})
 	for _, arg := range args {
-		result = ast.App{T: result, U: arg}
+		result = ast.App{T: result, U: arg, Implicit: false}
 	}
 
 	// The type of an inductive type is its declared type applied to arguments
@@ -809,7 +809,7 @@ func (e *Elaborator) synthCtorApp(ctx *ElabCtx, span Span, ctor *SCtorApp) (ast.
 	// Build the constructor application: (Global CtorName) arg1 arg2 ...
 	result := ast.Term(ast.Global{Name: info.Name})
 	for _, arg := range args {
-		result = ast.App{T: result, U: arg}
+		result = ast.App{T: result, U: arg, Implicit: false}
 	}
 
 	// The type is the constructor's type with arguments substituted
@@ -860,11 +860,11 @@ func (e *Elaborator) synthElim(ctx *ElabCtx, span Span, elim *SElim) (ast.Term, 
 
 	// Build the eliminator application: (Global ElimName) motive method1 method2 ... target
 	result := ast.Term(ast.Global{Name: elim.Name})
-	result = ast.App{T: result, U: motiveTerm}
+	result = ast.App{T: result, U: motiveTerm, Implicit: false}
 	for _, method := range methods {
-		result = ast.App{T: result, U: method}
+		result = ast.App{T: result, U: method, Implicit: false}
 	}
-	result = ast.App{T: result, U: targetTerm}
+	result = ast.App{T: result, U: targetTerm, Implicit: false}
 
 	// Compute the result type by applying the motive to the target
 	// For a well-typed eliminator call, the result is (motive target)
