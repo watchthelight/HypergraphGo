@@ -257,6 +257,12 @@ func (pm *ProofMode) parseTactic(name string, args []string) (tactics.Tactic, er
 		}
 		return tactics.Transport(args[0], args[1]), nil
 
+	case "unfold":
+		if len(args) < 1 {
+			return nil, fmt.Errorf("unfold requires a definition name")
+		}
+		return tactics.UnfoldWith(pm.checker.Globals())(args[0]), nil
+
 	default:
 		return nil, fmt.Errorf("unknown tactic: %s", name)
 	}
