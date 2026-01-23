@@ -65,6 +65,14 @@ jobs:
         go test -fuzz=FuzzLoadJSON -fuzztime=10s ./hypergraph/...
         go test -fuzz=FuzzHypergraphOperations -fuzztime=10s ./hypergraph/...
 
+    - name: Verify example proofs
+      run: |
+        go build -o hottgo ./cmd/hottgo
+        for f in examples/proofs/*.htt; do
+          echo "Verifying: $f"
+          ./hottgo --load "$f"
+        done
+
     - name: Upload coverage
       if: matrix.go-version == '1.25.x'
       uses: codecov/codecov-action@v5
