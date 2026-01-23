@@ -851,3 +851,84 @@ func (g *GlobalEnv) Has(name string) bool {
 func (g *GlobalEnv) Order() []string {
 	return g.order
 }
+
+// EntryKind represents the kind of a global environment entry.
+type EntryKind int
+
+const (
+	KindAxiom EntryKind = iota
+	KindDefinition
+	KindInductive
+	KindConstructor
+	KindPrimitive
+	KindUnknown
+)
+
+func (k EntryKind) String() string {
+	switch k {
+	case KindAxiom:
+		return "axiom"
+	case KindDefinition:
+		return "def"
+	case KindInductive:
+		return "inductive"
+	case KindConstructor:
+		return "constructor"
+	case KindPrimitive:
+		return "primitive"
+	default:
+		return "unknown"
+	}
+}
+
+// GetKind returns the kind of the entry with the given name.
+func (g *GlobalEnv) GetKind(name string) EntryKind {
+	if _, ok := g.axioms[name]; ok {
+		return KindAxiom
+	}
+	if _, ok := g.defs[name]; ok {
+		return KindDefinition
+	}
+	if _, ok := g.inductives[name]; ok {
+		return KindInductive
+	}
+	if _, ok := g.primitives[name]; ok {
+		return KindPrimitive
+	}
+	// Check if it's a constructor
+	for _, ind := range g.inductives {
+		for _, c := range ind.Constructors {
+			if c.Name == name {
+				return KindConstructor
+			}
+		}
+	}
+	return KindUnknown
+}
+
+// Axioms returns all axiom names.
+func (g *GlobalEnv) Axioms() []string {
+	names := make([]string, 0, len(g.axioms))
+	for name := range g.axioms {
+		names = append(names, name)
+	}
+	return names
+}
+
+// Definitions returns all definition names.
+func (g *GlobalEnv) Definitions() []string {
+	names := make([]string, 0, len(g.defs))
+	for name := range g.defs {
+		names = append(names, name)
+	}
+	return names
+}
+
+// Inductives returns all inductive type names.
+func (g *GlobalEnv) Inductives() []string {
+	names := make([]string, 0, len(g.inductives))
+	for name := range g.inductives {
+		names = append(names, name)
+	}
+	return names
+}
