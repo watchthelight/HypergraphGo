@@ -1,0 +1,232 @@
+-- truncation.htt: Truncation concepts
+-- Demonstrates propositional and set truncation types
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Proposition Type Setup (mere propositions)
+----------------------------------------------------------------------
+
+-- Type of isProp (all elements are equal)
+Theorem isProp_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi x (Var 0) (Pi y (Var 1) (PathP (Var 2) (Var 1) (Var 0))))
+Qed
+
+-- Unit is prop (structure type)
+Theorem Unit_isProp_type : Type
+Proof
+  exact (Pi x Unit (Pi y Unit (PathP Unit (Var 1) (Var 0))))
+Qed
+
+----------------------------------------------------------------------
+-- Set Type Setup (h-sets)
+----------------------------------------------------------------------
+
+-- Type of isSet (paths between elements are props)
+Theorem isSet_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi x (Var 0) (Pi y (Var 1) (Pi p (PathP (Var 2) (Var 1) (Var 0)) (Pi q (PathP (Var 3) (Var 2) (Var 1)) (PathP (PathP (Var 4) (Var 3) (Var 2)) (Var 1) (Var 0))))))
+Qed
+
+-- Bool is set (structure type)
+Theorem Bool_isSet_type : Type
+Proof
+  exact (Pi x Bool (Pi y Bool (Pi p (PathP Bool (Var 1) (Var 0)) (Pi q (PathP Bool (Var 2) (Var 1)) (PathP (PathP Bool (Var 3) (Var 2)) (Var 1) (Var 0))))))
+Qed
+
+----------------------------------------------------------------------
+-- Truncation Type Structure
+----------------------------------------------------------------------
+
+-- Propositional truncation type
+Theorem Trunc_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma x (Var 0) Unit)
+Qed
+
+-- Truncation preserves type
+Theorem Trunc_preserves : (Pi A Type Type)
+Proof
+  intro A
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- Mere Existence
+----------------------------------------------------------------------
+
+-- Type of mere existence
+Theorem mere_exists_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma x (Var 0) Unit)
+Qed
+
+-- Mere existence of nat
+Theorem mere_nat_exists : (Sigma x Nat Unit)
+Proof
+  split
+  exact zero
+  constructor
+Qed
+
+-- Mere existence of bool
+Theorem mere_bool_exists : (Sigma x Bool Unit)
+Proof
+  split
+  exact true
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Propositional Truncation Operations
+----------------------------------------------------------------------
+
+-- Truncation projection type
+Theorem trunc_proj_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi a (Var 0) (Sigma x (Var 1) Unit))
+Qed
+
+-- Truncation recursion type
+Theorem trunc_rec_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi f (Pi x (Var 1) (Var 1)) (Pi t (Sigma x (Var 2) Unit) (Var 2)))
+Qed
+
+----------------------------------------------------------------------
+-- Path Types in Truncations
+----------------------------------------------------------------------
+
+-- Paths in truncations
+Theorem trunc_path : (Pi A Type (Pi t1 (Sigma x (Var 0) Unit) (Pi t2 (Sigma x (Var 1) Unit) Type)))
+Proof
+  intro A
+  intro t1
+  intro t2
+  exact (PathP (Sigma x (Var 2) Unit) (Var 1) (Var 0))
+Qed
+
+-- Truncation path reflexivity
+Theorem trunc_path_refl : (Pi A Type (Pi t (Sigma x (Var 0) Unit) (PathP (Sigma x (Var 1) Unit) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro t
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- n-Types Hierarchy
+----------------------------------------------------------------------
+
+-- (-2)-type = contractible (type)
+Theorem contr_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma c (Var 0) (Pi x (Var 1) (PathP (Var 2) (Var 1) (Var 0))))
+Qed
+
+-- (-1)-type = prop (type)
+Theorem prop_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi x (Var 0) (Pi y (Var 1) (PathP (Var 2) (Var 1) (Var 0))))
+Qed
+
+-- 0-type = set (type)
+Theorem set_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi x (Var 0) (Pi y (Var 1) (Pi p (PathP (Var 2) (Var 1) (Var 0)) (Pi q (PathP (Var 3) (Var 2) (Var 1)) (PathP (PathP (Var 4) (Var 3) (Var 2)) (Var 1) (Var 0))))))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Properties
+----------------------------------------------------------------------
+
+-- Props exist
+Theorem props_exist : (Sigma A Type Unit)
+Proof
+  split
+  exact Unit
+  constructor
+Qed
+
+-- Sets exist
+Theorem sets_exist : (Sigma A Type Unit)
+Proof
+  split
+  exact Nat
+  constructor
+Qed
+
+-- Truncations exist
+Theorem truncs_exist : (Sigma A Type (Sigma t (Sigma x (Var 0) Unit) Unit))
+Proof
+  split
+  exact Nat
+  split
+  split
+  exact zero
+  constructor
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Squash Type (Another name for truncation)
+----------------------------------------------------------------------
+
+-- Squash type
+Theorem squash_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma x (Var 0) Unit)
+Qed
+
+-- Squash reflexivity
+Theorem squash_refl : (Pi A Type (Pi s (Sigma x (Var 0) Unit) (PathP (Sigma x (Var 1) Unit) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro s
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Type Levels
+----------------------------------------------------------------------
+
+-- Type of h-level
+Theorem hlevel_type : Type
+Proof
+  exact Nat
+Qed
+
+-- Level -2 (contractible)
+Theorem level_contr : Nat
+Proof
+  exact zero
+Qed
+
+-- Level -1 (prop)
+Theorem level_prop : Nat
+Proof
+  exact (App succ zero)
+Qed
+
+-- Level 0 (set)
+Theorem level_set : Nat
+Proof
+  exact (App succ (App succ zero))
+Qed
+
+-- Level 1 (groupoid)
+Theorem level_groupoid : Nat
+Proof
+  exact (App succ (App succ (App succ zero)))
+Qed

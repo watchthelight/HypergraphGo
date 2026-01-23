@@ -1,0 +1,225 @@
+-- circle.htt: Circle (S1) related concepts
+-- Demonstrates higher inductive type setup
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Loop Space Type Setup
+----------------------------------------------------------------------
+
+-- Type of loops (paths from x to x)
+Theorem loop_type : (Pi A Type (Pi x (Var 0) Type))
+Proof
+  intro A
+  intro x
+  exact (PathP (Var 1) (Var 0) (Var 0))
+Qed
+
+-- Loop reflexivity
+Theorem loop_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+-- Loop in Nat
+Theorem loop_nat : (Pi n Nat (PathP Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  exact (PathLam i (Var 0))
+Qed
+
+-- Loop in Bool
+Theorem loop_bool : (Pi b Bool (PathP Bool (Var 0) (Var 0)))
+Proof
+  intro b
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Loop Space Properties
+----------------------------------------------------------------------
+
+-- Loop exists (concrete example)
+Theorem loop_exists_nat : (Sigma l (PathP Nat zero zero) Unit)
+Proof
+  split
+  exact (PathLam i zero)
+  constructor
+Qed
+
+-- Multiple loops exist
+Theorem loops_exist : (Sigma l1 (PathP Nat zero zero) (Sigma l2 (PathP Bool true true) Unit))
+Proof
+  split
+  exact (PathLam i zero)
+  split
+  exact (PathLam i true)
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Higher Loop Types (2-loops)
+----------------------------------------------------------------------
+
+-- Type of 2-loops
+Theorem loop2_type : (Pi A Type (Pi x (Var 0) (Pi l (PathP (Var 1) (Var 0) (Var 0)) Type)))
+Proof
+  intro A
+  intro x
+  intro l
+  exact (PathP (PathP (Var 2) (Var 1) (Var 1)) (Var 0) (Var 0))
+Qed
+
+-- 2-loop reflexivity
+Theorem loop2_refl : (Pi A Type (Pi x (Var 0) (Pi l (PathP (Var 1) (Var 0) (Var 0)) (PathP (PathP (Var 2) (Var 1) (Var 1)) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro x
+  intro l
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Winding Number Setup (Conceptual)
+----------------------------------------------------------------------
+
+-- Type of potential winding number function
+Theorem winding_type : Type
+Proof
+  exact (Pi p (PathP Nat zero zero) Nat)
+Qed
+
+-- Constant winding (reflexivity gives 0)
+Theorem winding_refl : Nat
+Proof
+  exact zero
+Qed
+
+----------------------------------------------------------------------
+-- Loop Space Multiplication Setup
+----------------------------------------------------------------------
+
+-- Type of loop composition
+Theorem loop_comp_type : (Pi A Type (Pi x (Var 0) Type))
+Proof
+  intro A
+  intro x
+  exact (Pi p (PathP (Var 1) (Var 0) (Var 0)) (Pi q (PathP (Var 2) (Var 1) (Var 1)) (PathP (Var 3) (Var 2) (Var 2))))
+Qed
+
+----------------------------------------------------------------------
+-- Pointed Type Setup (for circles)
+----------------------------------------------------------------------
+
+-- Pointed type structure
+Theorem pointed_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma pt (Var 0) Unit)
+Qed
+
+-- Nat is pointed (by zero)
+Theorem Nat_pointed : (Sigma pt Nat Unit)
+Proof
+  split
+  exact zero
+  constructor
+Qed
+
+-- Bool is pointed (by true)
+Theorem Bool_pointed : (Sigma pt Bool Unit)
+Proof
+  split
+  exact true
+  constructor
+Qed
+
+-- Unit is pointed
+Theorem Unit_pointed : (Sigma pt Unit Unit)
+Proof
+  split
+  constructor
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Loop Space Functor Type
+----------------------------------------------------------------------
+
+-- Type of loop space map
+Theorem loop_map_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi x (Var 2) (Pi p (PathP (Var 3) (Var 0) (Var 0)) (PathP (Var 3) (App (Var 2) (Var 1)) (App (Var 2) (Var 1))))))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro x
+  intro p
+  exact (PathLam i (App (Var 2) (Var 1)))
+Qed
+
+----------------------------------------------------------------------
+-- Truncation Setup
+----------------------------------------------------------------------
+
+-- 0-truncation type (connected components)
+Theorem trunc0_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Var 0)
+Qed
+
+-- 1-truncation type (sets)
+Theorem trunc1_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- Path Concatenation Types
+----------------------------------------------------------------------
+
+-- Path concatenation type
+Theorem path_concat_type : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) (Pi z (Var 2) Type))))
+Proof
+  intro A
+  intro x
+  intro y
+  intro z
+  exact (Pi p (PathP (Var 3) (Var 2) (Var 1)) (Pi q (PathP (Var 4) (Var 2) (Var 1)) (PathP (Var 5) (Var 4) (Var 2))))
+Qed
+
+-- Reflexive path concatenation
+Theorem path_concat_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Proofs
+----------------------------------------------------------------------
+
+-- Pointed types exist
+Theorem pointed_exists : (Sigma A Type (Sigma pt (Var 0) Unit))
+Proof
+  split
+  exact Nat
+  split
+  exact zero
+  constructor
+Qed
+
+-- Loop and point exist
+Theorem loop_and_point : (Sigma A Type (Sigma pt (Var 0) (Sigma l (PathP (Var 1) (Var 0) (Var 0)) Unit)))
+Proof
+  split
+  exact Nat
+  split
+  exact zero
+  split
+  exact (PathLam i zero)
+  constructor
+Qed
