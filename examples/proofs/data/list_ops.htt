@@ -1,0 +1,268 @@
+-- list_ops.htt: List operation proofs
+-- Demonstrates List type, constructors, and properties
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Basic List Reflexivity
+----------------------------------------------------------------------
+
+-- nil A = nil A (for any type A)
+Theorem nil_eq_nil : (Pi A Type (Id (App List (Var 0)) (App nil (Var 0)) (App nil (Var 0))))
+Proof
+  intro A
+  reflexivity
+Qed
+
+-- For any list l : List A, l = l
+Theorem list_refl : (Pi A Type (Pi l (App List (Var 0)) (Id (App List (Var 1)) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro l
+  reflexivity
+Qed
+
+-- Singleton list equality
+Theorem singleton_eq : (Pi A Type (Pi x (Var 0) (Id (App List (Var 1)) (App (App (App cons (Var 1)) (Var 0)) (App nil (Var 1))) (App (App (App cons (Var 1)) (Var 0)) (App nil (Var 1))))))
+Proof
+  intro A
+  intro x
+  reflexivity
+Qed
+
+----------------------------------------------------------------------
+-- List Path Types (Cubical)
+----------------------------------------------------------------------
+
+-- PathP for nil
+Theorem nil_path_nil : (Pi A Type (PathP (App List (Var 0)) (App nil (Var 0)) (App nil (Var 0))))
+Proof
+  intro A
+  exact (PathLam i (App nil (Var 0)))
+Qed
+
+-- PathP for any list
+Theorem list_path_refl : (Pi A Type (Pi l (App List (Var 0)) (PathP (App List (Var 1)) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro l
+  exact (PathLam i (Var 0))
+Qed
+
+-- PathP for cons
+Theorem cons_path_refl : (Pi A Type (Pi x (Var 0) (Pi xs (App List (Var 1)) (PathP (App List (Var 2)) (App (App (App cons (Var 2)) (Var 1)) (Var 0)) (App (App (App cons (Var 2)) (Var 1)) (Var 0))))))
+Proof
+  intro A
+  intro x
+  intro xs
+  exact (PathLam i (App (App (App cons (Var 2)) (Var 1)) (Var 0)))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Properties
+----------------------------------------------------------------------
+
+-- There exists an empty list for any type
+Theorem empty_list_exists : (Pi A Type (App List (Var 0)))
+Proof
+  intro A
+  exact (App nil (Var 0))
+Qed
+
+-- There exists a list (with Unit)
+Theorem list_exists : (Sigma l (App List Unit) Unit)
+Proof
+  split
+  exact (App nil Unit)
+  constructor
+Qed
+
+-- A non-empty list exists (for Nat)
+Theorem nonempty_list_exists : (App List Nat)
+Proof
+  exact (App (App (App cons Nat) zero) (App nil Nat))
+Qed
+
+-- Singleton Nat list
+Theorem singleton_nat_list : (App List Nat)
+Proof
+  exact (App (App (App cons Nat) (App succ zero)) (App nil Nat))
+Qed
+
+-- Two-element Nat list
+Theorem two_element_list : (App List Nat)
+Proof
+  exact (App (App (App cons Nat) zero) (App (App (App cons Nat) (App succ zero)) (App nil Nat)))
+Qed
+
+----------------------------------------------------------------------
+-- Type-level Proofs
+----------------------------------------------------------------------
+
+-- List is a type constructor
+Theorem List_type_constructor : (Pi A Type Type)
+Proof
+  intro A
+  exact (App List (Var 0))
+Qed
+
+-- List Nat is a type
+Theorem List_Nat_is_type : Type
+Proof
+  exact (App List Nat)
+Qed
+
+-- List Bool is a type
+Theorem List_Bool_is_type : Type
+Proof
+  exact (App List Bool)
+Qed
+
+-- List Unit is a type
+Theorem List_Unit_is_type : Type
+Proof
+  exact (App List Unit)
+Qed
+
+-- List (List Nat) is a type (nested lists)
+Theorem List_List_Nat_is_type : Type
+Proof
+  exact (App List (App List Nat))
+Qed
+
+-- List type equality
+Theorem List_type_refl : (Pi A Type (Id Type (App List (Var 0)) (App List (Var 0))))
+Proof
+  intro A
+  reflexivity
+Qed
+
+----------------------------------------------------------------------
+-- Constructor Types
+----------------------------------------------------------------------
+
+-- nil has the right type
+Theorem nil_type : (Pi A Type (App List (Var 0)))
+Proof
+  intro A
+  exact (App nil (Var 0))
+Qed
+
+-- cons has the right type
+Theorem cons_type : (Pi A Type (Pi x (Var 0) (Pi xs (App List (Var 1)) (App List (Var 2)))))
+Proof
+  intro A
+  intro x
+  intro xs
+  exact (App (App (App cons (Var 2)) (Var 1)) (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Function Types for List Operations
+----------------------------------------------------------------------
+
+-- Type for length: List A -> Nat
+Theorem length_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi l (App List (Var 0)) Nat)
+Qed
+
+-- Type for append: List A -> List A -> List A
+Theorem append_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi xs (App List (Var 0)) (Pi ys (App List (Var 1)) (App List (Var 2))))
+Qed
+
+-- Type for map: (A -> B) -> List A -> List B
+Theorem map_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi f (Pi x (Var 1) (Var 1)) (Pi xs (App List (Var 2)) (App List (Var 2))))
+Qed
+
+-- Type for filter: (A -> Bool) -> List A -> List A
+Theorem filter_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi p (Pi x (Var 0) Bool) (Pi xs (App List (Var 1)) (App List (Var 2))))
+Qed
+
+----------------------------------------------------------------------
+-- List Predicate Types
+----------------------------------------------------------------------
+
+-- Type of predicates on lists
+Theorem List_predicate_type : (Pi A Type (Sort 1))
+Proof
+  intro A
+  exact (Pi l (App List (Var 0)) Type)
+Qed
+
+-- Type of list relations
+Theorem List_relation_type : (Pi A Type (Sort 1))
+Proof
+  intro A
+  exact (Pi xs (App List (Var 0)) (Pi ys (App List (Var 1)) Type))
+Qed
+
+----------------------------------------------------------------------
+-- Multiple List Constructions
+----------------------------------------------------------------------
+
+-- Empty lists for multiple types
+Theorem empty_lists : (Sigma ln (App List Nat) (Sigma lb (App List Bool) Unit))
+Proof
+  split
+  exact (App nil Nat)
+  split
+  exact (App nil Bool)
+  constructor
+Qed
+
+-- Various Nat lists
+Theorem nat_lists : (Sigma l1 (App List Nat) (Sigma l2 (App List Nat) Unit))
+Proof
+  split
+  exact (App nil Nat)
+  split
+  exact (App (App (App cons Nat) zero) (App nil Nat))
+  constructor
+Qed
+
+-- Three-element Nat list [0, 1, 2]
+Theorem three_element_list : (App List Nat)
+Proof
+  exact (App (App (App cons Nat) zero) (App (App (App cons Nat) (App succ zero)) (App (App (App cons Nat) (App succ (App succ zero))) (App nil Nat))))
+Qed
+
+----------------------------------------------------------------------
+-- List Equality Properties
+----------------------------------------------------------------------
+
+-- nil A = nil A for specific types
+Theorem nil_nat_eq : (Id (App List Nat) (App nil Nat) (App nil Nat))
+Proof
+  reflexivity
+Qed
+
+Theorem nil_bool_eq : (Id (App List Bool) (App nil Bool) (App nil Bool))
+Proof
+  reflexivity
+Qed
+
+-- Specific singleton equality
+Theorem singleton_zero : (Id (App List Nat) (App (App (App cons Nat) zero) (App nil Nat)) (App (App (App cons Nat) zero) (App nil Nat)))
+Proof
+  reflexivity
+Qed
+
+-- cons preserves list equality (reflexively)
+Theorem cons_eq_refl : (Pi A Type (Pi x (Var 0) (Pi xs (App List (Var 1)) (Id (App List (Var 2)) (App (App (App cons (Var 2)) (Var 1)) (Var 0)) (App (App (App cons (Var 2)) (Var 1)) (Var 0))))))
+Proof
+  intro A
+  intro x
+  intro xs
+  reflexivity
+Qed
