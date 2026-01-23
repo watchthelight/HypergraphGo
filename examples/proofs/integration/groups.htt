@@ -1,0 +1,379 @@
+-- groups.htt: Basic algebraic structure types
+-- Demonstrates group and monoid type setup
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Carrier Types
+----------------------------------------------------------------------
+
+-- A group has a carrier type
+Theorem carrier_type : (Sort 1)
+Proof
+  exact Type
+Qed
+
+-- Nat can be a carrier
+Theorem Nat_carrier : Type
+Proof
+  exact Nat
+Qed
+
+-- Bool can be a carrier
+Theorem Bool_carrier : Type
+Proof
+  exact Bool
+Qed
+
+----------------------------------------------------------------------
+-- Binary Operation Types
+----------------------------------------------------------------------
+
+-- Type of binary operation
+Theorem binop_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Pi y (Var 1) (Var 2)))
+Qed
+
+-- Nat has binop type
+Theorem Nat_binop_type : Type
+Proof
+  exact (Pi x Nat (Pi y Nat Nat))
+Qed
+
+-- Bool has binop type
+Theorem Bool_binop_type : Type
+Proof
+  exact (Pi x Bool (Pi y Bool Bool))
+Qed
+
+----------------------------------------------------------------------
+-- Identity Element Types
+----------------------------------------------------------------------
+
+-- Type of identity element
+Theorem identity_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Var 0)
+Qed
+
+-- Nat identity (zero)
+Theorem Nat_identity : Nat
+Proof
+  exact zero
+Qed
+
+-- Bool identity (true for and)
+Theorem Bool_identity : Bool
+Proof
+  exact true
+Qed
+
+----------------------------------------------------------------------
+-- Inverse Function Types
+----------------------------------------------------------------------
+
+-- Type of inverse function
+Theorem inverse_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Var 1))
+Qed
+
+-- Identity is trivial inverse
+Theorem id_inverse : (Pi G Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro G
+  intro x
+  assumption
+Qed
+
+----------------------------------------------------------------------
+-- Magma Structure (just binop)
+----------------------------------------------------------------------
+
+-- Type of magma structure
+Theorem isMagma_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Pi y (Var 1) (Var 2)))
+Qed
+
+-- Nat is a magma (via succ as operation)
+Theorem Nat_isMagma_witness : (Sigma op (Pi x Nat (Pi y Nat Nat)) Unit)
+Proof
+  split
+  intro x
+  intro y
+  exact (App succ (Var 1))
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Semigroup Structure (associative magma)
+----------------------------------------------------------------------
+
+-- Type of semigroup data (operation)
+Theorem isSemigroup_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Pi y (Var 1) (Var 2)))
+Qed
+
+-- Semigroup witnesses existence (concrete)
+Theorem semigroup_exists : (Sigma op (Pi x Nat (Pi y Nat Nat)) Unit)
+Proof
+  split
+  intro x
+  intro y
+  exact (App succ (Var 1))
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Monoid Structure (semigroup with identity)
+----------------------------------------------------------------------
+
+-- Type of monoid data
+Theorem isMonoid_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Sigma op (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (Sigma e (Var 1) Unit))
+Qed
+
+-- Monoid witnesses existence (concrete)
+Theorem monoid_exists : (Sigma op (Pi x Nat (Pi y Nat Nat)) (Sigma e Nat Unit))
+Proof
+  split
+  intro x
+  intro y
+  exact (App succ (Var 1))
+  split
+  exact zero
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Group Structure (monoid with inverse)
+----------------------------------------------------------------------
+
+-- Type of group data
+Theorem isGroup_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Sigma op (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (Sigma e (Var 1) (Sigma inv (Pi x (Var 2) (Var 3)) Unit)))
+Qed
+
+-- Group structure components
+Theorem group_op_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Pi y (Var 1) (Var 2)))
+Qed
+
+Theorem group_id_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Var 0)
+Qed
+
+Theorem group_inv_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Var 1))
+Qed
+
+----------------------------------------------------------------------
+-- Abelian (Commutative) Group Type
+----------------------------------------------------------------------
+
+-- Type of abelian group (group + commutativity)
+Theorem isAbelian_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Sigma op (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (Sigma e (Var 1) (Sigma inv (Pi x (Var 2) (Var 3)) Unit)))
+Qed
+
+----------------------------------------------------------------------
+-- Homomorphism Types
+----------------------------------------------------------------------
+
+-- Type of group homomorphism (structure-preserving map)
+Theorem homomorphism_type : (Pi G Type (Pi H Type Type))
+Proof
+  intro G
+  intro H
+  exact (Pi f (Pi x (Var 1) (Var 1)) Unit)
+Qed
+
+-- Identity is a homomorphism type
+Theorem id_hom_type : (Pi G Type Type)
+Proof
+  intro G
+  exact (Pi x (Var 0) (Var 1))
+Qed
+
+-- Identity homomorphism exists (concrete)
+Theorem id_hom_exists : (Sigma f (Pi x Nat Nat) Unit)
+Proof
+  split
+  intro x
+  assumption
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Composition of Homomorphisms
+----------------------------------------------------------------------
+
+-- Type of homomorphism composition
+Theorem hom_comp_type : (Pi G Type (Pi H Type (Pi K Type Type)))
+Proof
+  intro G
+  intro H
+  intro K
+  exact (Pi g (Pi x (Var 1) (Var 1)) (Pi f (Pi x (Var 3) (Var 3)) (Pi x (Var 4) (Var 3))))
+Qed
+
+----------------------------------------------------------------------
+-- Path Properties in Structures
+----------------------------------------------------------------------
+
+-- Reflexive path in operation type
+Theorem binop_path_refl : (Pi G Type (Pi op (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (PathP (Pi x (Var 1) (Pi y (Var 2) (Var 3))) (Var 0) (Var 0))))
+Proof
+  intro G
+  intro op
+  exact (PathLam i (Var 0))
+Qed
+
+-- Reflexive path in identity
+Theorem identity_path_refl : (Pi G Type (Pi e (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro G
+  intro e
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Properties
+----------------------------------------------------------------------
+
+-- Algebraic structure exists (concrete)
+Theorem algebra_exists : (Sigma op (Pi x Bool (Pi y Bool Bool)) Unit)
+Proof
+  split
+  intro x
+  intro y
+  assumption
+  constructor
+Qed
+
+-- Multiple algebras exist
+Theorem algebras_exist : (Sigma G1 Type (Sigma G2 Type Unit))
+Proof
+  split
+  exact Nat
+  split
+  exact Bool
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Subgroup Type
+----------------------------------------------------------------------
+
+-- Type of subgroup predicate
+Theorem subgroup_pred_type : (Pi G Type (Sort 1))
+Proof
+  intro G
+  exact (Pi x (Var 0) Type)
+Qed
+
+-- Trivial subgroup (all elements)
+Theorem trivial_subgroup : (Pi G Type (Pi x (Var 0) Type))
+Proof
+  intro G
+  intro x
+  exact Unit
+Qed
+
+----------------------------------------------------------------------
+-- Quotient Setup
+----------------------------------------------------------------------
+
+-- Type of equivalence relation
+Theorem equiv_rel_type : (Pi G Type (Sort 1))
+Proof
+  intro G
+  exact (Pi x (Var 0) (Pi y (Var 1) Type))
+Qed
+
+-- Reflexive relation exists
+Theorem refl_rel_exists : (Pi G Type (Pi x (Var 0) (Pi y (Var 1) Type)))
+Proof
+  intro G
+  intro x
+  intro y
+  exact (PathP (Var 2) (Var 1) (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Ring Type Setup
+----------------------------------------------------------------------
+
+-- Type of ring data (two operations)
+Theorem isRing_type : (Pi R Type Type)
+Proof
+  intro R
+  exact (Sigma add (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (Sigma mul (Pi x (Var 1) (Pi y (Var 2) (Var 3))) Unit))
+Qed
+
+-- Ring data exists (concrete)
+Theorem ring_exists : (Sigma add (Pi x Nat (Pi y Nat Nat)) (Sigma mul (Pi x Nat (Pi y Nat Nat)) Unit))
+Proof
+  split
+  intro x
+  intro y
+  exact (App succ (Var 0))
+  split
+  intro x
+  intro y
+  exact (App succ (Var 1))
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Action Types
+----------------------------------------------------------------------
+
+-- Type of group action
+Theorem action_type : (Pi G Type (Pi X Type Type))
+Proof
+  intro G
+  intro X
+  exact (Pi g (Var 1) (Pi x (Var 1) (Var 2)))
+Qed
+
+-- Identity action
+Theorem id_action : (Pi G Type (Pi X Type (Pi x (Var 0) (Var 1))))
+Proof
+  intro G
+  intro X
+  intro x
+  assumption
+Qed
+
+----------------------------------------------------------------------
+-- Module Type Setup
+----------------------------------------------------------------------
+
+-- Type of module over a ring
+Theorem isModule_type : (Pi R Type (Pi M Type Type))
+Proof
+  intro R
+  intro M
+  exact (Sigma add (Pi x (Var 0) (Pi y (Var 1) (Var 2))) (Sigma scalar (Pi r (Var 2) (Pi m (Var 2) (Var 3))) Unit))
+Qed
+

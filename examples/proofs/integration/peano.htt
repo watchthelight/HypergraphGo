@@ -1,0 +1,302 @@
+-- peano.htt: Peano arithmetic integration
+-- Comprehensive natural number properties
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Natural Number Structure
+----------------------------------------------------------------------
+
+-- Nat is a type
+Theorem Nat_type : Type
+Proof
+  exact Nat
+Qed
+
+-- Zero exists
+Theorem zero_exists : Nat
+Proof
+  exact zero
+Qed
+
+-- Successor exists
+Theorem succ_exists : (Pi n Nat Nat)
+Proof
+  intro n
+  exact (App succ (Var 0))
+Qed
+
+-- Natural numbers 0-5
+Theorem nat_0 : Nat
+Proof
+  exact zero
+Qed
+
+Theorem nat_1 : Nat
+Proof
+  exact (App succ zero)
+Qed
+
+Theorem nat_2 : Nat
+Proof
+  exact (App succ (App succ zero))
+Qed
+
+Theorem nat_3 : Nat
+Proof
+  exact (App succ (App succ (App succ zero)))
+Qed
+
+Theorem nat_4 : Nat
+Proof
+  exact (App succ (App succ (App succ (App succ zero))))
+Qed
+
+Theorem nat_5 : Nat
+Proof
+  exact (App succ (App succ (App succ (App succ (App succ zero)))))
+Qed
+
+----------------------------------------------------------------------
+-- Equality Properties
+----------------------------------------------------------------------
+
+-- Reflexivity
+Theorem nat_refl : (Pi n Nat (Id Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  reflexivity
+Qed
+
+-- Specific equalities
+Theorem zero_eq_zero : (Id Nat zero zero)
+Proof
+  reflexivity
+Qed
+
+Theorem one_eq_one : (Id Nat (App succ zero) (App succ zero))
+Proof
+  reflexivity
+Qed
+
+Theorem two_eq_two : (Id Nat (App succ (App succ zero)) (App succ (App succ zero)))
+Proof
+  reflexivity
+Qed
+
+----------------------------------------------------------------------
+-- Path Properties
+----------------------------------------------------------------------
+
+-- Path reflexivity
+Theorem nat_path_refl : (Pi n Nat (PathP Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  exact (PathLam i (Var 0))
+Qed
+
+-- Specific paths
+Theorem zero_path : (PathP Nat zero zero)
+Proof
+  exact (PathLam i zero)
+Qed
+
+Theorem one_path : (PathP Nat (App succ zero) (App succ zero))
+Proof
+  exact (PathLam i (App succ zero))
+Qed
+
+----------------------------------------------------------------------
+-- Successor Properties
+----------------------------------------------------------------------
+
+-- Succ preserves equality
+Theorem succ_preserves : (Pi n Nat (Id Nat (App succ (Var 0)) (App succ (Var 0))))
+Proof
+  intro n
+  reflexivity
+Qed
+
+-- Succ preserves paths
+Theorem succ_path_preserves : (Pi n Nat (PathP Nat (App succ (Var 0)) (App succ (Var 0))))
+Proof
+  intro n
+  exact (PathLam i (App succ (Var 0)))
+Qed
+
+-- Double succ
+Theorem double_succ : (Pi n Nat Nat)
+Proof
+  intro n
+  exact (App succ (App succ (Var 0)))
+Qed
+
+-- Triple succ
+Theorem triple_succ : (Pi n Nat Nat)
+Proof
+  intro n
+  exact (App succ (App succ (App succ (Var 0))))
+Qed
+
+----------------------------------------------------------------------
+-- Arithmetic Operation Types
+----------------------------------------------------------------------
+
+-- Addition type
+Theorem add_type : Type
+Proof
+  exact (Pi n Nat (Pi m Nat Nat))
+Qed
+
+-- Multiplication type
+Theorem mul_type : Type
+Proof
+  exact (Pi n Nat (Pi m Nat Nat))
+Qed
+
+-- Predecessor type
+Theorem pred_type : Type
+Proof
+  exact (Pi n Nat Nat)
+Qed
+
+-- Subtraction type (monus)
+Theorem sub_type : Type
+Proof
+  exact (Pi n Nat (Pi m Nat Nat))
+Qed
+
+----------------------------------------------------------------------
+-- Ordering Type Setup
+----------------------------------------------------------------------
+
+-- Less than or equal type (simplified)
+Theorem le_type : (Pi n Nat (Pi m Nat Type))
+Proof
+  intro n
+  intro m
+  exact (Sigma k Nat Unit)
+Qed
+
+-- Less than type
+Theorem lt_type : (Pi n Nat (Pi m Nat Type))
+Proof
+  intro n
+  intro m
+  exact (Sigma k Nat Unit)
+Qed
+
+----------------------------------------------------------------------
+-- Existential Properties
+----------------------------------------------------------------------
+
+-- There exists a natural number
+Theorem nat_exists : (Sigma n Nat Unit)
+Proof
+  split
+  exact zero
+  constructor
+Qed
+
+-- There exist two distinct-position naturals
+Theorem two_nats : (Sigma n Nat (Sigma m Nat Unit))
+Proof
+  split
+  exact zero
+  split
+  exact (App succ zero)
+  constructor
+Qed
+
+-- There exist three naturals
+Theorem three_nats : (Sigma a Nat (Sigma b Nat (Sigma c Nat Unit)))
+Proof
+  split
+  exact zero
+  split
+  exact (App succ zero)
+  split
+  exact (App succ (App succ zero))
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Function Properties
+----------------------------------------------------------------------
+
+-- Identity on Nat
+Theorem id_nat : (Pi n Nat Nat)
+Proof
+  intro n
+  assumption
+Qed
+
+-- Constant zero function
+Theorem const_zero : (Pi n Nat Nat)
+Proof
+  intro n
+  exact zero
+Qed
+
+-- Constant succ function (always returns 1)
+Theorem const_one : (Pi n Nat Nat)
+Proof
+  intro n
+  exact (App succ zero)
+Qed
+
+----------------------------------------------------------------------
+-- Higher-Order Properties
+----------------------------------------------------------------------
+
+-- Predicate type
+Theorem nat_pred_type : (Sort 1)
+Proof
+  exact (Pi n Nat Type)
+Qed
+
+-- Relation type
+Theorem nat_rel_type : (Sort 1)
+Proof
+  exact (Pi n Nat (Pi m Nat Type))
+Qed
+
+-- Binary operation type
+Theorem nat_binop_type : Type
+Proof
+  exact (Pi n Nat (Pi m Nat Nat))
+Qed
+
+----------------------------------------------------------------------
+-- Induction Schema Type
+----------------------------------------------------------------------
+
+-- Type of induction principle
+Theorem nat_ind_type : (Sort 1)
+Proof
+  exact (Pi P (Pi n Nat Type) (Pi pz (App (Var 0) zero) (Pi ps (Pi n Nat (Pi ih (App (Var 2) (Var 0)) (App (Var 3) (App succ (Var 1))))) (Pi n Nat (App (Var 3) (Var 0))))))
+Qed
+
+----------------------------------------------------------------------
+-- Type Family Properties
+----------------------------------------------------------------------
+
+-- Nat indexed family
+Theorem nat_family : (Pi P (Pi n Nat Type) Type)
+Proof
+  intro P
+  exact (Pi n Nat (App (Var 1) (Var 0)))
+Qed
+
+-- Nat fibration
+Theorem nat_fibration : (Pi n Nat Type)
+Proof
+  intro n
+  exact Nat
+Qed
+
+-- Constant family
+Theorem nat_const_family : (Pi n Nat Type)
+Proof
+  intro n
+  exact Bool
+Qed
