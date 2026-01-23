@@ -758,6 +758,34 @@ func TestZonkCtxWithDef(t *testing.T) {
 	}
 }
 
+func TestZonkCtxWithIBindings(t *testing.T) {
+	metas := NewMetaStore()
+
+	ctx := NewElabCtx()
+	ctx.Metas = metas
+	ctx = ctx.ExtendI("i")
+	ctx = ctx.ExtendI("j")
+
+	result := ZonkCtx(metas, ctx)
+
+	// Verify IBindings were copied
+	if len(result.IBindings) != 2 {
+		t.Fatalf("expected 2 IBindings, got %d", len(result.IBindings))
+	}
+	if result.IBindings[0] != "i" {
+		t.Errorf("expected first IBinding to be 'i', got %q", result.IBindings[0])
+	}
+	if result.IBindings[1] != "j" {
+		t.Errorf("expected second IBinding to be 'j', got %q", result.IBindings[1])
+	}
+
+	// Verify it's a copy, not the same slice
+	ctx.IBindings[0] = "modified"
+	if result.IBindings[0] == "modified" {
+		t.Error("IBindings should be a copy, not shared")
+	}
+}
+
 func TestReportUnsolvedMetas(t *testing.T) {
 	metas := NewMetaStore()
 
