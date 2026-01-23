@@ -764,7 +764,10 @@ func (u *Unifier) invertPattern(meta ast.Meta, solution ast.Term) (ast.Term, err
 	// This maps the original context index to the lambda variable index
 	patternVars := make(map[int]int)
 	for i, arg := range meta.Args {
-		v := arg.(ast.Var) // Already checked in isPattern
+		v, ok := arg.(ast.Var) // Already validated in isPattern
+		if !ok {
+			return nil, fmt.Errorf("internal error: expected Var in pattern spine, got %T", arg)
+		}
 		// Variables at position i in the spine map to lambda binding (numArgs - 1 - i)
 		patternVars[v.Ix] = numArgs - 1 - i
 	}
