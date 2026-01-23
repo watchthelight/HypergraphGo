@@ -68,7 +68,8 @@ jobs:
     - name: Verify example proofs
       run: |
         go build -o hottgo ./cmd/hottgo
-        for f in examples/proofs/*.htt; do
+        shopt -s globstar
+        for f in examples/proofs/**/*.htt; do
           echo "Verifying: $f"
           ./hottgo --load "$f"
         done
