@@ -241,6 +241,12 @@ func repl() {
 			continue
 		}
 
+		if line == ":clear" || line == ":cls" {
+			// Clear terminal using ANSI escape codes
+			fmt.Print("\033[H\033[2J")
+			continue
+		}
+
 		// Handle proof mode commands
 		if state.proofMode != nil {
 			handled := handleProofModeCommand(state, line)
@@ -832,6 +838,7 @@ func printHelp(inProofMode bool) {
 	fmt.Println("  :search PATTERN       Search for entries by type pattern")
 	fmt.Println("  :set OPTION VALUE     Set display option (named, verbose)")
 	fmt.Println("  :settings             Show current settings")
+	fmt.Println("  :clear, :cls          Clear the terminal")
 	fmt.Println("  :help, :h             Show this help")
 	fmt.Println("  :quit, :q             Exit the REPL")
 	fmt.Println()
