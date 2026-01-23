@@ -1105,8 +1105,8 @@ func TestElabCtxClone(t *testing.T) {
 
 	clone := ctx.Clone()
 
-	// Modify original
-	ctx = ctx.Extend("y", ast.Sort{U: 1}, Implicit)
+	// Modify original - use _ to show we don't need the new value
+	_ = ctx.Extend("y", ast.Sort{U: 1}, Implicit)
 
 	if clone.Len() != 1 {
 		t.Error("clone should not be affected")
@@ -1242,6 +1242,9 @@ func TestElaborateI0I1(t *testing.T) {
 	}
 	if _, ok := term.(ast.I1); !ok {
 		t.Errorf("expected I1, got %T", term)
+	}
+	if _, ok := ty.(ast.Interval); !ok {
+		t.Errorf("expected Interval type, got %T", ty)
 	}
 }
 
