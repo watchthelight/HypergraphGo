@@ -1,0 +1,222 @@
+-- univalence.htt: Univalence-related concepts
+-- Demonstrates type equality and transport
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Type Equality
+----------------------------------------------------------------------
+
+-- Type equals itself
+Theorem type_refl : (Pi A Type (PathP Type (Var 0) (Var 0)))
+Proof
+  intro A
+  exact (PathLam i (Var 0))
+Qed
+
+-- Nat = Nat
+Theorem Nat_eq_Nat : (PathP Type Nat Nat)
+Proof
+  exact (PathLam i Nat)
+Qed
+
+-- Bool = Bool
+Theorem Bool_eq_Bool : (PathP Type Bool Bool)
+Proof
+  exact (PathLam i Bool)
+Qed
+
+-- Unit = Unit
+Theorem Unit_eq_Unit : (PathP Type Unit Unit)
+Proof
+  exact (PathLam i Unit)
+Qed
+
+-- List Nat = List Nat
+Theorem ListNat_eq_ListNat : (PathP Type (App List Nat) (App List Nat))
+Proof
+  exact (PathLam i (App List Nat))
+Qed
+
+----------------------------------------------------------------------
+-- Universe Properties
+----------------------------------------------------------------------
+
+-- Type is a type
+Theorem Type_is_type : (Sort 1)
+Proof
+  exact Type
+Qed
+
+-- Type0 equals Type0
+Theorem Type0_eq_Type0 : (PathP (Sort 1) Type Type)
+Proof
+  exact (PathLam i Type)
+Qed
+
+-- Nat -> Nat is a type
+Theorem NatFun_is_type : Type
+Proof
+  exact (Pi n Nat Nat)
+Qed
+
+-- Function type path
+Theorem funtype_path : (Pi A Type (Pi B Type (PathP Type (Pi x (Var 1) (Var 1)) (Pi x (Var 1) (Var 1)))))
+Proof
+  intro A
+  intro B
+  exact (PathLam i (Pi x (Var 1) (Var 1)))
+Qed
+
+----------------------------------------------------------------------
+-- Transport Type Setup
+----------------------------------------------------------------------
+
+-- Transport type (structure definition)
+Theorem transport_type : (Pi A Type (Pi B Type (Pi p (PathP Type (Var 1) (Var 0)) Type)))
+Proof
+  intro A
+  intro B
+  intro p
+  exact (Pi a (Var 2) (Var 2))
+Qed
+
+-- Id transport (trivial transport along reflexivity)
+Theorem id_transport : (Pi A Type (Pi p (PathP Type (Var 0) (Var 0)) (Pi a (Var 1) (Var 2))))
+Proof
+  intro A
+  intro p
+  intro a
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- UA Type Structure
+----------------------------------------------------------------------
+
+-- Type of UA witness
+Theorem ua_type : (Pi A Type (Pi B Type (Sort 1)))
+Proof
+  intro A
+  intro B
+  exact (Sigma e (Sigma f (Pi x (Var 1) (Var 1)) Unit) (PathP Type (Var 2) (Var 1)))
+Qed
+
+-- Type of equivalence implies path
+Theorem equiv_to_path_type : (Pi A Type (Pi B Type (Sort 1)))
+Proof
+  intro A
+  intro B
+  exact (Pi e (Sigma f (Pi x (Var 1) (Var 1)) Unit) (PathP Type (Var 2) (Var 1)))
+Qed
+
+-- Type of path implies equivalence
+Theorem path_to_equiv_type : (Pi A Type (Pi B Type (Sort 1)))
+Proof
+  intro A
+  intro B
+  exact (Pi p (PathP Type (Var 1) (Var 0)) (Sigma f (Pi x (Var 2) (Var 2)) Unit))
+Qed
+
+----------------------------------------------------------------------
+-- Type Path Properties
+----------------------------------------------------------------------
+
+-- Type path reflexivity
+Theorem type_path_refl : (Pi A Type (PathP Type (Var 0) (Var 0)))
+Proof
+  intro A
+  exact (PathLam i (Var 0))
+Qed
+
+-- Concrete type paths
+Theorem concrete_type_paths : (Sigma pN (PathP Type Nat Nat) (Sigma pB (PathP Type Bool Bool) Unit))
+Proof
+  split
+  exact (PathLam i Nat)
+  split
+  exact (PathLam i Bool)
+  constructor
+Qed
+
+-- Path in type path
+Theorem type_path_path : (Pi A Type (PathP (PathP Type (Var 0) (Var 0)) (PathLam i (Var 0)) (PathLam i (Var 0))))
+Proof
+  intro A
+  exact (PathLam i (PathLam j (Var 0)))
+Qed
+
+----------------------------------------------------------------------
+-- Function Type Paths
+----------------------------------------------------------------------
+
+-- Function type reflexivity
+Theorem fun_type_refl : (Pi A Type (Pi B Type (PathP Type (Pi x (Var 1) (Var 1)) (Pi x (Var 1) (Var 1)))))
+Proof
+  intro A
+  intro B
+  exact (PathLam i (Pi x (Var 1) (Var 1)))
+Qed
+
+-- Sigma type reflexivity
+Theorem sigma_type_refl : (Pi A Type (Pi B Type (PathP Type (Sigma x (Var 1) (Var 1)) (Sigma x (Var 1) (Var 1)))))
+Proof
+  intro A
+  intro B
+  exact (PathLam i (Sigma x (Var 1) (Var 1)))
+Qed
+
+-- Id type reflexivity
+Theorem id_type_refl : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) (PathP Type (Id (Var 2) (Var 1) (Var 0)) (Id (Var 2) (Var 1) (Var 0))))))
+Proof
+  intro A
+  intro x
+  intro y
+  exact (PathLam i (Id (Var 2) (Var 1) (Var 0)))
+Qed
+
+----------------------------------------------------------------------
+-- UA Consequence Types
+----------------------------------------------------------------------
+
+-- Funext from UA type (structure)
+Theorem funext_from_ua_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi f (Pi x (Var 1) (Var 1)) (Pi g (Pi x (Var 2) (Var 2)) (Pi h (Pi x (Var 3) (PathP (Var 3) (App (Var 2) (Var 0)) (App (Var 1) (Var 0)))) (PathP (Pi x (Var 4) (Var 4)) (Var 2) (Var 1)))))
+Qed
+
+----------------------------------------------------------------------
+-- Type Existential Properties
+----------------------------------------------------------------------
+
+-- There exist types
+Theorem types_exist : (Sigma A Type (Sigma B Type Unit))
+Proof
+  split
+  exact Nat
+  split
+  exact Bool
+  constructor
+Qed
+
+-- Type family exists (constant family)
+Theorem type_family_exists : (Sigma P (Pi n Nat Type) Unit)
+Proof
+  split
+  intro n
+  exact Nat
+  constructor
+Qed
+
+-- Multiple type paths
+Theorem multiple_type_paths : (Sigma p1 (PathP Type Nat Nat) (Sigma p2 (PathP Type Bool Bool) (Sigma p3 (PathP Type Unit Unit) Unit)))
+Proof
+  split
+  exact (PathLam i Nat)
+  split
+  exact (PathLam i Bool)
+  split
+  exact (PathLam i Unit)
+  constructor
+Qed

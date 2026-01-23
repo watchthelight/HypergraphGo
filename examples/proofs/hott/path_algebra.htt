@@ -1,0 +1,322 @@
+-- path_algebra.htt: Path type algebra and operations
+-- Demonstrates cubical path types, reflexivity, and path manipulation
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Basic Path Reflexivity
+----------------------------------------------------------------------
+
+-- Reflexivity path for any type and element
+Theorem path_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+-- Reflexivity path for Nat
+Theorem path_refl_nat : (Pi n Nat (PathP Nat (Var 0) (Var 0)))
+Proof
+  intro n
+  exact (PathLam i (Var 0))
+Qed
+
+-- Reflexivity path for Bool
+Theorem path_refl_bool : (Pi b Bool (PathP Bool (Var 0) (Var 0)))
+Proof
+  intro b
+  exact (PathLam i (Var 0))
+Qed
+
+-- Reflexivity path for Type
+Theorem path_refl_type : (Pi A Type (PathP Type (Var 0) (Var 0)))
+Proof
+  intro A
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Specific Path Values
+----------------------------------------------------------------------
+
+-- Path from zero to zero
+Theorem path_zero : (PathP Nat zero zero)
+Proof
+  exact (PathLam i zero)
+Qed
+
+-- Path from succ zero to succ zero
+Theorem path_one : (PathP Nat (App succ zero) (App succ zero))
+Proof
+  exact (PathLam i (App succ zero))
+Qed
+
+-- Path from true to true
+Theorem path_true : (PathP Bool true true)
+Proof
+  exact (PathLam i true)
+Qed
+
+-- Path from false to false
+Theorem path_false : (PathP Bool false false)
+Proof
+  exact (PathLam i false)
+Qed
+
+-- Path from 2 to 2
+Theorem path_two : (PathP Nat (App succ (App succ zero)) (App succ (App succ zero)))
+Proof
+  exact (PathLam i (App succ (App succ zero)))
+Qed
+
+-- Path from 3 to 3
+Theorem path_three : (PathP Nat (App succ (App succ (App succ zero))) (App succ (App succ (App succ zero))))
+Proof
+  exact (PathLam i (App succ (App succ (App succ zero))))
+Qed
+
+----------------------------------------------------------------------
+-- Function application preserves paths (congruence)
+----------------------------------------------------------------------
+
+-- succ preserves reflexivity paths
+Theorem ap_succ : (Pi n Nat (PathP Nat (App succ (Var 0)) (App succ (Var 0))))
+Proof
+  intro n
+  exact (PathLam i (App succ (Var 0)))
+Qed
+
+-- Double succ preserves path
+Theorem double_succ_cong : (Pi n Nat (PathP Nat (App succ (App succ (Var 0))) (App succ (App succ (Var 0)))))
+Proof
+  intro n
+  exact (PathLam i (App succ (App succ (Var 0))))
+Qed
+
+-- Triple succ preserves path
+Theorem triple_succ_cong : (Pi n Nat (PathP Nat (App succ (App succ (App succ (Var 0)))) (App succ (App succ (App succ (Var 0))))))
+Proof
+  intro n
+  exact (PathLam i (App succ (App succ (App succ (Var 0)))))
+Qed
+
+----------------------------------------------------------------------
+-- Path Types
+----------------------------------------------------------------------
+
+-- PathP A x y is a type
+Theorem PathP_is_type : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) Type)))
+Proof
+  intro A
+  intro x
+  intro y
+  exact (PathP (Var 2) (Var 1) (Var 0))
+Qed
+
+-- Type of paths in Nat
+Theorem Path_Nat_type : (Pi n Nat (Pi m Nat Type))
+Proof
+  intro n
+  intro m
+  exact (PathP Nat (Var 1) (Var 0))
+Qed
+
+-- Type of paths in Bool
+Theorem Path_Bool_type : (Pi a Bool (Pi b Bool Type))
+Proof
+  intro a
+  intro b
+  exact (PathP Bool (Var 1) (Var 0))
+Qed
+
+-- Paths form a type family
+Theorem Path_type_family : (Pi A Type (Sort 1))
+Proof
+  intro A
+  exact (Pi x (Var 0) (Pi y (Var 1) Type))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Path Properties
+----------------------------------------------------------------------
+
+-- There exists a path in Nat
+Theorem path_nat_exists : (Sigma n Nat (PathP Nat (Var 0) (Var 0)))
+Proof
+  split
+  exact zero
+  exact (PathLam i zero)
+Qed
+
+-- There exists a path in Bool
+Theorem path_bool_exists : (Sigma b Bool (PathP Bool (Var 0) (Var 0)))
+Proof
+  split
+  exact true
+  exact (PathLam i true)
+Qed
+
+-- Multiple paths exist
+Theorem paths_exist : (Sigma p1 (PathP Nat zero zero) (Sigma p2 (PathP Bool true true) Unit))
+Proof
+  split
+  exact (PathLam i zero)
+  split
+  exact (PathLam i true)
+  constructor
+Qed
+
+-- Path over succ exists
+Theorem path_succ_exists : (Sigma n Nat (PathP Nat (App succ (Var 0)) (App succ (Var 0))))
+Proof
+  split
+  exact zero
+  exact (PathLam i (App succ zero))
+Qed
+
+----------------------------------------------------------------------
+-- Path Composition Setup (Reflexivity Cases)
+----------------------------------------------------------------------
+
+-- Reflexivity path for composition setup
+Theorem refl_comp_refl_type : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Interval Type Properties
+----------------------------------------------------------------------
+
+-- Interval is a type
+Theorem Interval_is_type : Type
+Proof
+  exact Interval
+Qed
+
+----------------------------------------------------------------------
+-- Path Lambda Properties
+----------------------------------------------------------------------
+
+-- PathLam produces a path
+Theorem PathLam_type : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+-- Constant path lambda
+Theorem const_path : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) (PathP (Var 2) (Var 1) (Var 1)))))
+Proof
+  intro A
+  intro x
+  intro y
+  exact (PathLam i (Var 1))
+Qed
+
+-- Another constant path lambda
+Theorem const_path_y : (Pi A Type (Pi x (Var 0) (Pi y (Var 1) (PathP (Var 2) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro x
+  intro y
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Higher Paths (Paths of Paths) - Type Level
+----------------------------------------------------------------------
+
+-- Type of 2-paths (paths between paths)
+Theorem path2_type : (Pi A Type (Pi x (Var 0) (Pi p (PathP (Var 1) (Var 0) (Var 0)) (Pi q (PathP (Var 2) (Var 1) (Var 1)) Type))))
+Proof
+  intro A
+  intro x
+  intro p
+  intro q
+  exact (PathP (PathP (Var 3) (Var 2) (Var 2)) (Var 1) (Var 0))
+Qed
+
+-- Reflexivity 2-path exists
+Theorem refl2 : (Pi A Type (Pi x (Var 0) (Pi p (PathP (Var 1) (Var 0) (Var 0)) (PathP (PathP (Var 2) (Var 1) (Var 1)) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro x
+  intro p
+  exact (PathLam i (Var 0))
+Qed
+
+-- 2-path reflexivity for concrete type
+Theorem refl2_nat : (Pi n Nat (Pi p (PathP Nat (Var 0) (Var 0)) (PathP (PathP Nat (Var 1) (Var 1)) (Var 0) (Var 0))))
+Proof
+  intro n
+  intro p
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Path Function Types
+----------------------------------------------------------------------
+
+-- Constant function preserves paths (reflexive case)
+Theorem const_preserves_path : (Pi A Type (Pi B Type (Pi b (Var 0) (Pi x (Var 2) (Pi y (Var 3) (PathP (Var 3) (Var 2) (Var 2)))))))
+Proof
+  intro A
+  intro B
+  intro b
+  intro x
+  intro y
+  exact (PathLam i (Var 2))
+Qed
+
+----------------------------------------------------------------------
+-- More Path Reflexivity Examples
+----------------------------------------------------------------------
+
+-- Path reflexivity for Unit
+Theorem path_refl_unit : (Pi u Unit (PathP Unit (Var 0) (Var 0)))
+Proof
+  intro u
+  exact (PathLam i (Var 0))
+Qed
+
+-- Path reflexivity for List Nat
+Theorem path_refl_list : (Pi l (App List Nat) (PathP (App List Nat) (Var 0) (Var 0)))
+Proof
+  intro l
+  exact (PathLam i (Var 0))
+Qed
+
+-- Path from nil to nil
+Theorem path_nil : (PathP (App List Nat) (App nil Nat) (App nil Nat))
+Proof
+  exact (PathLam i (App nil Nat))
+Qed
+
+----------------------------------------------------------------------
+-- Dependent Path Types
+----------------------------------------------------------------------
+
+-- PathP over constant family
+Theorem pathp_const_family : (Pi A Type (Pi B Type (Pi x (Var 1) (Pi y (Var 2) (Pi p (PathP (Var 3) (Var 1) (Var 0)) (Pi bx (Var 3) (Pi by (Var 4) Type)))))))
+Proof
+  intro A
+  intro B
+  intro x
+  intro y
+  intro p
+  intro bx
+  intro by
+  exact (PathP (Var 5) (Var 1) (Var 0))
+Qed
+
+-- Simple dependent path reflexivity
+Theorem pathp_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed

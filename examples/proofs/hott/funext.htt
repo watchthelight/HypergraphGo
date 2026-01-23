@@ -1,0 +1,262 @@
+-- funext.htt: Function extensionality and related concepts
+-- Demonstrates function equality via cubical paths
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Function Type Properties
+----------------------------------------------------------------------
+
+-- Pi type is a type
+Theorem Pi_is_type : (Pi A Type (Pi B (Pi x (Var 0) Type) Type))
+Proof
+  intro A
+  intro B
+  exact (Pi x (Var 1) (App (Var 1) (Var 0)))
+Qed
+
+-- Simple function type is a type
+Theorem simple_fun_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi x (Var 1) (Var 1))
+Qed
+
+-- Nat -> Nat is a type
+Theorem Nat_fun_type : Type
+Proof
+  exact (Pi n Nat Nat)
+Qed
+
+-- Bool -> Bool is a type
+Theorem Bool_fun_type : Type
+Proof
+  exact (Pi b Bool Bool)
+Qed
+
+----------------------------------------------------------------------
+-- Function Equality (Reflexivity)
+----------------------------------------------------------------------
+
+-- Any function equals itself
+Theorem fun_refl : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (PathP (Pi x (Var 2) (Var 2)) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (PathLam i (Var 0))
+Qed
+
+-- Specific function equality: succ = succ
+Theorem succ_eq_succ : (PathP (Pi n Nat Nat) succ succ)
+Proof
+  exact (PathLam i succ)
+Qed
+
+-- Identity function equality
+Theorem id_eq_id : (Pi A Type (Pi f (Pi x (Var 0) (Var 1)) (PathP (Pi x (Var 1) (Var 2)) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro f
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Function Extensionality Type Setup
+----------------------------------------------------------------------
+
+-- Type of pointwise equality proof
+Theorem pointwise_eq_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi g (Pi x (Var 2) (Var 2)) Type))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro g
+  exact (Pi x (Var 3) (PathP (Var 3) (App (Var 2) (Var 0)) (App (Var 1) (Var 0))))
+Qed
+
+-- Type of function equality
+Theorem fun_eq_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi g (Pi x (Var 2) (Var 2)) Type))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro g
+  exact (PathP (Pi x (Var 3) (Var 3)) (Var 1) (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Constant Functions
+----------------------------------------------------------------------
+
+-- Constant function exists
+Theorem const_fun : (Pi A Type (Pi B Type (Pi b (Var 0) (Pi x (Var 2) (Var 2)))))
+Proof
+  intro A
+  intro B
+  intro b
+  intro x
+  exact (Var 1)
+Qed
+
+-- Constant function types
+Theorem const_fun_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi b (Var 0) (Pi x (Var 2) (Var 2)))
+Qed
+
+----------------------------------------------------------------------
+-- Identity Functions
+----------------------------------------------------------------------
+
+-- Identity function exists
+Theorem id_fun : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  exact (Var 0)
+Qed
+
+-- Identity function in lambda form
+Theorem id_lam : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  assumption
+Qed
+
+-- Identity function via intros
+Theorem id_intros : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- Composition Function Types
+----------------------------------------------------------------------
+
+-- Composition type
+Theorem compose_type : (Pi A Type (Pi B Type (Pi C Type Type)))
+Proof
+  intro A
+  intro B
+  intro C
+  exact (Pi g (Pi x (Var 1) (Var 1)) (Pi f (Pi x (Var 3) (Var 3)) (Pi x (Var 4) (Var 3))))
+Qed
+
+-- Composition of functions exists
+Theorem compose : (Pi A Type (Pi B Type (Pi C Type (Pi g (Pi x (Var 1) (Var 1)) (Pi f (Pi x (Var 3) (Var 3)) (Pi x (Var 4) (Var 3)))))))
+Proof
+  intro A
+  intro B
+  intro C
+  intro g
+  intro f
+  intro x
+  exact (App (Var 2) (App (Var 1) (Var 0)))
+Qed
+
+----------------------------------------------------------------------
+-- Function Existence Properties
+----------------------------------------------------------------------
+
+-- Functions exist
+Theorem fun_exists : (Sigma f (Pi n Nat Nat) Unit)
+Proof
+  split
+  exact succ
+  constructor
+Qed
+
+-- Multiple functions exist
+Theorem funs_exist : (Sigma f (Pi n Nat Nat) (Sigma g (Pi b Bool Bool) Unit))
+Proof
+  split
+  exact succ
+  split
+  exact (Lam b (Var 0))
+  constructor
+Qed
+
+-- Identity and succ are both functions
+Theorem id_succ_exist : (Sigma id (Pi n Nat Nat) (Sigma s (Pi n Nat Nat) Unit))
+Proof
+  split
+  exact (Lam n (Var 0))
+  split
+  exact succ
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Higher-Order Functions
+----------------------------------------------------------------------
+
+-- Type of function transformers
+Theorem transformer_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi f (Pi x (Var 1) (Var 1)) (Pi x (Var 2) (Var 2)))
+Qed
+
+-- Identity transformer
+Theorem id_transformer : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi x (Var 2) (Var 2)))))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- Dependent Function Properties
+----------------------------------------------------------------------
+
+-- Simple dependent function type example
+Theorem dep_fun_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Pi x (Var 0) (Var 1))
+Qed
+
+-- Dependent identity for simple case
+Theorem dep_id : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  exact (Var 0)
+Qed
+
+----------------------------------------------------------------------
+-- Path and Function Interaction
+----------------------------------------------------------------------
+
+-- Path in function type
+Theorem path_in_fun : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (PathP (Pi x (Var 2) (Var 2)) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (PathLam i (Var 0))
+Qed
+
+-- Function path reflexivity
+Theorem fun_path_refl : (Pi f (Pi n Nat Nat) (PathP (Pi n Nat Nat) (Var 0) (Var 0)))
+Proof
+  intro f
+  exact (PathLam i (Var 0))
+Qed
+
+-- Lambda path reflexivity
+Theorem lam_path_refl : (Pi A Type (Pi B Type (Pi body (Pi x (Var 1) (Var 1)) (PathP (Pi x (Var 2) (Var 2)) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro B
+  intro body
+  exact (PathLam i (Var 0))
+Qed

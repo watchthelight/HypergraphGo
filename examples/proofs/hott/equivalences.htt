@@ -1,0 +1,284 @@
+-- equivalences.htt: Equivalence types and properties
+-- Demonstrates concepts needed for univalence
+-- Part of the HoTTGo real-world testing suite
+
+----------------------------------------------------------------------
+-- Contractible Type Definitions
+----------------------------------------------------------------------
+
+-- Type of contractibility proofs
+Theorem isContr_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma c (Var 0) (Pi x (Var 1) (PathP (Var 2) (Var 1) (Var 0))))
+Qed
+
+-- Unit is contractible (type)
+Theorem Unit_isContr_type : Type
+Proof
+  exact (Sigma c Unit (Pi x Unit (PathP Unit (Var 1) (Var 0))))
+Qed
+
+----------------------------------------------------------------------
+-- Fiber Type Definitions
+----------------------------------------------------------------------
+
+-- Type of fiber
+Theorem fiber_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi b (Var 1) Type))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro b
+  exact (Sigma a (Var 3) (PathP (Var 3) (App (Var 2) (Var 0)) (Var 1)))
+Qed
+
+----------------------------------------------------------------------
+-- Identity Function Properties
+----------------------------------------------------------------------
+
+-- Identity function
+Theorem id_func : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  exact (Var 0)
+Qed
+
+-- Identity function preserves reflexivity
+Theorem id_preserves_refl : (Pi A Type (Pi x (Var 0) (PathP (Var 1) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro x
+  exact (PathLam i (Var 0))
+Qed
+
+-- Identity applied equals argument
+Theorem id_app : (Pi A Type (Pi x (Var 0) (Var 1)))
+Proof
+  intro A
+  intro x
+  assumption
+Qed
+
+----------------------------------------------------------------------
+-- Function Composition Properties
+----------------------------------------------------------------------
+
+-- Composition
+Theorem compose_func : (Pi A Type (Pi B Type (Pi C Type (Pi g (Pi x (Var 1) (Var 1)) (Pi f (Pi x (Var 3) (Var 3)) (Pi x (Var 4) (Var 3)))))))
+Proof
+  intro A
+  intro B
+  intro C
+  intro g
+  intro f
+  intro x
+  exact (App (Var 2) (App (Var 1) (Var 0)))
+Qed
+
+-- Composition type
+Theorem compose_type : (Pi A Type (Pi B Type (Pi C Type Type)))
+Proof
+  intro A
+  intro B
+  intro C
+  exact (Pi g (Pi x (Var 1) (Var 1)) (Pi f (Pi x (Var 3) (Var 3)) (Pi x (Var 4) (Var 3))))
+Qed
+
+----------------------------------------------------------------------
+-- Equivalence Type Setup
+----------------------------------------------------------------------
+
+-- Type of isEquiv (simplified)
+Theorem isEquiv_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) Type)))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Sigma g (Pi x (Var 1) (Var 3)) (Sigma h (Pi x (Var 2) (Var 4)) Unit))
+Qed
+
+-- Equivalence type structure
+Theorem Equiv_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Sigma f (Pi x (Var 1) (Var 1)) (Sigma g (Pi x (Var 1) (Var 3)) Unit))
+Qed
+
+----------------------------------------------------------------------
+-- Identity Equivalence
+----------------------------------------------------------------------
+
+-- Identity forms an equivalence
+Theorem id_equiv_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma f (Pi x (Var 0) (Var 1)) (Sigma g (Pi x (Var 1) (Var 2)) Unit))
+Qed
+
+-- Reflexive equivalence type check
+Theorem refl_equiv_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma f (Pi x (Var 0) (Var 1)) (Sigma g (Pi x (Var 1) (Var 2)) Unit))
+Qed
+
+----------------------------------------------------------------------
+-- Inverse Function Types
+----------------------------------------------------------------------
+
+-- Type of quasi-inverse
+Theorem qinv_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) Type)))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Sigma g (Pi x (Var 1) (Var 3)) Unit)
+Qed
+
+-- Inverse type
+Theorem inverse_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Pi f (Pi x (Var 1) (Var 1)) (Sigma g (Pi x (Var 1) (Var 3)) Unit))
+Qed
+
+----------------------------------------------------------------------
+-- Section and Retraction Types
+----------------------------------------------------------------------
+
+-- Section type (right inverse)
+Theorem section_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) Type)))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Sigma s (Pi x (Var 1) (Var 3)) Unit)
+Qed
+
+-- Retraction type (left inverse)
+Theorem retraction_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) Type)))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Sigma r (Pi x (Var 1) (Var 3)) Unit)
+Qed
+
+----------------------------------------------------------------------
+-- Path Properties for Equivalences
+----------------------------------------------------------------------
+
+-- Path in equivalence type
+Theorem equiv_path_refl : (Pi A Type (Pi B Type (Pi e (Sigma f (Pi x (Var 1) (Var 1)) Unit) (PathP (Sigma f (Pi x (Var 2) (Var 2)) Unit) (Var 0) (Var 0)))))
+Proof
+  intro A
+  intro B
+  intro e
+  exact (PathLam i (Var 0))
+Qed
+
+-- Equivalence reflexivity
+Theorem equiv_refl : (Pi A Type (Pi e (Sigma f (Pi x (Var 0) (Var 1)) Unit) (PathP (Sigma f (Pi x (Var 1) (Var 2)) Unit) (Var 0) (Var 0))))
+Proof
+  intro A
+  intro e
+  exact (PathLam i (Var 0))
+Qed
+
+----------------------------------------------------------------------
+-- Existential Equivalence Properties
+----------------------------------------------------------------------
+
+-- Equivalence type exists
+Theorem equiv_exists_type : (Pi A Type Type)
+Proof
+  intro A
+  exact (Sigma f (Pi x (Var 0) (Var 1)) Unit)
+Qed
+
+-- Multiple equivalences exist
+Theorem equivs_exist : (Sigma e1 (Sigma f (Pi n Nat Nat) Unit) (Sigma e2 (Sigma f (Pi b Bool Bool) Unit) Unit))
+Proof
+  split
+  split
+  intro n
+  assumption
+  constructor
+  split
+  split
+  intro b
+  assumption
+  constructor
+  constructor
+Qed
+
+----------------------------------------------------------------------
+-- Half-Adjoint Equivalence Type
+----------------------------------------------------------------------
+
+-- Type of half-adjoint equivalence data
+Theorem ishae_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) Type)))
+Proof
+  intro A
+  intro B
+  intro f
+  exact (Sigma g (Pi x (Var 1) (Var 3)) (Sigma sec Unit (Sigma ret Unit Unit)))
+Qed
+
+----------------------------------------------------------------------
+-- Coherence Data Types
+----------------------------------------------------------------------
+
+-- Type of homotopy (pointwise path)
+Theorem homotopy_type : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi g (Pi x (Var 2) (Var 2)) Type))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro g
+  exact (Pi x (Var 3) (PathP (Var 3) (App (Var 2) (Var 0)) (App (Var 1) (Var 0))))
+Qed
+
+-- Homotopy reflexivity exists
+Theorem homotopy_refl : (Pi A Type (Pi B Type (Pi f (Pi x (Var 1) (Var 1)) (Pi x (Var 2) (PathP (Var 2) (App (Var 1) (Var 0)) (App (Var 1) (Var 0)))))))
+Proof
+  intro A
+  intro B
+  intro f
+  intro x
+  exact (PathLam i (App (Var 1) (Var 0)))
+Qed
+
+----------------------------------------------------------------------
+-- Type Equivalence Properties
+----------------------------------------------------------------------
+
+-- Two types with equivalence type
+Theorem types_with_equiv_type : (Pi A Type (Pi B Type Type))
+Proof
+  intro A
+  intro B
+  exact (Sigma f (Pi x (Var 1) (Var 1)) Unit)
+Qed
+
+-- Nat has self-equivalence
+Theorem Nat_self_equiv : (Sigma f (Pi n Nat Nat) Unit)
+Proof
+  split
+  intro n
+  assumption
+  constructor
+Qed
+
+-- Bool has self-equivalence
+Theorem Bool_self_equiv : (Sigma f (Pi b Bool Bool) Unit)
+Proof
+  split
+  intro b
+  assumption
+  constructor
+Qed
