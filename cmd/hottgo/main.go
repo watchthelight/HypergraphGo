@@ -290,6 +290,26 @@ func repl() {
 			continue
 		}
 
+		if line == ":env" || line == ":environment" {
+			handleEnvCommand(state, "")
+			continue
+		}
+
+		if strings.HasPrefix(line, ":env ") {
+			handleEnvCommand(state, strings.TrimPrefix(line, ":env "))
+			continue
+		}
+
+		if strings.HasPrefix(line, ":print ") {
+			handlePrintCommand(state, strings.TrimPrefix(line, ":print "))
+			continue
+		}
+
+		if strings.HasPrefix(line, ":search ") {
+			handleSearchCommand(state, strings.TrimPrefix(line, ":search "))
+			continue
+		}
+
 		if strings.HasPrefix(line, ":eval ") {
 			expr := strings.TrimPrefix(line, ":eval ")
 			if err := doEval(expr); err != nil {
@@ -807,6 +827,9 @@ func printHelp(inProofMode bool) {
 	fmt.Println("  :axiom NAME TYPE      Postulate an axiom")
 	fmt.Println("  :prove TYPE           Enter proof mode with goal TYPE")
 	fmt.Println("  :prove NAME : TYPE    Enter proof mode with named theorem")
+	fmt.Println("  :env [FILTER]         List environment (axioms/defs/inductives)")
+	fmt.Println("  :print NAME           Print the body of a definition")
+	fmt.Println("  :search PATTERN       Search for entries by type pattern")
 	fmt.Println("  :set OPTION VALUE     Set display option (named, verbose)")
 	fmt.Println("  :settings             Show current settings")
 	fmt.Println("  :help, :h             Show this help")
@@ -1026,4 +1049,148 @@ func boolToOnOff(b bool) string {
 		return "on"
 	}
 	return "off"
+}
+
+// handleEnvCommand displays the contents of the global environment.
+func handleEnvCommand(state *replState, filter string) {
+	globals := state.checker.Globals()
+	filter = strings.TrimSpace(strings.ToLower(filter))
+
+	// Filter options: "axioms", "defs", "inductives", "all" (default)
+	showAxioms := filter == "" || filter == "all" || filter == "axioms"
+	showDefs := filter == "" || filter == "all" || filter == "defs" || filter == "definitions"
+	showInductives := filter == "" || filter == "all" || filter == "inductives" || filter == "types"
+
+	anyShown := false
+
+	if showAxioms {
+		axioms := globals.Axioms()
+		if len(axioms) > 0 {
+			anyShown = true
+			fmt.Println("Axioms:")
+			for _, name := range axioms {
+				ty := globals.LookupType(name)
+				fmt.Printf("  %s : %s\n", name, parser.FormatTerm(ty))
+			}
+			fmt.Println()
+		}
+	}
+
+	if showDefs {
+		defs := globals.Definitions()
+		if len(defs) > 0 {
+			anyShown = true
+			fmt.Println("Definitions:")
+			for _, name := range defs {
+				ty := globals.LookupType(name)
+				fmt.Printf("  %s : %s\n", name, parser.FormatTerm(ty))
+			}
+			fmt.Println()
+		}
+	}
+
+	if showInductives {
+		inds := globals.Inductives()
+		if len(inds) > 0 {
+			anyShown = true
+			fmt.Println("Inductive Types:")
+			for _, name := range inds {
+				ty := globals.LookupType(name)
+				fmt.Printf("  %s : %s\n", name, parser.FormatTerm(ty))
+			}
+			fmt.Println()
+		}
+	}
+
+	if !anyShown {
+		if filter != "" {
+			fmt.Printf("No entries matching '%s'.\n", filter)
+		} else {
+			fmt.Println("Environment is empty (no user-defined entries).")
+		}
+	}
+}
+
+// handlePrintCommand prints the body of a definition.
+func handlePrintCommand(state *replState, name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		fmt.Fprintln(os.Stderr, "usage: :print NAME")
+		return
+	}
+
+	globals := state.checker.Globals()
+
+	// First check what kind of entry it is
+	kind := globals.GetKind(name)
+
+	switch kind {
+	case check.KindAxiom:
+		ty := globals.LookupType(name)
+		fmt.Printf("axiom %s : %s\n", name, parser.FormatTerm(ty))
+
+	case check.KindDefinition:
+		ty := globals.LookupType(name)
+		body, _ := globals.LookupDefinitionBodyForced(name)
+		fmt.Printf("def %s : %s\n", name, parser.FormatTerm(ty))
+		fmt.Printf("  := %s\n", parser.FormatTerm(body))
+
+	case check.KindInductive:
+		ty := globals.LookupType(name)
+		fmt.Printf("inductive %s : %s\n", name, parser.FormatTerm(ty))
+		// TODO: Could also print constructors here
+
+	case check.KindConstructor:
+		ty := globals.LookupType(name)
+		fmt.Printf("constructor %s : %s\n", name, parser.FormatTerm(ty))
+
+	case check.KindPrimitive:
+		ty := globals.LookupType(name)
+		fmt.Printf("primitive %s : %s\n", name, parser.FormatTerm(ty))
+
+	default:
+		fmt.Fprintf(os.Stderr, "unknown name: %s\n", name)
+	}
+}
+
+// handleSearchCommand searches for definitions matching a type pattern.
+func handleSearchCommand(state *replState, query string) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		fmt.Fprintln(os.Stderr, "usage: :search TYPE_PATTERN")
+		fmt.Fprintln(os.Stderr, "Examples:")
+		fmt.Fprintln(os.Stderr, "  :search Nat         - find entries with Nat in their type")
+		fmt.Fprintln(os.Stderr, "  :search -> Nat      - find entries returning Nat")
+		fmt.Fprintln(os.Stderr, "  :search Id          - find identity type entries")
+		return
+	}
+
+	globals := state.checker.Globals()
+	queryLower := strings.ToLower(query)
+
+	// Search through all entries
+	found := false
+	for _, name := range globals.Order() {
+		ty := globals.LookupType(name)
+		if ty == nil {
+			continue
+		}
+
+		// Format the type and search for the pattern
+		tyStr := parser.FormatTerm(ty)
+		tyStrLower := strings.ToLower(tyStr)
+
+		if strings.Contains(tyStrLower, queryLower) {
+			if !found {
+				fmt.Println("Matching entries:")
+				found = true
+			}
+			kind := globals.GetKind(name)
+			fmt.Printf("  %s %s : %s\n", kind, name, tyStr)
+		}
+	}
+
+	if !found {
+		fmt.Printf("No entries matching '%s'.\n", query)
+	}
 }
