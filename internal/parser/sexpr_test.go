@@ -59,9 +59,19 @@ func TestParseTerm_Compound(t *testing.T) {
 			ast.Pi{Binder: "x", A: ast.Global{Name: "Nat"}, B: ast.Global{Name: "Nat"}},
 		},
 		{
+			"Pi implicit",
+			"(Pi {A} Type (Var 0))",
+			ast.Pi{Binder: "A", A: ast.Sort{U: 0}, B: ast.Var{Ix: 0}, Implicit: true},
+		},
+		{
 			"Lam without annotation",
 			"(Lam x (Var 0))",
 			ast.Lam{Binder: "x", Ann: nil, Body: ast.Var{Ix: 0}},
+		},
+		{
+			"Lam implicit",
+			"(Lam {x} (Var 0))",
+			ast.Lam{Binder: "x", Ann: nil, Body: ast.Var{Ix: 0}, Implicit: true},
 		},
 		{
 			"App",
@@ -206,8 +216,10 @@ func TestRoundTrip(t *testing.T) {
 		"Type",
 		"(Sort 2)",
 		"(Pi x Nat Nat)",
+		"(Pi {A} Type (Var 0))", // implicit Pi
 		"(App succ zero)",
 		"(Lam x (Var 0))",
+		"(Lam {x} (Var 0))", // implicit Lam
 		"(Id Nat zero zero)",
 		"(Refl Nat zero)",
 	}
@@ -1171,15 +1183,15 @@ func termEqual(a, b ast.Term) bool {
 		}
 	case ast.Pi:
 		if bv, ok := b.(ast.Pi); ok {
-			return av.Binder == bv.Binder && termEqual(av.A, bv.A) && termEqual(av.B, bv.B)
+			return av.Binder == bv.Binder && termEqual(av.A, bv.A) && termEqual(av.B, bv.B) && av.Implicit == bv.Implicit
 		}
 	case ast.Lam:
 		if bv, ok := b.(ast.Lam); ok {
-			return av.Binder == bv.Binder && termEqual(av.Ann, bv.Ann) && termEqual(av.Body, bv.Body)
+			return av.Binder == bv.Binder && termEqual(av.Ann, bv.Ann) && termEqual(av.Body, bv.Body) && av.Implicit == bv.Implicit
 		}
 	case ast.App:
 		if bv, ok := b.(ast.App); ok {
-			return termEqual(av.T, bv.T) && termEqual(av.U, bv.U)
+			return termEqual(av.T, bv.T) && termEqual(av.U, bv.U) && av.Implicit == bv.Implicit
 		}
 	case ast.Sigma:
 		if bv, ok := b.(ast.Sigma); ok {
@@ -1427,5 +1439,144 @@ func TestParseSort_InvalidLevel(t *testing.T) {
 	_, err := ParseTerm("(Sort abc)")
 	if err == nil {
 		t.Error("ParseTerm((Sort abc)) expected error, got nil")
+	}
+}
+
+// ============================================================================
+// Context-Aware Formatting Tests
+// ============================================================================
+
+func TestFormatTermWithContext_Var(t *testing.T) {
+	// Var 0 with context ["x"] should print as "x"
+	term := ast.Var{Ix: 0}
+	result := FormatTermWithContext(term, []string{"x"})
+	if result != "x" {
+		t.Errorf("FormatTermWithContext(Var 0, [x]) = %q, want %q", result, "x")
+	}
+}
+
+func TestFormatTermWithContext_VarMultiple(t *testing.T) {
+	// Var 0 with context ["A", "x"] should print as "x" (innermost)
+	// Var 1 with context ["A", "x"] should print as "A"
+	ctx := []string{"A", "x"}
+
+	term0 := ast.Var{Ix: 0}
+	result0 := FormatTermWithContext(term0, ctx)
+	if result0 != "x" {
+		t.Errorf("FormatTermWithContext(Var 0, [A, x]) = %q, want %q", result0, "x")
+	}
+
+	term1 := ast.Var{Ix: 1}
+	result1 := FormatTermWithContext(term1, ctx)
+	if result1 != "A" {
+		t.Errorf("FormatTermWithContext(Var 1, [A, x]) = %q, want %q", result1, "A")
+	}
+}
+
+func TestFormatTermWithContext_VarOutOfBounds(t *testing.T) {
+	// Var 2 with context ["x"] should fall back to "(Var 2)"
+	term := ast.Var{Ix: 2}
+	result := FormatTermWithContext(term, []string{"x"})
+	if result != "(Var 2)" {
+		t.Errorf("FormatTermWithContext(Var 2, [x]) = %q, want %q", result, "(Var 2)")
+	}
+}
+
+func TestFormatTermWithContext_VarUnderscore(t *testing.T) {
+	// Var 0 with context ["_"] should fall back to "(Var 0)"
+	term := ast.Var{Ix: 0}
+	result := FormatTermWithContext(term, []string{"_"})
+	if result != "(Var 0)" {
+		t.Errorf("FormatTermWithContext(Var 0, [_]) = %q, want %q", result, "(Var 0)")
+	}
+}
+
+func TestFormatTermWithContext_Pi(t *testing.T) {
+	// (Pi A Type (Pi x (Var 0) (Var 1))) with ctx [] should show:
+	// (Pi A Type (Pi x A A))
+	term := ast.Pi{
+		Binder: "A",
+		A:      ast.Sort{U: 0},
+		B: ast.Pi{
+			Binder: "x",
+			A:      ast.Var{Ix: 0},
+			B:      ast.Var{Ix: 1},
+		},
+	}
+	result := FormatTermWithContext(term, nil)
+	expected := "(Pi A Type (Pi x A A))"
+	if result != expected {
+		t.Errorf("FormatTermWithContext = %q, want %q", result, expected)
+	}
+}
+
+func TestFormatTermWithContext_Lam(t *testing.T) {
+	// (Lam A (Lam x (Var 0))) with ctx [] should show:
+	// (Lam A (Lam x x))
+	term := ast.Lam{
+		Binder: "A",
+		Body: ast.Lam{
+			Binder: "x",
+			Body:   ast.Var{Ix: 0},
+		},
+	}
+	result := FormatTermWithContext(term, nil)
+	expected := "(Lam A (Lam x x))"
+	if result != expected {
+		t.Errorf("FormatTermWithContext = %q, want %q", result, expected)
+	}
+}
+
+func TestFormatTermWithContext_Id(t *testing.T) {
+	// (Id Nat (Var 0) (Var 0)) with ctx ["n"] should show:
+	// (Id Nat n n)
+	term := ast.Id{
+		A: ast.Global{Name: "Nat"},
+		X: ast.Var{Ix: 0},
+		Y: ast.Var{Ix: 0},
+	}
+	result := FormatTermWithContext(term, []string{"n"})
+	expected := "(Id Nat n n)"
+	if result != expected {
+		t.Errorf("FormatTermWithContext = %q, want %q", result, expected)
+	}
+}
+
+func TestFormatTermWithContext_App(t *testing.T) {
+	// (App f (Var 0)) with ctx ["x"] should show:
+	// (App f x)
+	term := ast.App{
+		T: ast.Global{Name: "f"},
+		U: ast.Var{Ix: 0},
+	}
+	result := FormatTermWithContext(term, []string{"x"})
+	expected := "(App f x)"
+	if result != expected {
+		t.Errorf("FormatTermWithContext = %q, want %q", result, expected)
+	}
+}
+
+func TestFormatTermWithContext_FullExample(t *testing.T) {
+	// Full example: (Pi n Nat (Id Nat (App (App add (Var 0)) zero) (Var 0)))
+	// Should format with ctx [] as: (Pi n Nat (Id Nat (App (App add n) zero) n))
+	term := ast.Pi{
+		Binder: "n",
+		A:      ast.Global{Name: "Nat"},
+		B: ast.Id{
+			A: ast.Global{Name: "Nat"},
+			X: ast.App{
+				T: ast.App{
+					T: ast.Global{Name: "add"},
+					U: ast.Var{Ix: 0},
+				},
+				U: ast.Global{Name: "zero"},
+			},
+			Y: ast.Var{Ix: 0},
+		},
+	}
+	result := FormatTermWithContext(term, nil)
+	expected := "(Pi n Nat (Id Nat (App (App add n) zero) n))"
+	if result != expected {
+		t.Errorf("FormatTermWithContext = %q, want %q", result, expected)
 	}
 }

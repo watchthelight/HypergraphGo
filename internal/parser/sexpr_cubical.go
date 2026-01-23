@@ -213,6 +213,7 @@ func (p *SExprParser) parseTermList() ([]ast.Term, error) {
 }
 
 // formatCubicalTerm formats cubical-specific terms.
+// Uses de Bruijn indices for all variables (suitable for round-tripping).
 func formatCubicalTerm(t ast.Term) string {
 	switch tm := t.(type) {
 	case ast.Interval:
@@ -248,6 +249,50 @@ func formatCubicalTerm(t ast.Term) string {
 				iargsStr += " "
 			}
 			iargsStr += FormatTerm(iarg)
+		}
+		iargsStr += ")"
+		return fmt.Sprintf("(HITApp %s %s %s %s)", tm.HITName, tm.Ctor, argsStr, iargsStr)
+	}
+	return ""
+}
+
+// formatCubicalTermWithContext formats cubical-specific terms with a variable context.
+func formatCubicalTermWithContext(t ast.Term, ctx []string) string {
+	switch tm := t.(type) {
+	case ast.Interval:
+		return "I"
+	case ast.I0:
+		return "i0"
+	case ast.I1:
+		return "i1"
+	case ast.IVar:
+		return fmt.Sprintf("(IVar %d)", tm.Ix)
+	case ast.Path:
+		return fmt.Sprintf("(Path %s %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.X, ctx), FormatTermWithContext(tm.Y, ctx))
+	case ast.PathP:
+		return fmt.Sprintf("(PathP %s %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.X, ctx), FormatTermWithContext(tm.Y, ctx))
+	case ast.PathLam:
+		newCtx := append(ctx, tm.Binder)
+		return fmt.Sprintf("(PathLam %s %s)", tm.Binder, FormatTermWithContext(tm.Body, newCtx))
+	case ast.PathApp:
+		return fmt.Sprintf("(PathApp %s %s)", FormatTermWithContext(tm.P, ctx), FormatTermWithContext(tm.R, ctx))
+	case ast.Transport:
+		return fmt.Sprintf("(Transport %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.E, ctx))
+	case ast.HITApp:
+		argsStr := "("
+		for i, arg := range tm.Args {
+			if i > 0 {
+				argsStr += " "
+			}
+			argsStr += FormatTermWithContext(arg, ctx)
+		}
+		argsStr += ")"
+		iargsStr := "("
+		for i, iarg := range tm.IArgs {
+			if i > 0 {
+				iargsStr += " "
+			}
+			iargsStr += FormatTermWithContext(iarg, ctx)
 		}
 		iargsStr += ")"
 		return fmt.Sprintf("(HITApp %s %s %s %s)", tm.HITName, tm.Ctor, argsStr, iargsStr)

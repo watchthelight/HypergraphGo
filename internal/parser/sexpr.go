@@ -93,7 +93,7 @@ func (p *SExprParser) parseAtom() string {
 	start := p.pos
 	for p.pos < len(p.input) {
 		c := p.input[p.pos]
-		if c == '(' || c == ')' || unicode.IsSpace(rune(c)) || c == ';' {
+		if c == '(' || c == ')' || c == '{' || c == '}' || unicode.IsSpace(rune(c)) || c == ';' {
 			break
 		}
 		p.pos++
@@ -243,9 +243,27 @@ func (p *SExprParser) parseGlobal() (ast.Term, error) {
 
 func (p *SExprParser) parsePi() (ast.Term, error) {
 	p.skipWhitespace()
+
+	// Check for implicit binder: {x}
+	implicit := false
+	c, ok := p.peek()
+	if ok && c == '{' {
+		implicit = true
+		p.pos++ // consume '{'
+	}
+
 	binder := p.parseAtom()
 	if binder == "" {
 		binder = "_"
+	}
+
+	if implicit {
+		p.skipWhitespace()
+		c, ok := p.peek()
+		if !ok || c != '}' {
+			return nil, fmt.Errorf("expected '}' after implicit binder")
+		}
+		p.pos++ // consume '}'
 	}
 
 	p.skipWhitespace()
@@ -260,20 +278,38 @@ func (p *SExprParser) parsePi() (ast.Term, error) {
 		return nil, err
 	}
 
-	return ast.Pi{Binder: binder, A: domain, B: codomain}, nil
+	return ast.Pi{Binder: binder, A: domain, B: codomain, Implicit: implicit}, nil
 }
 
 func (p *SExprParser) parseLam() (ast.Term, error) {
 	p.skipWhitespace()
+
+	// Check for implicit binder: {x}
+	implicit := false
+	c, ok := p.peek()
+	if ok && c == '{' {
+		implicit = true
+		p.pos++ // consume '{'
+	}
+
 	binder := p.parseAtom()
 	if binder == "" {
 		binder = "_"
 	}
 
+	if implicit {
+		p.skipWhitespace()
+		c, ok := p.peek()
+		if !ok || c != '}' {
+			return nil, fmt.Errorf("expected '}' after implicit binder")
+		}
+		p.pos++ // consume '}'
+	}
+
 	p.skipWhitespace()
 	// Check if there's an annotation
 	var ann ast.Term
-	c, ok := p.peek()
+	c, ok = p.peek()
 	if ok && c == '(' {
 		// Could be annotation or body - peek ahead
 		savePos := p.pos
@@ -294,7 +330,7 @@ func (p *SExprParser) parseLam() (ast.Term, error) {
 		return nil, err
 	}
 
-	return ast.Lam{Binder: binder, Ann: ann, Body: body}, nil
+	return ast.Lam{Binder: binder, Ann: ann, Body: body, Implicit: implicit}, nil
 }
 
 func (p *SExprParser) parseApp() (ast.Term, error) {
@@ -476,6 +512,7 @@ func (p *SExprParser) parseJ() (ast.Term, error) {
 }
 
 // FormatTerm formats an AST term as an S-expression string.
+// Uses de Bruijn indices for all variables (suitable for round-tripping).
 func FormatTerm(t ast.Term) string {
 	if t == nil {
 		return "nil"
@@ -492,13 +529,24 @@ func FormatTerm(t ast.Term) string {
 	case ast.Global:
 		return tm.Name
 	case ast.Pi:
-		return fmt.Sprintf("(Pi %s %s %s)", tm.Binder, FormatTerm(tm.A), FormatTerm(tm.B))
-	case ast.Lam:
-		if tm.Ann != nil {
-			return fmt.Sprintf("(Lam %s %s %s)", tm.Binder, FormatTerm(tm.Ann), FormatTerm(tm.Body))
+		binderFmt := tm.Binder
+		if tm.Implicit {
+			binderFmt = "{" + tm.Binder + "}"
 		}
-		return fmt.Sprintf("(Lam %s %s)", tm.Binder, FormatTerm(tm.Body))
+		return fmt.Sprintf("(Pi %s %s %s)", binderFmt, FormatTerm(tm.A), FormatTerm(tm.B))
+	case ast.Lam:
+		binderFmt := tm.Binder
+		if tm.Implicit {
+			binderFmt = "{" + tm.Binder + "}"
+		}
+		if tm.Ann != nil {
+			return fmt.Sprintf("(Lam %s %s %s)", binderFmt, FormatTerm(tm.Ann), FormatTerm(tm.Body))
+		}
+		return fmt.Sprintf("(Lam %s %s)", binderFmt, FormatTerm(tm.Body))
 	case ast.App:
+		if tm.Implicit {
+			return fmt.Sprintf("(App {%s} %s)", FormatTerm(tm.T), FormatTerm(tm.U))
+		}
 		return fmt.Sprintf("(App %s %s)", FormatTerm(tm.T), FormatTerm(tm.U))
 	case ast.Sigma:
 		return fmt.Sprintf("(Sigma %s %s %s)", tm.Binder, FormatTerm(tm.A), FormatTerm(tm.B))
@@ -519,6 +567,78 @@ func FormatTerm(t ast.Term) string {
 	default:
 		// Try cubical formatting
 		if s := formatCubicalTerm(t); s != "" {
+			return s
+		}
+		return fmt.Sprintf("<%T>", t)
+	}
+}
+
+// FormatTermWithContext formats an AST term using variable names from context.
+// The context is a list of binder names, with the outermost binder first.
+// When displaying a Var{Ix}, we look up ctx[len(ctx)-1-Ix] to find the name.
+// This function is for display purposes and does NOT produce round-trippable output.
+func FormatTermWithContext(t ast.Term, ctx []string) string {
+	if t == nil {
+		return "nil"
+	}
+
+	switch tm := t.(type) {
+	case ast.Sort:
+		if tm.U == 0 {
+			return "Type"
+		}
+		return fmt.Sprintf("(Sort %d)", tm.U)
+	case ast.Var:
+		idx := len(ctx) - 1 - tm.Ix
+		if idx >= 0 && idx < len(ctx) && ctx[idx] != "" && ctx[idx] != "_" {
+			return ctx[idx]
+		}
+		return fmt.Sprintf("(Var %d)", tm.Ix)
+	case ast.Global:
+		return tm.Name
+	case ast.Pi:
+		newCtx := append(ctx, tm.Binder)
+		binderFmt := tm.Binder
+		if tm.Implicit {
+			binderFmt = "{" + tm.Binder + "}"
+		}
+		return fmt.Sprintf("(Pi %s %s %s)", binderFmt, FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.B, newCtx))
+	case ast.Lam:
+		newCtx := append(ctx, tm.Binder)
+		binderFmt := tm.Binder
+		if tm.Implicit {
+			binderFmt = "{" + tm.Binder + "}"
+		}
+		if tm.Ann != nil {
+			return fmt.Sprintf("(Lam %s %s %s)", binderFmt, FormatTermWithContext(tm.Ann, ctx), FormatTermWithContext(tm.Body, newCtx))
+		}
+		return fmt.Sprintf("(Lam %s %s)", binderFmt, FormatTermWithContext(tm.Body, newCtx))
+	case ast.App:
+		if tm.Implicit {
+			return fmt.Sprintf("(App {%s} %s)", FormatTermWithContext(tm.T, ctx), FormatTermWithContext(tm.U, ctx))
+		}
+		return fmt.Sprintf("(App %s %s)", FormatTermWithContext(tm.T, ctx), FormatTermWithContext(tm.U, ctx))
+	case ast.Sigma:
+		newCtx := append(ctx, tm.Binder)
+		return fmt.Sprintf("(Sigma %s %s %s)", tm.Binder, FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.B, newCtx))
+	case ast.Pair:
+		return fmt.Sprintf("(Pair %s %s)", FormatTermWithContext(tm.Fst, ctx), FormatTermWithContext(tm.Snd, ctx))
+	case ast.Fst:
+		return fmt.Sprintf("(Fst %s)", FormatTermWithContext(tm.P, ctx))
+	case ast.Snd:
+		return fmt.Sprintf("(Snd %s)", FormatTermWithContext(tm.P, ctx))
+	case ast.Let:
+		newCtx := append(ctx, tm.Binder)
+		return fmt.Sprintf("(Let %s %s %s %s)", tm.Binder, FormatTermWithContext(tm.Ann, ctx), FormatTermWithContext(tm.Val, ctx), FormatTermWithContext(tm.Body, newCtx))
+	case ast.Id:
+		return fmt.Sprintf("(Id %s %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.X, ctx), FormatTermWithContext(tm.Y, ctx))
+	case ast.Refl:
+		return fmt.Sprintf("(Refl %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.X, ctx))
+	case ast.J:
+		return fmt.Sprintf("(J %s %s %s %s %s %s)", FormatTermWithContext(tm.A, ctx), FormatTermWithContext(tm.C, ctx), FormatTermWithContext(tm.D, ctx), FormatTermWithContext(tm.X, ctx), FormatTermWithContext(tm.Y, ctx), FormatTermWithContext(tm.P, ctx))
+	default:
+		// Try cubical formatting
+		if s := formatCubicalTermWithContext(t, ctx); s != "" {
 			return s
 		}
 		return fmt.Sprintf("<%T>", t)
