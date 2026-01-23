@@ -34,13 +34,44 @@ func Parse(r io.Reader) (*Script, error) {
 			continue
 		}
 
+		// Parse definition
+		if strings.HasPrefix(line, "Definition ") {
+			def, err := parseDefinition(line, lineNum)
+			if err != nil {
+				return nil, err
+			}
+			script.Items = append(script.Items, Item{
+				Kind:       ItemDefinition,
+				Definition: def,
+			})
+			continue
+		}
+
+		// Parse axiom
+		if strings.HasPrefix(line, "Axiom ") {
+			ax, err := parseAxiom(line, lineNum)
+			if err != nil {
+				return nil, err
+			}
+			script.Items = append(script.Items, Item{
+				Kind:  ItemAxiom,
+				Axiom: ax,
+			})
+			continue
+		}
+
 		// Parse theorem declaration
 		if strings.HasPrefix(line, "Theorem ") {
 			thm, endLine, err := parseTheorem(line, lineNum, scanner)
 			if err != nil {
 				return nil, err
 			}
+			thm.Line = lineNum
 			script.Theorems = append(script.Theorems, *thm)
+			script.Items = append(script.Items, Item{
+				Kind:    ItemTheorem,
+				Theorem: thm,
+			})
 			lineNum = endLine
 			continue
 		}
@@ -53,6 +84,90 @@ func Parse(r io.Reader) (*Script, error) {
 	}
 
 	return script, nil
+}
+
+// parseDefinition parses a definition line: "Definition name : TYPE := TERM"
+func parseDefinition(line string, lineNum int) (*Definition, error) {
+	rest := strings.TrimPrefix(line, "Definition ")
+
+	// Find ":=" separator
+	assignIdx := strings.Index(rest, ":=")
+	if assignIdx == -1 {
+		return nil, &ParseError{Line: lineNum, Message: "expected ':=' in definition"}
+	}
+
+	// Parse "name : TYPE" part
+	namePart := strings.TrimSpace(rest[:assignIdx])
+	colonIdx := strings.Index(namePart, ":")
+	if colonIdx == -1 {
+		return nil, &ParseError{Line: lineNum, Message: "expected ':' in definition type annotation"}
+	}
+
+	name := strings.TrimSpace(namePart[:colonIdx])
+	typeStr := strings.TrimSpace(namePart[colonIdx+1:])
+
+	if name == "" {
+		return nil, &ParseError{Line: lineNum, Message: "definition name cannot be empty"}
+	}
+
+	// Parse body
+	bodyStr := strings.TrimSpace(rest[assignIdx+2:])
+	if bodyStr == "" {
+		return nil, &ParseError{Line: lineNum, Message: "definition body cannot be empty"}
+	}
+
+	// Parse the type expression
+	defType, err := parser.ParseTerm(typeStr)
+	if err != nil {
+		return nil, &ParseError{Line: lineNum, Message: fmt.Sprintf("parsing type: %v", err)}
+	}
+
+	// Parse the body expression
+	defBody, err := parser.ParseTerm(bodyStr)
+	if err != nil {
+		return nil, &ParseError{Line: lineNum, Message: fmt.Sprintf("parsing body: %v", err)}
+	}
+
+	return &Definition{
+		Name: name,
+		Type: defType,
+		Body: defBody,
+		Line: lineNum,
+	}, nil
+}
+
+// parseAxiom parses an axiom line: "Axiom name : TYPE"
+func parseAxiom(line string, lineNum int) (*Axiom, error) {
+	rest := strings.TrimPrefix(line, "Axiom ")
+
+	// Find ":" separator
+	colonIdx := strings.Index(rest, ":")
+	if colonIdx == -1 {
+		return nil, &ParseError{Line: lineNum, Message: "expected ':' in axiom declaration"}
+	}
+
+	name := strings.TrimSpace(rest[:colonIdx])
+	typeStr := strings.TrimSpace(rest[colonIdx+1:])
+
+	if name == "" {
+		return nil, &ParseError{Line: lineNum, Message: "axiom name cannot be empty"}
+	}
+
+	if typeStr == "" {
+		return nil, &ParseError{Line: lineNum, Message: "axiom type cannot be empty"}
+	}
+
+	// Parse the type expression
+	axType, err := parser.ParseTerm(typeStr)
+	if err != nil {
+		return nil, &ParseError{Line: lineNum, Message: fmt.Sprintf("parsing type: %v", err)}
+	}
+
+	return &Axiom{
+		Name: name,
+		Type: axType,
+		Line: lineNum,
+	}, nil
 }
 
 // ParseString parses a tactic script from a string.
