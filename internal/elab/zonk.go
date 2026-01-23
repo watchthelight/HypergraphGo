@@ -463,9 +463,10 @@ func ZonkCtx(metas *MetaStore, ctx *ElabCtx) *ElabCtx {
 		result.Bindings = append(result.Bindings, newBinding)
 	}
 
-	// Copy implicit bindings
-	for k, v := range ctx.IBindings {
-		result.IBindings[k] = v
+	// Copy interval bindings
+	if len(ctx.IBindings) > 0 {
+		result.IBindings = make([]string, len(ctx.IBindings))
+		copy(result.IBindings, ctx.IBindings)
 	}
 
 	return result
