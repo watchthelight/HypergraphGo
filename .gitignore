@@ -86,3 +86,7 @@ TODO.txt
 
 # Asset templates
 assets/repository-open-graph-template.png
+
+# BMAD Method
+_bmad/
+_bmad-output/
