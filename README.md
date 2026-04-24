@@ -86,9 +86,9 @@
 
 ---
 
-A standalone cubical type theory kernel, about 17K lines of Go. Small enough to read, complete enough to use. Univalence computes. HITs reduce. Compiles to a single binary with no runtime dependencies.
+A standalone cubical type theory kernel, about 17K lines of Go. Small enough to read, complete enough to use. Univalence computes, HITs reduce, and the whole thing compiles to a single binary with no runtime dependencies.
 
-Why Go? Single-binary deployment, fast compilation, and the code is readable if you don't know ML-family languages. Good for embedding in other tools.
+Go was chosen for single-binary deployment, fast compilation, and code that reads clearly if you don't know ML-family languages. It's also good for embedding in other tools.
 
 ## Who This Is For
 
@@ -96,17 +96,17 @@ Why Go? Single-binary deployment, fast compilation, and the code is readable if 
 - **Tool builders** who need a type theory backend they can actually embed and control
 - **HoTT learners** who want to see how the internals work: NbE, bidirectional checking, path types
 - **Go developers** curious about dependent types
-- **Anyone who wants a kernel**, not a proof assistant—if you're building your own tooling on top, this is the layer you'd otherwise have to write yourself
+- **Anyone who wants a kernel** rather than a proof assistant: if you're building your own tooling on top, this is the layer you'd otherwise have to write yourself
 
 ## What's Here
 
-**HoTT Kernel** — A from-scratch cubical type theory: NbE-based normalization, bidirectional type checking, identity types, path types, Glue types, composition, transport, HITs.
+**HoTT Kernel:** a from-scratch cubical type theory with NbE-based normalization, bidirectional type checking, identity types, path types, Glue types, composition, transport, and HITs.
 
-**Hypergraph Library** — Generic hypergraph operations in Go. Vertices, edges, transforms (dual, 2-section, line graph), algorithms (BFS, hitting set, coloring).
+**Hypergraph Library:** generic hypergraph operations in Go. Vertices, edges, transforms (dual, 2-section, line graph), and algorithms (BFS, hitting set, coloring).
 
 ## The HoTT Kernel
 
-The implementation follows the same general approach as cooltt, redtt, and Andras Kovacs' elaboration-zoo: NbE for normalization, closure-based semantic domain, de Bruijn indices in core. The difference is scope—this is a kernel only, not a proof assistant. No elaborator, no tactic language, no implicit arguments. You get the type theory and nothing else, which makes it easier to understand and easier to build on.
+The implementation follows the same general approach as cooltt, redtt, and Andras Kovacs' elaboration-zoo: NbE for normalization, a closure-based semantic domain, and de Bruijn indices in the core. The difference is scope. This is a kernel only, not a proof assistant. No elaborator, no tactic language, no implicit arguments at this layer. You get the type theory and nothing else, which makes it easier to understand and easier to build on.
 
 ### Quickstart
 
@@ -130,7 +130,7 @@ The syntax is S-expressions with explicit de Bruijn indices. `(Global x)` refere
 
 **Computational Univalence**
 
-`ua` converts equivalences to paths. When you apply a ua-path at an intermediate point, you get a Glue type—not a stuck term. Transport along `ua e` actually uses `e` to move data across. No axioms blocking computation.
+`ua` converts equivalences to paths. When you apply a ua-path at an intermediate point, you get a Glue type, not a stuck term. Transport along `ua e` actually uses `e` to move data across. No axioms blocking computation.
 
 ```
 ua A B e : Path Type A B
@@ -141,11 +141,11 @@ ua A B e : Path Type A B
 
 **Glue Types**
 
-The mechanism behind univalence. Glue types let you attach a type `T` to a base type `A` along a face, mediated by an equivalence. Composition through Glue types computes—you get actual normal forms, not neutral terms waiting for more information.
+The mechanism behind univalence. Glue types let you attach a type `T` to a base type `A` along a face, mediated by an equivalence. Composition through Glue types computes: you get actual normal forms, not neutral terms waiting for more information.
 
 **Composition & Transport**
 
-`comp`, `hcomp`, `fill`, `transport`. Transport through a constant family reduces to the identity. Composition in Π, Σ, Path types computes.
+`comp`, `hcomp`, `fill`, `transport`. Transport through a constant family reduces to the identity. Composition in Π, Σ, and Path types computes.
 
 **Higher Inductive Types**
 
@@ -153,11 +153,11 @@ Path constructors that compute. The circle S¹ with `loop : Path S¹ base base`.
 
 **Inductives & Eliminators**
 
-User-defined inductive types with automatic eliminator generation. Parameterized types like `List A`, indexed types like `Vec A n`, mutual recursion like Even/Odd. Strict positivity checking. Generic recursor reduction.
+User-defined inductive types with automatic eliminator generation. Parameterized types like `List A`, indexed types like `Vec A n`, and mutual recursion like Even/Odd. Strict positivity checking. Generic recursor reduction.
 
 **Bidirectional Type Checking**
 
-`Synth` infers, `Check` verifies, errors come back with source spans and structured information. The kernel boundary is clean—parsing, name resolution, elaboration happen outside; the kernel only sees well-formed core terms.
+`Synth` infers, `Check` verifies, and errors come back with source spans and structured information. The kernel boundary is clean: parsing, name resolution, and elaboration happen outside, and the kernel only sees well-formed core terms.
 
 ### Technical Details
 
@@ -220,7 +220,7 @@ Qed
 
 ## Hypergraph Library
 
-Hypergraphs generalize graphs—edges connect any number of vertices, not just two. The library is generic over vertex types, provides standard transforms, and includes common algorithms.
+Hypergraphs generalize graphs: edges connect any number of vertices, not just two. The library is generic over vertex types, provides standard transforms, and includes common algorithms.
 
 ```go
 hg := hypergraph.NewHypergraph[string]()
@@ -277,7 +277,7 @@ Or grab a binary from [releases](https://github.com/watchthelight/HypergraphGo/r
 
 ## CLI
 
-### `hg` — Hypergraph Operations
+### `hg`: Hypergraph Operations
 
 ```bash
 hg new -o graph.json              # create empty hypergraph
@@ -287,9 +287,9 @@ hg bfs -f graph.json -start A
 hg repl                           # interactive mode
 ```
 
-22 commands covering creation, modification, transforms, algorithms, and REPL.
+22 commands covering creation, modification, transforms, algorithms, and the REPL.
 
-### `hottgo` — Type Checking & Proofs
+### `hottgo`: Type Checking & Proofs
 
 ```bash
 hottgo --check FILE       # type-check a file
@@ -312,12 +312,12 @@ hottgo                  # start REPL
 **Example Proof Scripts:**
 
 See `examples/proofs/` for learning material:
-- `identity.htt` — identity and constant functions
-- `nat_basic.htt` — natural number proofs
-- `bool_basic.htt` — boolean type proofs
-- `unit_empty.htt` — Unit and Empty types, ex falso
-- `sum_basic.htt` — Sum/coproduct proofs
-- `equality_basic.htt` — identity type proofs
+- `identity.htt`: identity and constant functions
+- `nat_basic.htt`: natural number proofs
+- `bool_basic.htt`: boolean type proofs
+- `unit_empty.htt`: Unit and Empty types, ex falso
+- `sum_basic.htt`: Sum/coproduct proofs
+- `equality_basic.htt`: identity type proofs
 
 Verify all examples: `for f in examples/proofs/*.htt; do hottgo --load "$f"; done`
 
@@ -325,7 +325,7 @@ Verify all examples: `for f in examples/proofs/*.htt; do hottgo --load "$f"; don
 
 Design docs: [`DESIGN.md`](DESIGN.md), [`DIAGRAMS.md`](DIAGRAMS.md)
 
-The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, panic-free. De Bruijn indices only. NbE conversion with no ad-hoc reductions. Strict positivity validation. Everything outside the kernel (parsing, elaboration, tactics) gets re-checked after expansion. The supporting code in `internal/` adds another 7K lines for AST, evaluation, and parsing.
+The kernel (`kernel/`) is about 6.7K lines across 17 files: minimal, total, and panic-free. De Bruijn indices only. NbE conversion with no ad-hoc reductions. Strict positivity validation. Everything outside the kernel (parsing, elaboration, tactics) gets re-checked after expansion. The supporting code in `internal/` adds another 7K lines for AST, evaluation, and parsing.
 
 ## Roadmap
 
@@ -340,7 +340,7 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 | **9** | **✅** | **Standard library & proof mode** |
 | **10** | **✅** | **Usability improvements** |
 
-Current: **v1.9.0** — Phases 9 & 10 ship together: proof scripts, REPL proof mode, inductive tactics, implicit arguments, surface inductive syntax, definitions/axioms in scripts, context-aware printing, 374 example theorems.
+Current: **v1.9.0**. Phases 9 and 10 ship together: proof scripts, REPL proof mode, inductive tactics, implicit arguments, surface inductive syntax, definitions and axioms in scripts, context-aware printing, and 374 example theorems.
 
 See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 
@@ -353,7 +353,7 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Short version:
 - CHANGELOG entry required.
 - Kernel boundaries are sacred.
 
-Hot take? Open an issue first.
+Strong opinions go in an issue first.
 
 ## License
 
