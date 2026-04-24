@@ -1,8 +1,8 @@
 # HoTTGo Roadmap
 
-> **Current Version:** v1.10.0
-> **Status:** Phase 10 Complete — Usability Improvements
-> **Last Updated:** 2026-01-22
+> **Current Version:** v1.9.0
+> **Status:** Phases 9 & 10 Complete — Proof Scripts, REPL, Usability
+> **Last Updated:** 2026-04-23
 
 This document provides a comprehensive overview of HoTTGo's development status, architecture, and future direction.
 
@@ -88,7 +88,11 @@ HoTTGo is a standalone implementation of Homotopy Type Theory (HoTT) with cubica
 | 7 | Higher Inductive Types | ✅ Complete | v1.7.0 |
 | 8 | Elaboration & Tactics | ✅ Complete | v1.8.0 |
 | 9 | Standard Library & Proof Mode | ✅ Complete | v1.9.0 |
-| **10** | **Usability Improvements** | **✅ Complete** | **v1.10.0** |
+| **10** | **Usability Improvements** | **✅ Complete** | **v1.9.0** |
+
+Phases 9 and 10 are released together as **v1.9.0** — both are additive
+and backwards compatible, so a combined minor release was preferred over
+an intermediate `v1.10.0`.
 
 ---
 
@@ -309,7 +313,7 @@ Standard library types and interactive proof mode.
 
 ## Current Work: Phase 10
 
-### Phase 10: Usability Improvements (v1.10.0)
+### Phase 10: Usability Improvements (v1.9.0, combined with Phase 9)
 
 **Completed:**
 

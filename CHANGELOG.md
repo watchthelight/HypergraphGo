@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-23
+
+This release consolidates Phase 9 (Standard Library & Proof Mode) and
+Phase 10 (Usability Improvements) into a single minor version. Both phases
+are additive and backwards compatible; the previous roadmap tagged them as
+`v1.9.0` and `v1.10.0` respectively, but a single `v1.9.0` is shipped to
+avoid skipping a version that was never released.
+
 ### Added
 
 #### Comprehensive HoTT Audit & Repair Implementation

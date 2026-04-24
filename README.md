@@ -244,7 +244,14 @@ go get github.com/watchthelight/hypergraphgo
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install watchthelight/tap/hypergraphgo
+brew install watchthelight/tap/hg
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add watchthelight https://github.com/watchthelight/scoop-bucket
+scoop install hg
 ```
 
 ### APT (Debian/Ubuntu)
@@ -252,6 +259,13 @@ brew install watchthelight/tap/hypergraphgo
 ```bash
 curl -1sLf 'https://dl.cloudsmith.io/public/watchthelight/hottgo/setup.deb.sh' | sudo -E bash
 sudo apt install hypergraphgo
+```
+
+### Docker (GHCR)
+
+```bash
+docker pull ghcr.io/watchthelight/hypergraphgo:1.9.0
+docker run --rm ghcr.io/watchthelight/hypergraphgo:1.9.0 --help
 ```
 
 ### Other
@@ -326,7 +340,7 @@ The kernel (`kernel/`) is about 6.7K lines across 17 files—minimal, total, pan
 | **9** | **✅** | **Standard library & proof mode** |
 | **10** | **✅** | **Usability improvements** |
 
-Current: **v1.10.0** — Phase 10 complete. Implicit arguments, surface inductive syntax, definitions/axioms in scripts, context-aware printing, example proofs.
+Current: **v1.9.0** — Phases 9 & 10 ship together: proof scripts, REPL proof mode, inductive tactics, implicit arguments, surface inductive syntax, definitions/axioms in scripts, context-aware printing, 374 example theorems.
 
 See **[ROADMAP.md](ROADMAP.md)** for detailed project status, architecture, and future plans.
 

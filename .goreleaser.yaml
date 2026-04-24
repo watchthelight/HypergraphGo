@@ -16,6 +16,23 @@ builds:
     goarch: [amd64, arm64]
     ldflags:
       - -s -w
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+  - id: hottgo
+    main: ./cmd/hottgo
+    binary: hottgo
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
   # musl/Alpine static builds
@@ -28,6 +45,26 @@ builds:
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -extldflags "-static"
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
+    tags:
+      - netgo
+      - osusergo
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+  - id: hottgo-musl
+    main: ./cmd/hottgo
+    binary: hottgo
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -extldflags "-static"
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Version={{.Version}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Commit={{.Commit}}
+      - -X github.com/watchthelight/HypergraphGo/internal/version.Date={{.Date}}
     tags:
       - netgo
       - osusergo
@@ -35,11 +72,11 @@ builds:
 
 archives:
   - id: universal
-    builds: [hg]
-    format: tar.gz
+    ids: [hg, hottgo]
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     wrap_in_directory: false
     files:
       - LICENSE*
@@ -49,8 +86,8 @@ archives:
 
   # musl/Alpine static archives
   - id: musl
-    builds: [hg-musl]
-    format: tar.gz
+    ids: [hg-musl, hottgo-musl]
+    formats: [tar.gz]
     wrap_in_directory: false
     files:
       - LICENSE*
@@ -89,6 +126,7 @@ brews:
     license: "MIT"
     install: |
       bin.install "hg"
+      bin.install "hottgo"
 
 scoops:
   - name: hg
@@ -107,26 +145,26 @@ scoops:
 
 nfpms:
   - id: deb
-    builds: [hg]
+    ids: [hg, hottgo]
     package_name: hypergraphgo
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}.deb"
     vendor: watchthelight
     maintainer: "watchthelight <admin@watchthelight.org>"
     homepage: "https://github.com/watchthelight/HypergraphGo"
-    description: "Hypergraph & HoTT tooling in Go"
+    description: "Hypergraph & HoTT tooling in Go (hg + hottgo)"
     license: MIT
     bindir: /usr/bin
     formats:
       - deb
 
   - id: rpm
-    builds: [hg]
+    ids: [hg, hottgo]
     package_name: hypergraphgo
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}.rpm"
     vendor: watchthelight
     maintainer: "watchthelight <admin@watchthelight.org>"
     homepage: "https://github.com/watchthelight/HypergraphGo"
-    description: "Hypergraph & HoTT tooling in Go"
+    description: "Hypergraph & HoTT tooling in Go (hg + hottgo)"
     license: MIT
     bindir: /usr/bin
     formats:
