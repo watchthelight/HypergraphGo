@@ -126,7 +126,7 @@ Type : (Sort 1)
 
 The syntax is S-expressions with explicit de Bruijn indices. `(Global x)` references a defined name, `(Var n)` references a bound variable. Built-in types include `Nat`, `Bool`, and the interval `I` with endpoints `i0`, `i1`.
 
-### Implemented
+### Implemented so far:
 
 **Computational Univalence**
 
