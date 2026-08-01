@@ -28,3 +28,52 @@ a scratch module; grep the three docs for stale cumulativity claims.
 
 Exit criterion: a fresh reader can follow the README install section and
 the Makefile help text end to end without hitting a single broken command.
+
+## Milestone 2: guarded quality gates
+
+Green must mean something again.
+
+- Add kernel tests that lock in universe rejection semantics: a `Type_0`
+  inhabitant offered where `Type_1` is expected must fail, at the
+  conversion layer and through `Checker.Check`, and the cumulative mode of
+  `internal/core.Conv` must stay reachable behind its flag for future work
+  (test half of D5).
+- Restore the lint step in `go.yml` using a current golangci-lint v2
+  release, after a clean local run against the existing `.golangci.yml`
+  (D4). If a local run is impossible, land the workflow change only with
+  evidence from a CI run on a doc-only push, never blind.
+
+Verification: `go test ./kernel/...` including the new rejection tests;
+one full CI run with lint enabled and passing.
+
+Exit criterion: CI runs vet, import boundaries, lint, race tests, and
+cubical tests on every push, and all of them gate.
+
+## Milestone 3: proof-author experience
+
+- Thread each statement's stored `Line` into every tactic error that
+  `tactics/script` produces, so failures read like `line 41: unknown
+  tactic: fold` (D6).
+- Make `hottgo --load` and the REPL's script paths print those locations
+  unchanged.
+- Add regression tests that assert the line number appears in the error
+  for at least: unknown tactic, missing argument, and a failing `exact`.
+
+Verification: new tests in `tactics/script`; a hand-broken proof file
+reports its failing line through the CLI.
+
+Exit criterion: no tactic failure anywhere in the pipeline reports without
+a source location.
+
+## Milestone 4: cut v1.9.1
+
+Not attempted in the current pass; it is the horizon after milestones 1
+through 3.
+
+- Collect the fixes above into CHANGELOG.md.
+- Verify goreleaser config against the two-binary build.
+- Tag, release, and confirm the package pipelines (Homebrew, Scoop,
+  Chocolatey, AUR, APT, Docker) pick up the version.
+
+Exit criterion: `hottgo --version` from each package manager reports
+1.9.1.
