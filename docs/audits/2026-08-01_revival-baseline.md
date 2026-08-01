@@ -113,3 +113,77 @@ debugging into bisection by hand.
 
 Evidence: `tactics/script/ast.go` lines 53-75; `tactics/script/exec.go`
 lines 310-399.
+
+## Identity
+
+Three names circulate for one project. The repository is `HypergraphGo`. The
+README banner, title, and roadmap all say `HoTTGo`. The binaries are `hg` and
+`hottgo`. Package identifiers split the same way: Chocolatey and AUR publish
+`hypergraphgo`, the Scoop bucket and the Cloudsmith APT repo are named
+`hottgo`, and the Homebrew tap installs `hg`.
+
+Code volume settles the question of what the project is. At this commit,
+counting tests: `kernel/` is 25.3K lines, `internal/` is 34.5K, `tactics/`
+is 8.5K, and `hypergraph/` is 4.2K. The hypergraph library the project
+started as is about six percent of it.
+
+Recommendation: HoTTGo is the identity. Present the repository as a cubical
+type theory kernel first, and document the hypergraph library as the
+component the project grew out of and still ships. Do not rename the
+repository or the module path now: `github.com/watchthelight/HypergraphGo`
+is baked into every packaging pipeline, badge, and downstream `go.mod`, and
+a rename would break all of them in one stroke. Revisit only alongside a
+major version, and treat D3 as the reminder that even letter case in module
+paths is load-bearing.
+
+## Audience
+
+The README's own list holds up against what the code provides: PL
+researchers who want a cubical kernel without an elaborator wrapped around
+it, tool builders who need an embeddable type theory backend, HoTT learners
+reading the internals, and Go developers curious about dependent types. The
+common thread is people who want the layer below a proof assistant. Serving
+them means keeping the kernel small, readable, and honest about its
+boundaries, which is also what the defect list above mostly violates.
+
+## North star
+
+The README already states it: small enough to read, complete enough to use.
+Concretely, a cubical type theory kernel where univalence computes, HITs
+reduce, the kernel re-checks everything that crosses its boundary, and the
+whole thing ships as one static binary. Growth should deepen trust in that
+kernel (tests, docs that match behavior, sharper errors) rather than widen
+scope toward being a proof assistant.
+
+## Major risks
+
+Technical:
+
+- Lint has been off since spring (D4). Cheap drift accumulates invisibly.
+- The cumulativity gap (D5) sits at the soundness boundary. Docs promising
+  more than the kernel checks is the worst place in the project to
+  overclaim.
+- Race coverage exists only in CI on Linux; local Windows development
+  cannot run `-race` (cgo toolchain path issue).
+- Proof-script debugging without line numbers (D6) gets worse as example
+  suites grow.
+
+Product:
+
+- The name split taxes every funnel. A reader lands on HoTTGo branding,
+  installs a package called `hypergraphgo`, and receives a binary named
+  `hg`. Each hop sheds users.
+- Six weeks of silence with green tests reads as abandonment from outside.
+  Small visible commits are the fix, and they are cheap.
+- Single-maintainer history: 306 of roughly 417 commits are one identity.
+  The docs and tests are the only onboarding that exists.
+
+## Relationship between HypergraphGo and HoTTGo
+
+They are one project and should stay that way. The hypergraph library is
+the origin, works, has tests, and costs little to keep. The kernel is the
+point. Keep both CLIs (`hg` for hypergraph operations, `hottgo` for the
+kernel), keep one repository and one module path, and make the
+documentation stop implying two projects. The identity work in this audit
+plus the D1/D3 fixes get most of the way there without breaking a single
+downstream consumer.
