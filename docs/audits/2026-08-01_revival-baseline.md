@@ -102,17 +102,24 @@ for `j > i`.
 Evidence: `kernel/check/check.go` lines 52-75; `internal/core/conv.go`
 lines 28-54.
 
-### D6: tactic errors drop source line numbers
+### D6: three proof failure modes report without source lines
 
-Every statement in the proof-script AST carries a `Line` field, and the
-comments in `tactics/script/ast.go` say it exists for error reporting. The
-executor never uses it: failures come back as bare strings like
-`unknown tactic: foo` or `exact requires a term argument`. A failing
-300-line proof file reports no location at all, which turns script
-debugging into bisection by hand.
+Corrected 2026-08-01, same day: the first version of this entry claimed the
+executor never uses the AST's `Line` fields. That was wrong. Parse failures
+and failing tactics inside the proof loop do come back as
+`theorem name (line N): message`, verified by running a broken script
+through `hottgo --load`.
 
-Evidence: `tactics/script/ast.go` lines 53-75; `tactics/script/exec.go`
-lines 310-399.
+The real gap is narrower. The three failure modes after the tactic loop in
+`executeTheorem` construct their errors without `Line`: an incomplete proof
+(`proof incomplete: 1 goals remaining`), a failed proof-term extraction,
+and a failure of the final kernel re-check. All three print with no
+location. Incomplete proofs are the most common authoring mistake, so the
+omission still hurts, just less broadly than first written.
+
+Evidence: `tactics/script/exec.go`, the `ExecError` values built after the
+tactic loop omit `Line` while the two inside the loop set it; reproduced
+with a deliberately incomplete theorem through `hottgo --load`.
 
 ## Identity
 

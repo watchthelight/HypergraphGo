@@ -51,19 +51,21 @@ cubical tests on every push, and all of them gate.
 
 ## Milestone 3: proof-author experience
 
-- Thread each statement's stored `Line` into every tactic error that
-  `tactics/script` produces, so failures read like `line 41: unknown
-  tactic: fold` (D6).
-- Make `hottgo --load` and the REPL's script paths print those locations
-  unchanged.
-- Add regression tests that assert the line number appears in the error
-  for at least: unknown tactic, missing argument, and a failing `exact`.
+Scope corrected after re-testing D6: tactic failures inside the proof loop
+already report `(line N)`. The remaining work is the tail of the pipeline.
+
+- Attach the theorem's line to the three location-free failure modes in
+  `executeTheorem`: incomplete proof, failed extraction, failed final
+  re-check (D6).
+- Add regression tests that pin line reporting for a failing tactic (the
+  behavior that already works) and for an incomplete proof (the behavior
+  this milestone adds).
 
 Verification: new tests in `tactics/script`; a hand-broken proof file
-reports its failing line through the CLI.
+reports a line for every failure mode through `hottgo --load`.
 
-Exit criterion: no tactic failure anywhere in the pipeline reports without
-a source location.
+Exit criterion: no script failure mode anywhere in `tactics/script`
+reports without a source location.
 
 ## Milestone 4: cut v1.9.1
 
