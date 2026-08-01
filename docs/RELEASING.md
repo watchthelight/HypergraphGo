@@ -1,23 +1,20 @@
 # Releasing
 
-We use **Semantic Versioning**. Until v1, treat the API as evolving (v0.x.y).
+The canonical release process lives in
+[RELEASING.md at the repository root](https://github.com/watchthelight/HypergraphGo/blob/main/RELEASING.md).
+This page is a summary; when the two disagree, the root document wins.
 
-## One-time setup
-- Ensure `go.mod` module path is `github.com/watchthelight/HypergraphGo`.
-- Ensure CI is green.
+The short version:
 
-## Cut a release
-```bash
-# Update changelog in the commit (optional)
-git switch -c release/v0.1.0
-# bump README status if needed, commit, push, open PR, merge
+- Releases follow Semantic Versioning.
+- Automation is driven by the GitHub `release: published` event. Pushing a
+  tag alone does not fire the release workflows; the helper scripts in
+  `scripts/` create the tag and the GitHub Release together.
+- Preparation happens on `main`: changelog section, release notes file,
+  version references, green CI.
+- GoReleaser builds both `hg` and `hottgo` for every target, and the
+  downstream workflows publish Docker images, Homebrew and Scoop updates,
+  Cloudsmith packages, and macOS disk images.
 
-# Tag and push:
-git tag -a v0.1.0 -m "v0.1.0: first pre-release (CLI: hottgo)"
-git push origin v0.1.0
-GitHub Actions runs release.yml, builds multi-arch binaries, uploads checksums and an SBOM, and publishes a GitHub Release.
-
-Install methods
-Stable binaries: download from Releases (checksums provided)
-
-Go users: go install github.com/watchthelight/HypergraphGo/cmd/hg@latest (produces hottgo)
+To install a released build, use the
+[README installation section](https://github.com/watchthelight/HypergraphGo#installation).
