@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-08-01
+
 ### Added
 
 - Regression tests for universe semantics in `kernel/check`: the tower step
@@ -31,11 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incomplete proofs, failed extractions, and failed final re-checks report
   the theorem's source line. They were the only script failures without a
   location.
+- The Codecov upload step names its input correctly (`files`), removing a
+  persistent workflow warning.
+- macOS disk images include both `hg` and `hottgo`; the DMG job previously
+  copied only `hg` out of the darwin tarball.
 
 ### Changed
 
 - The CI lint gate is back: golangci-lint v2 via `golangci-lint-action@v8`,
   with the tactics package cleaned to zero findings first.
+- The documentation landing page leads with the kernel: what HoTTGo is, how
+  to try it, and where the hypergraph library fits, replacing a page that
+  still reported v1.7.0.
+- Homebrew formula and Scoop manifest release commits use the maintainer
+  identity `watchthelight` directly.
+- The release workflow pins the GoReleaser 2.17 line that the local release
+  rehearsal verified, instead of floating on `latest`.
 
 ## [1.9.0] - 2026-04-23
 
