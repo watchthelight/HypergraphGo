@@ -252,11 +252,13 @@ func executeTheorem(thm Theorem, checker *check.Checker, globals *check.GlobalEn
 		}
 	}
 
-	// Check if proof is complete
+	// Check if proof is complete. These tail failures have no single tactic
+	// to blame, so they carry the theorem's own line as the location.
 	if !state.IsComplete() {
 		result.Error = &ExecError{
 			ItemKind: "theorem",
 			Name:     thm.Name,
+			Line:     thm.Line,
 			Message:  fmt.Sprintf("proof incomplete: %d goals remaining", state.GoalCount()),
 		}
 		return result
@@ -268,6 +270,7 @@ func executeTheorem(thm Theorem, checker *check.Checker, globals *check.GlobalEn
 		result.Error = &ExecError{
 			ItemKind: "theorem",
 			Name:     thm.Name,
+			Line:     thm.Line,
 			Message:  fmt.Sprintf("extraction failed: %v", err),
 		}
 		return result
@@ -279,6 +282,7 @@ func executeTheorem(thm Theorem, checker *check.Checker, globals *check.GlobalEn
 		result.Error = &ExecError{
 			ItemKind: "theorem",
 			Name:     thm.Name,
+			Line:     thm.Line,
 			Message:  fmt.Sprintf("type check failed: %v", checkErr),
 		}
 		return result
