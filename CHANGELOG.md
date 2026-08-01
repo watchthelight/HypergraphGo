@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Regression tests for universe semantics in `kernel/check`: the tower step
+  (`Sort 0 : Sort 1`) passes, sort and inhabitant lifting are rejected, and
+  the directional `CumulativeUniv` conversion flag is pinned for future
+  subtyping work.
+- Revival baseline audit (`docs/audits/2026-08-01_revival-baseline.md`) and
+  finishing plan (`docs/finishing-plan.md`).
+
+### Fixed
+
+- `make build` compiles both binaries, `bin/hg` and `bin/hottgo`. It
+  previously produced only `hg`.
+- `make kernel-selftest` verifies every proof file in `examples/proofs`
+  through `hottgo --load`. The old recipe invoked `hg check --selftest`,
+  a command that never existed.
+- The documented `go get` path uses the case-exact module name
+  `github.com/watchthelight/HypergraphGo`; the lowercase form fails with a
+  module path mismatch.
+- README, ROADMAP, and DESIGN now describe universes as predicative and
+  non-cumulative, matching what the kernel checks.
+- Incomplete proofs, failed extractions, and failed final re-checks report
+  the theorem's source line. They were the only script failures without a
+  location.
+
+### Changed
+
+- The CI lint gate is back: golangci-lint v2 via `golangci-lint-action@v8`,
+  with the tactics package cleaned to zero findings first.
+
 ## [1.9.0] - 2026-04-23
 
 This release consolidates Phase 9 (Standard Library & Proof Mode) and
