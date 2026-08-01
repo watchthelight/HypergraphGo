@@ -79,8 +79,10 @@ jobs:
             dmg_contents="$workdir/dmg-contents"
             mkdir -p "$dmg_contents"
 
-            # Copy binary and docs
+            # Copy both binaries and docs. The darwin tarballs ship hg and
+            # hottgo together, and the DMG must not drop one of them.
             cp "$workdir/hg" "$dmg_contents/"
+            cp "$workdir/hottgo" "$dmg_contents/"
             [ -f "$workdir/README.md" ] && cp "$workdir/README.md" "$dmg_contents/"
             [ -f "$workdir/LICENSE" ] && cp "$workdir/LICENSE" "$dmg_contents/"
 
