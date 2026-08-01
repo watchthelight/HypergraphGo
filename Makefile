@@ -2,6 +2,7 @@
 
 build:
 	go build -o bin/hg ./cmd/hg
+	go build -o bin/hottgo ./cmd/hottgo
 
 clean:
 	rm -rf bin/ coverage.out coverage.html
@@ -32,7 +33,7 @@ kernel-selftest:
 
 help:
 	@echo "Available targets:"
-	@echo "  build          - Build the hg binary"
+	@echo "  build          - Build the hg and hottgo binaries"
 	@echo "  clean          - Remove build artifacts"
 	@echo "  test           - Run tests"
 	@echo "  test-race      - Run tests with race detection"
