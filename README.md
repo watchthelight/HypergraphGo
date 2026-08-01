@@ -171,7 +171,7 @@ User-defined inductive types with automatic eliminator generation. Parameterized
 | Interval | `I` with `i0`, `i1`, meets, joins, connections |
 | Faces | `(i=0)`, `(i=1)`, `φ∧ψ`, `φ∨ψ`, partial types |
 | Glue | `Glue A [φ ↦ (T,e)]`, `glue`, `unglue` |
-| Universes | Predicative cumulative tower, explicit levels |
+| Universes | Predicative non-cumulative tower, explicit levels |
 
 ### Example Proofs
 

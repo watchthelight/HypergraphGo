@@ -104,7 +104,7 @@ Established the core type theory:
 - De Bruijn indices for binding
 - NbE-based normalization with closure-based semantic domain
 - Bidirectional type checking (synth/check)
-- Universes: predicative, cumulative tower (`Type0 : Type1 : ...`)
+- Universes: predicative, non-cumulative tower (`Type0 : Type1 : ...`); a `Type0` inhabitant is not accepted at `Type1`
 - No `Type : Type` — explicit level arithmetic
 
 ### Phase 4: Identity & Path Types (v1.2.0)

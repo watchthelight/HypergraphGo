@@ -8,7 +8,7 @@
   - Composition: `comp`, `hcomp`, `fill`
   - Glue types: `Glue A [φ ↦ (T, e)]`
   - Univalence: `ua A B e : Path Type A B`
-- Universes: predicative, cumulative tower `Type0 : Type1 : …`. No `Type : Type`. Explicit level arithmetic; no impredicativity.
+- Universes: predicative, non-cumulative tower `Type0 : Type1 : ...`. No `Type : Type`. A `Type0` inhabitant is not accepted at `Type1`; lifting is explicit. Explicit level arithmetic; no impredicativity.
 
 ## Binding & syntax
 - Core terms use de Bruijn indices; surface syntax keeps user names.
