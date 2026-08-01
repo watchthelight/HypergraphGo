@@ -238,7 +238,7 @@ Algorithms: BFS/DFS traversal, connected components, greedy hitting set, minimal
 ### Go Module
 
 ```bash
-go get github.com/watchthelight/hypergraphgo
+go get github.com/watchthelight/HypergraphGo
 ```
 
 ### Homebrew (macOS/Linux)

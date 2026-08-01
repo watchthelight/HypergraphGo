@@ -43,7 +43,7 @@ A production-quality Go library combining:
 ## Installation
 
 ```bash
-go get github.com/watchthelight/hypergraphgo
+go get github.com/watchthelight/HypergraphGo
 ```
 
 ---
