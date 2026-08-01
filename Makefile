@@ -29,7 +29,11 @@ check:
 	go test ./...
 
 kernel-selftest:
-	go run ./cmd/hg check --selftest
+	go build -o bin/hottgo ./cmd/hottgo
+	@total=0; for f in $$(find examples/proofs -name '*.htt' | sort); do \
+		total=$$((total+1)); \
+		./bin/hottgo --load "$$f" >/dev/null || { echo "FAIL: $$f"; exit 1; }; \
+	done; echo "kernel selftest: $$total proof files verified"
 
 help:
 	@echo "Available targets:"
@@ -41,4 +45,4 @@ help:
 	@echo "  coverage       - Generate coverage report"
 	@echo "  lint           - Run golangci-lint"
 	@echo "  check          - Run fmt, vet, and tests"
-	@echo "  kernel-selftest - Run kernel self-tests"
+	@echo "  kernel-selftest - Verify every example proof through hottgo"
