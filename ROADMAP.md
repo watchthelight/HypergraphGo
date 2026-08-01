@@ -1,8 +1,8 @@
 # HoTTGo Roadmap
 
-> **Current Version:** v1.9.0
+> **Current Version:** v1.9.1
 > **Status:** Phases 9 & 10 Complete — Proof Scripts, REPL, Usability
-> **Last Updated:** 2026-04-23
+> **Last Updated:** 2026-08-01
 
 This document provides a comprehensive overview of HoTTGo's development status, architecture, and future direction.
 

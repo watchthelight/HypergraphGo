@@ -264,8 +264,8 @@ sudo apt install hypergraphgo
 ### Docker (GHCR)
 
 ```bash
-docker pull ghcr.io/watchthelight/hypergraphgo:1.9.0
-docker run --rm ghcr.io/watchthelight/hypergraphgo:1.9.0 --help
+docker pull ghcr.io/watchthelight/hypergraphgo:1.9.1
+docker run --rm ghcr.io/watchthelight/hypergraphgo:1.9.1 --help
 ```
 
 ### Other
