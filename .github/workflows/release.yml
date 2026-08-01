@@ -27,9 +27,13 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+      # Pinned to the 2.17 line, which was rehearsed locally end to end.
+      # The brews section is deprecated there but still functional; moving
+      # to latest without re-testing risks the release failing the day the
+      # property is removed. See RELEASING.md for the migration note.
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          version: '~> v2.17'
           args: release --clean --timeout=60m
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

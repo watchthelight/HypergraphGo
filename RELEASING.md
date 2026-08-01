@@ -27,7 +27,13 @@ a GitHub Release for the tag. The helper scripts in `scripts/` do both.
 - [ ] Write `RELEASE_NOTES_vX.Y.Z.md` (summary, highlights, breaking changes,
       install/upgrade, verification, artifacts, known limitations)
 - [ ] Commit with `chore(release): prepare vX.Y.Z` and push to `main`
-- [ ] Run `goreleaser check` locally — should pass
+- [ ] Run `goreleaser check` locally — the config must be reported valid.
+      Known exception: GoReleaser 2.10 and later flag the `brews` section as
+      deprecated, so `check` exits nonzero while releases still work. The
+      suggested replacement (`homebrew_casks`) is macOS-only and would drop
+      the documented Linux Homebrew install, so the migration is deferred
+      until a formula-compatible path exists. The release workflow pins the
+      GoReleaser 2.17 line, which was rehearsed with this config.
 
 ### 2. Cut the release
 
