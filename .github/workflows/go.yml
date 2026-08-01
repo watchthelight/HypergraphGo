@@ -38,11 +38,12 @@ jobs:
     - name: Check import boundaries
       run: ./scripts/check-imports.sh
 
-    # TODO: Re-enable when golangci-lint supports Go 1.25
-    # - name: Lint
-    #   uses: golangci/golangci-lint-action@v4
-    #   with:
-    #     version: latest
+    # golangci-lint v2 supports current Go; verified clean locally with 2.12.2
+    # against .golangci.yml before this gate came back.
+    - name: Lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
 
     - name: Test
       run: go test -race -coverprofile=coverage.out ./...
