@@ -264,7 +264,7 @@ func Apply(term ast.Term) Tactic {
 					goal,
 					parser.FormatTerm(goalTy),
 					parser.FormatTerm(codomainNorm),
-					fmt.Sprintf("The codomain of the function does not match the goal"),
+					"The codomain of the function does not match the goal",
 					fmt.Sprintf("Function has type: %s -> %s",
 						parser.FormatTerm(pi.A), parser.FormatTerm(codomainNorm)),
 				)
@@ -278,7 +278,7 @@ func Apply(term ast.Term) Tactic {
 			if !eval.AlphaEq(codomainNorm, goalTy) {
 				// The codomain structure is incompatible
 				return FailWithContext(
-					fmt.Sprintf("dependent function codomain may not match goal"),
+					"dependent function codomain may not match goal",
 					goal,
 					fmt.Sprintf("Function has dependent type: (%s : %s) -> %s",
 						pi.Binder, parser.FormatTerm(pi.A), parser.FormatTerm(codomain)),
@@ -1927,7 +1927,7 @@ func Transport(pathHyp string, termHyp string) Tactic {
 		// For Id: use J eliminator
 		var transportTerm ast.Term
 
-		switch pathTy.(type) {
+		switch pathTy := pathTy.(type) {
 		case ast.Path, ast.PathP:
 			// Cubical transport
 			transportTerm = ast.Transport{
@@ -1937,7 +1937,7 @@ func Transport(pathHyp string, termHyp string) Tactic {
 		case ast.Id:
 			// Use J for Id types
 			// transport p x = J Type (λB. λ_. A -> B) (λa. a) A B p x
-			id := pathTy.(ast.Id)
+			id := pathTy
 			transportMotive := ast.Lam{
 				Binder: "B",
 				Ann:    id.A, // The type of types (simplified)

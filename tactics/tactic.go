@@ -39,24 +39,24 @@ func (e *TacticError) Error() string {
 	if e.ExpectedType != "" || e.ActualType != "" {
 		sb.WriteString("\n")
 		if e.ExpectedType != "" {
-			sb.WriteString(fmt.Sprintf("  Expected: %s\n", e.ExpectedType))
+			fmt.Fprintf(&sb, "  Expected: %s\n", e.ExpectedType)
 		}
 		if e.ActualType != "" {
-			sb.WriteString(fmt.Sprintf("  Got: %s\n", e.ActualType))
+			fmt.Fprintf(&sb, "  Got: %s\n", e.ActualType)
 		}
 	}
 
 	if e.Goal != nil && len(e.Goal.Hypotheses) > 0 {
 		sb.WriteString("\n  Current hypotheses:\n")
 		for _, h := range e.Goal.Hypotheses {
-			sb.WriteString(fmt.Sprintf("    %s : %s\n", h.Name, parser.FormatTerm(h.Type)))
+			fmt.Fprintf(&sb, "    %s : %s\n", h.Name, parser.FormatTerm(h.Type))
 		}
 	}
 
 	if len(e.Hints) > 0 {
 		sb.WriteString("\n  Hints:\n")
 		for _, hint := range e.Hints {
-			sb.WriteString(fmt.Sprintf("    - %s\n", hint))
+			fmt.Fprintf(&sb, "    - %s\n", hint)
 		}
 	}
 
